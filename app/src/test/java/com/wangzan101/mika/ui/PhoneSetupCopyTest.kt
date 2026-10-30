@@ -6,6 +6,7 @@ import com.wangzan101.mika.core.shell.BuiltinShellFailure
 import com.wangzan101.mika.core.shell.BuiltinShellFix
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
 import com.wangzan101.mika.core.shell.HelperRestart
+import com.wangzan101.mika.core.shell.RootGrant
 import com.wangzan101.mika.core.shell.SetupStep
 import com.wangzan101.mika.core.shell.SetupSuspect
 import com.wangzan101.mika.settings.Problem
@@ -27,6 +28,13 @@ class PhoneSetupCopyTest {
         BuiltinShellFailure.entries.forEach { val f = PhoneSetupCopy.failure(it); add(f.title); add(f.body) }
         BuiltinShellFix.entries.forEach { add(PhoneSetupCopy.fixLabel(it)) }
         statuses.forEach { add(PhoneSetupCopy.statusLine(it)); add(PhoneSetupCopy.statusLine(it, usbDebugging = false)); add(PhoneSetupCopy.statusValue(it).first) }
+        statuses.forEach { add(PhoneSetupCopy.statusLine(it, rootStart = true)) }
+        RootGrant.entries.forEach {
+            add(PhoneSetupCopy.rootStartLine(it)); add(PhoneSetupCopy.rootOptionLine(it))
+        }
+        addAll(listOf(
+            PhoneSetupCopy.ROOT_START, PhoneSetupCopy.ROOT_NOTE, PhoneSetupCopy.ROOT_OPTION, PhoneSetupCopy.ROOT_OPTION_BODY,
+        ))
         addAll(
             listOf(
                 PhoneSetupCopy.SUCCESS_LINE, PhoneSetupCopy.UNPAIR_BODY, PhoneSetupCopy.SKIP_NOTE, PhoneSetupCopy.DEGRADED_LINE, PhoneSetupCopy.PORT_FOUND,
@@ -72,7 +80,11 @@ class PhoneSetupCopyTest {
     fun reconnectOnlyWhenRetryingIsTheFix() {
         val reconnectable = statuses.filter { PhoneSetupCopy.canReconnect(it) }
         assertEquals(
-            listOf(BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.HelperStartFailed, BuiltinShellFailure.Unknown),
+            // root 被拒绝、没回应:点重试再问一次 su
+            listOf(
+                BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.HelperStartFailed,
+                BuiltinShellFailure.RootDenied, BuiltinShellFailure.RootNoAnswer, BuiltinShellFailure.Unknown,
+            ),
             reconnectable.map { (it as BuiltinShellStatus.Failed).reason },
         )
         reconnectable.forEach { s ->
@@ -143,5 +155,37 @@ class PhoneSetupCopyTest {
         assertEquals("找不到无线调试？", PhoneSetupCopy.USB_ASK)
         assertTrue(PhoneSetupCopy.USB_BODY.contains("数据线"))
         assertTrue(PhoneSetupCopy.USB_BODY.contains("重启后"))
+    }
+
+    /** 「用 root 启动」用不了时,设置页、横幅都直说原因和怎么办;拒绝、没回应的给重试。正在用 root 启动时照实说。 */
+    @Test
+    fun rootStartStatusSaysWhyAndWhatToDo() {
+        val denied = BuiltinShellStatus.Failed(BuiltinShellFailure.RootDenied)
+        assertEquals("root 授权被拒绝了", PhoneSetupCopy.failure(BuiltinShellFailure.RootDenied).title)
+        assertTrue(PhoneSetupCopy.statusLine(denied).contains("重试"))
+        assertTrue(PhoneSetupCopy.canReconnect(denied))
+        val banner = StatusCopy.banner(Problem.PhoneHelper(denied))
+        assertEquals("root 授权被拒绝了", banner.title)
+        assertEquals(PhoneSetupCopy.RECONNECT, banner.link)
+        val gone = BuiltinShellStatus.Failed(BuiltinShellFailure.RootUnavailable)
+        assertTrue(PhoneSetupCopy.statusLine(gone).contains("找不到 su"))
+        assertFalse(PhoneSetupCopy.canReconnect(gone))
+        assertEquals("手机助手没在运行,正在用 root 启动…", PhoneSetupCopy.statusLine(BuiltinShellStatus.Connecting, rootStart = true))
+        assertEquals(PhoneSetupCopy.statusLine(BuiltinShellStatus.Connecting), PhoneSetupCopy.statusLine(BuiltinShellStatus.Connecting, rootStart = false))
+        // 经 root 起的不靠 Wi-Fi:USB 调试关着也不提醒断 Wi-Fi 会停
+        assertEquals(PhoneSetupCopy.statusLine(BuiltinShellStatus.Running), PhoneSetupCopy.statusLine(BuiltinShellStatus.Running, usbDebugging = false, rootStart = true))
+    }
+
+    /** 设置里开关下面的说明跟着 su 的答复走;拒绝、没回应时点「用 root 启动」那一行是再问一次。 */
+    @Test
+    fun rootSwitchLines() {
+        assertEquals(PhoneSetupCopy.ROOT_PENDING, PhoneSetupCopy.rootStartLine(RootGrant.Pending))
+        assertTrue(PhoneSetupCopy.rootStartLine(RootGrant.Denied).contains("再问一次"))
+        assertTrue(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.Denied))
+        assertTrue(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.NoAnswer))
+        assertFalse(PhoneSetupCopy.rootStartRetries(on = false, grant = RootGrant.Denied))
+        assertFalse(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.Granted))
+        assertEquals(PhoneSetupCopy.ROOT_OPTION_BODY, PhoneSetupCopy.rootOptionLine(RootGrant.Unknown))
+        assertEquals("用 root 启动手机助手", PhoneSetupCopy.ROOT_START)
     }
 }
