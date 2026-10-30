@@ -35,6 +35,8 @@ import com.wangzan101.mika.cap.phone.a11y.LazyPhoneScreen
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.cap.phone.a11y.PhoneUnavailable
 import com.wangzan101.mika.cap.phone.PhoneServices
+import com.wangzan101.mika.cap.phone.setup.RootShell
+import com.wangzan101.mika.cap.root.RootCommands
 import com.wangzan101.mika.cap.phone.a11y.launchableApps
 import com.wangzan101.mika.confirm.ConfirmationNotifier
 import com.wangzan101.mika.MikaApp
@@ -793,7 +795,10 @@ class TaskRun(
                 personalSkills = memoryRuntime.skills(),
                 // 这个对话之前几轮的运行记录(只读;history_read 只认 runSpec 里这个对话的轮次)
                 runRecords = RunStore(service).reader(),
-                mcpServers = mcpEndpoints())
+                mcpServers = mcpEndpoints(),
+                // 已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才登记 root 工具(子任务、条件检查不给)
+                root = phoneServices.shellManager.root.takeIf { !conditionCheck && it.commandsAllowed() }
+                    ?.let { r -> RootCommands(RootShell::su, r::commandsAllowed) { a -> if (a == null) r.suGone() else r.commandsDenied(a) } })
             dispatcher = tools
             val agent = AgentLoop(
                 model, tools,

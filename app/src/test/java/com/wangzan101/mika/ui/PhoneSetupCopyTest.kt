@@ -30,10 +30,14 @@ class PhoneSetupCopyTest {
         statuses.forEach { add(PhoneSetupCopy.statusLine(it)); add(PhoneSetupCopy.statusLine(it, usbDebugging = false)); add(PhoneSetupCopy.statusValue(it).first) }
         statuses.forEach { add(PhoneSetupCopy.statusLine(it, rootStart = true)) }
         RootGrant.entries.forEach {
-            add(PhoneSetupCopy.rootStartLine(it)); add(PhoneSetupCopy.rootOptionLine(it))
+            add(PhoneSetupCopy.rootStartLine(it)); add(PhoneSetupCopy.rootStatusLine(it))
+            add(PhoneSetupCopy.rootCommandsLine(true, it)); add(PhoneSetupCopy.rootCommandsLine(false, it))
         }
         addAll(listOf(
-            PhoneSetupCopy.ROOT_START, PhoneSetupCopy.ROOT_NOTE, PhoneSetupCopy.ROOT_OPTION, PhoneSetupCopy.ROOT_OPTION_BODY,
+            PhoneSetupCopy.ROOT_START, PhoneSetupCopy.ROOT_COMMANDS, PhoneSetupCopy.ROOT_COMMANDS_TITLE, PhoneSetupCopy.ROOT_COMMANDS_WARNING,
+            PhoneSetupCopy.ROOT_NOTE, PhoneSetupCopy.ROOT_COMMANDS_NOTE, PhoneSetupCopy.ROOT_AVAILABLE, PhoneSetupCopy.ROOT_AUTO,
+            PhoneSetupCopy.ROOT_STATUS_TITLE, PhoneSetupCopy.ROOT_COMMANDS_GROUP,
+            PhoneSetupCopy.rootEntryLine(false), PhoneSetupCopy.rootEntryLine(true),
         ))
         addAll(
             listOf(
@@ -176,16 +180,24 @@ class PhoneSetupCopyTest {
         assertEquals(PhoneSetupCopy.statusLine(BuiltinShellStatus.Running), PhoneSetupCopy.statusLine(BuiltinShellStatus.Running, usbDebugging = false, rootStart = true))
     }
 
-    /** 设置里开关下面的说明跟着 su 的答复走;拒绝、没回应时点「用 root 启动」那一行是再问一次。 */
+    /** 自动启动没有开关:首次明确授权,之后自动;拒绝和没回应都能亲手重试。Root 命令仍默认关闭。 */
     @Test
-    fun rootSwitchLines() {
+    fun rootLinesFollowAuthorization() {
         assertEquals(PhoneSetupCopy.ROOT_PENDING, PhoneSetupCopy.rootStartLine(RootGrant.Pending))
+        assertTrue(PhoneSetupCopy.rootStartLine(RootGrant.Unknown).contains("点这里授权"))
+        assertTrue(PhoneSetupCopy.rootStartLine(RootGrant.Granted).contains("已授权"))
         assertTrue(PhoneSetupCopy.rootStartLine(RootGrant.Denied).contains("再问一次"))
-        assertTrue(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.Denied))
-        assertTrue(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.NoAnswer))
-        assertFalse(PhoneSetupCopy.rootStartRetries(on = false, grant = RootGrant.Denied))
-        assertFalse(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.Granted))
-        assertEquals(PhoneSetupCopy.ROOT_OPTION_BODY, PhoneSetupCopy.rootOptionLine(RootGrant.Unknown))
+        assertTrue(PhoneSetupCopy.rootStartLine(RootGrant.NoAnswer).contains("再问一次"))
+        assertTrue(PhoneSetupCopy.rootStatusLine(RootGrant.Unknown).contains("检测到 su"))
+        assertTrue(PhoneSetupCopy.rootStatusLine(RootGrant.Granted).contains("已授权"))
+        assertFalse(PhoneSetupCopy.rootStatusLine(RootGrant.Denied).contains("再问一次"))
+        assertTrue(PhoneSetupCopy.rootCommandsLine(false, RootGrant.Unknown).contains("默认关闭"))
+        assertTrue(PhoneSetupCopy.rootCommandsLine(true, RootGrant.Granted).contains("已开启"))
+        assertTrue(PhoneSetupCopy.rootCommandsLine(false, RootGrant.Denied).contains("保持关闭"))
+        assertTrue(PhoneSetupCopy.rootEntryLine(false).contains("已关闭"))
+        assertTrue(PhoneSetupCopy.rootEntryLine(true).contains("已开启"))
+        assertTrue(PhoneSetupCopy.ROOT_COMMANDS_WARNING.contains("其他 App 的数据"))
+        assertEquals("允许 Mika 执行 root 命令", PhoneSetupCopy.ROOT_COMMANDS)
         assertEquals("用 root 启动手机助手", PhoneSetupCopy.ROOT_START)
     }
 }

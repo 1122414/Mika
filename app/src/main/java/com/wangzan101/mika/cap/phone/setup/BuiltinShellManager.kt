@@ -175,6 +175,11 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
 
         override fun setRootAnswer(answer: SuAnswer?) = root.setStartAnswer(answer)
 
+        override fun requestRootStart(): Boolean {
+            root.requestStart()
+            return true
+        }
+
         /**
          * 经 su 以 shell 身份起同一个助手:`su 2000 -c '<id -u; 和无线调试同样的命令>'`。先读到 2000(su 答应了、也切到了 shell)
          * 才把口令写进标准输入;交接核对和无线调试起的完全一样(shell 身份、APK、口令、签名指纹)。

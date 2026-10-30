@@ -54,11 +54,15 @@ class BuiltinShellEngineTest {
         override fun usbStarted() = usb
         override fun setUsbStarted(on: Boolean) { usb = on }
 
-        /** 「用 root 启动」:开关、有没有 su、su 记下的答复;[suAnswers] 是每次经 su 起助手时 su 的答复,用完后一直答应。 */
+        /** 「用 root 启动」:是否请求过、有没有 su、su 记下的明确答复;[suAnswers] 是每次经 su 起助手时 su 的答复,用完后一直答应。 */
         var rootOn = false
         var suPresent = true
         var answered: SuAnswer? = null
         val suAnswers = ArrayDeque<SuAnswer>()
+        fun enableRoot() {
+            rootOn = true
+            answered = SuAnswer.Granted
+        }
         override fun rootStart() = RootStart.of(rootOn, suPresent, answered)
         override suspend fun launchHelperAsRoot(): SuAnswer? {
             calls += "su"
@@ -68,6 +72,11 @@ class BuiltinShellEngineTest {
             return a
         }
         override fun setRootAnswer(answer: SuAnswer?) { answered = answer }
+        override fun requestRootStart(): Boolean {
+            calls += "ask"
+            answered = SuAnswer.Granted
+            return true
+        }
     }
 
     private val platform = FakePlatform()
@@ -571,7 +580,7 @@ class BuiltinShellEngineTest {
     /** 打开了「用 root 启动」:没配对也由看门狗经 su 起助手,不碰无线调试;不记成「电脑起的」。 */
     @Test
     fun rootStartLaunchesWithoutPairing() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         platform.wireless = false
         val e = engine()
         assertEquals(BuiltinShellStatus.Connecting, e.status.value)
@@ -587,7 +596,7 @@ class BuiltinShellEngineTest {
     /** 助手死了(或重启后)由看门狗经 su 自己再起,不用配对、不用电脑。 */
     @Test
     fun rootRestartsTheHelperAfterItDies() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         val e = engine()
         e.start()
         advanceUntilIdle()
@@ -602,7 +611,7 @@ class BuiltinShellEngineTest {
     /** 几条路都有时先走 root;root 起不来(这里是交接超时)且配过对,接着走无线调试。 */
     @Test
     fun rootIsPreferredAndWirelessIsTheFallback() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         platform.pairedFlag = true
         val e = engine()
         e.start()
@@ -622,7 +631,7 @@ class BuiltinShellEngineTest {
     /** su 拒绝了:记下来,报「root 被拒绝」,之后不再自己去问 su(助手需要时也不问),直到用户点重试。 */
     @Test
     fun rootDenialIsRecordedAndNotRetriedUntilTheUserAsks() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         platform.suAnswers += SuAnswer.Denied
         val e = engine()
         e.start()
@@ -635,8 +644,13 @@ class BuiltinShellEngineTest {
         advanceUntilIdle()
         assertEquals(1, suCalls())
         assertEquals(BuiltinShellFix.Retry, (e.status.value as BuiltinShellStatus.Failed).fix)
-        // 用户点了重试:再问一次,这次答应了
+        // 用户点了重试:平台异步再请求授权,此时尚未直接起助手
         e.retry()
+        assertEquals(BuiltinShellStatus.Connecting, e.status.value)
+        assertEquals(1, suCalls())
+        assertEquals("ask", platform.calls.last())
+        // 授权完成后平台通知引擎,才按新答复启动
+        e.rootChanged()
         advanceUntilIdle()
         assertEquals(2, suCalls())
         assertEquals(BuiltinShellStatus.Running, e.status.value)
@@ -645,7 +659,7 @@ class BuiltinShellEngineTest {
     /** su 不回话、切不到 shell 身份也一样不反复去问,各自报自己的原因。 */
     @Test
     fun rootNoAnswerAndWrongUidStopAndSaySo() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         platform.suAnswers += SuAnswer.NoAnswer
         val e = engine()
         e.start()
@@ -653,6 +667,7 @@ class BuiltinShellEngineTest {
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootNoAnswer), e.status.value)
         platform.suAnswers += SuAnswer.WrongUid
         e.retry()
+        e.rootChanged()
         advanceUntilIdle()
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootNoShellUid), e.status.value)
         e.need()
@@ -663,7 +678,7 @@ class BuiltinShellEngineTest {
     /** 配过对时 su 拒绝了就走无线调试,状态是运行中(root 的问题在设置里那一项说)。 */
     @Test
     fun rootDeniedButPairedRunsOverWireless() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         platform.pairedFlag = true
         platform.suAnswers += SuAnswer.Denied
         val e = engine()
@@ -680,7 +695,7 @@ class BuiltinShellEngineTest {
     /** 打开了「用 root 启动」,su 却没了:没配对时说 root 用不了了。 */
     @Test
     fun rootGoneSaysSo() = runTest {
-        platform.rootOn = true
+        platform.enableRoot()
         platform.suPresent = false
         val e = engine()
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootUnavailable), e.status.value)
@@ -690,14 +705,26 @@ class BuiltinShellEngineTest {
         assertEquals(0, suCalls())
     }
 
-    /** 用户在设置里打开 / 关掉「用 root 启动」:助手不在时按新的情况马上处理。 */
+    /** 只记录过用户想用时仍不能自动问 su;必须已有明确的授权答复。 */
+    @Test
+    fun rootStartNeverAsksWithoutStoredAuthorization() = runTest {
+        platform.rootOn = true
+        platform.answered = null
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.NotPaired, e.status.value)
+        assertEquals(0, suCalls())
+    }
+
+    /** 用户在设置里授权或停止自动启动:助手不在时按新的情况马上处理。 */
     @Test
     fun rootSwitchChangesTakeEffectRightAway() = runTest {
         val e = engine()
         e.start()
         advanceUntilIdle()
         assertEquals(BuiltinShellStatus.NotPaired, e.status.value)
-        platform.rootOn = true
+        platform.enableRoot()
         e.rootChanged()
         advanceUntilIdle()
         assertEquals(BuiltinShellStatus.Running, e.status.value)

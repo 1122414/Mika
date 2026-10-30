@@ -47,6 +47,8 @@ interface BuiltinShellPlatform {
     suspend fun launchHelperAsRoot(): SuAnswer? = null
     /** 记下 su 的答复,持久化;null 是忘掉上一次的拒绝(用户点了重试)。 */
     fun setRootAnswer(answer: SuAnswer?) {}
+    /** 用户明确点了 Root 失败后的重试。返回 true 表示平台已发起异步授权,完成后会通知引擎。 */
+    fun requestRootStart(): Boolean = false
 }
 
 /** 看门狗重起助手的间隔:第 n 次失败后等 base·2^(n-1),封顶 [maxMs];连续失败 [maxAttempts] 次后停下等人或等开关变化。 */
@@ -402,9 +404,15 @@ class BuiltinShellEngine(
             failures = 0
             retryJob?.cancel()
         }
-        // 用户看着 su 拒绝、没回话的提示点了重试:忘掉上一次的答复,再问 su 一次(授权框会再弹)
+        // 用户看着 su 拒绝、没回话的提示点了重试:由平台明确再请求一次,未授权状态不会自动问 su
         val s = _status.value
-        if (s is BuiltinShellStatus.Failed && s.reason in ROOT_ASKABLE) platform.setRootAnswer(null)
+        if (s is BuiltinShellStatus.Failed && s.reason in ROOT_ASKABLE) {
+            if (platform.requestRootStart()) {
+                _status.value = BuiltinShellStatus.Connecting
+                return
+            }
+            platform.setRootAnswer(null)
+        }
         // 用户点了重试:之前替用户打开无线调试时的拒绝不再算数(不允许的网络上系统会再问一次)
         autoOn?.reset()
         if (helper.value != null) {

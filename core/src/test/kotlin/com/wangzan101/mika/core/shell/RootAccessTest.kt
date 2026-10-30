@@ -45,11 +45,12 @@ class RootAccessTest {
         assertEquals(listOf("/sbin/su", "2000", "-c", "id -u; read n"), SuProbe.shellArgs("/sbin/su", "id -u; read n"))
     }
 
-    /** 开关、su 在不在、上一次的答复 → 能不能用 root 起助手;用不了时各报各的原因。 */
+    /** 用户请求、su 在不在、明确授权结果 → 能不能自动用 root 起助手;没有答复时绝不自动执行 su。 */
     @Test
     fun rootStartGate() {
         assertEquals(RootStart.Off, RootStart.of(enabled = false, suPresent = true, last = SuAnswer.Granted))
-        assertEquals(RootStart.Ready, RootStart.of(enabled = true, suPresent = true, last = null))
+        assertEquals(RootStart.Off, RootStart.of(enabled = true, suPresent = true, last = null))
+        assertEquals(RootStart.Off, RootStart.of(enabled = true, suPresent = false, last = null))
         assertEquals(RootStart.Ready, RootStart.of(enabled = true, suPresent = true, last = SuAnswer.Granted))
         assertEquals(RootStart.Gone, RootStart.of(enabled = true, suPresent = false, last = SuAnswer.Granted))
         assertEquals(RootStart.Denied, RootStart.of(enabled = true, suPresent = true, last = SuAnswer.Denied))

@@ -260,28 +260,44 @@ object PhoneSetupCopy {
     // ---------- root ----------
 
     val ROOT_GROUP: String get() = tr(R.string.phone_root_group)
+    val ROOT_STATUS_TITLE: String get() = tr(R.string.phone_root_status)
+    val ROOT_AVAILABLE: String get() = tr(R.string.phone_root_available)
+    val ROOT_AUTO: String get() = tr(R.string.phone_root_auto)
     val ROOT_START: String get() = tr(R.string.phone_root_start)
+    val ROOT_COMMANDS_GROUP: String get() = tr(R.string.phone_root_commands_group)
+    val ROOT_COMMANDS: String get() = tr(R.string.phone_root_commands)
+    val ROOT_COMMANDS_TITLE: String get() = tr(R.string.phone_root_commands_title)
+    val ROOT_COMMANDS_WARNING: String get() = tr(R.string.phone_root_commands_warning)
+    val ROOT_COMMANDS_CONFIRM: String get() = tr(R.string.phone_root_commands_confirm)
     val ROOT_NOTE: String get() = tr(R.string.phone_root_note)
-    val ROOT_OPTION: String get() = tr(R.string.phone_root_option)
-    val ROOT_OPTION_BODY: String get() = tr(R.string.phone_root_option_body)
+    val ROOT_COMMANDS_NOTE: String get() = tr(R.string.phone_root_commands_note)
     val ROOT_PENDING: String get() = tr(R.string.phone_root_pending)
 
-    /** 「用 root 启动」那一行下面的说明:按 su 的答复说;拒绝、没回应时点这一行再问一次。 */
+    /** 高级与其他里的 Root 入口:助手自动启动是一项能力,命令开关状态单独说明。 */
+    fun rootEntryLine(commands: Boolean): String =
+        tr(if (commands) R.string.phone_root_entry_on else R.string.phone_root_entry_off)
+
+    /** Root 状态卡只说能力和助手授权;失败后的重试动作放在下面可点的助手行,不在这里写「点这里」。 */
+    fun rootStatusLine(grant: RootGrant): String =
+        tr(if (grant == RootGrant.Granted) R.string.phone_root_authorized else R.string.phone_root_unauthorized)
+
+    /** 自动启动那一行:未授权时说明点这里授权,授权后说明自动恢复,失败时说明如何重试。 */
     fun rootStartLine(grant: RootGrant): String = when (grant) {
         RootGrant.Pending -> ROOT_PENDING
         RootGrant.Denied -> tr(R.string.phone_root_denied_sub)
         RootGrant.NoAnswer -> tr(R.string.phone_root_no_answer_sub)
         RootGrant.NoShellUid -> tr(R.string.phone_root_no_shell_sub)
-        RootGrant.Unknown, RootGrant.Granted -> tr(R.string.phone_root_start_sub)
+        RootGrant.Unknown -> tr(R.string.phone_root_authorize)
+        RootGrant.Granted -> tr(R.string.phone_root_start_sub)
     }
 
-    /** 引导页「用 root 启动」下面那一句:没问过或答应了就是说明,否则是 su 的答复。 */
-    fun rootOptionLine(grant: RootGrant): String =
-        if (grant == RootGrant.Unknown || grant == RootGrant.Granted) ROOT_OPTION_BODY else rootStartLine(grant)
-
-    /** 点「用 root 启动」那一行是再问一次 su(开着、上次被拒或没回应时)。 */
-    fun rootStartRetries(on: Boolean, grant: RootGrant): Boolean = on && (grant == RootGrant.Denied || grant == RootGrant.NoAnswer)
-
+    /** 「允许 Mika 执行 root 命令」那一行下面的说明。 */
+    fun rootCommandsLine(on: Boolean, grant: RootGrant): String = when {
+        grant == RootGrant.Pending -> ROOT_PENDING
+        !on && (grant == RootGrant.Denied || grant == RootGrant.NoAnswer) -> tr(R.string.phone_root_commands_denied)
+        on -> tr(R.string.phone_root_commands_on)
+        else -> tr(R.string.phone_root_commands_sub)
+    }
     val WIFI_NOT_ALLOWED_LINE: String get() = tr(R.string.phone_wifi_not_allowed_line)
 
     val REPAIR: String get() = tr(R.string.phone_repair)

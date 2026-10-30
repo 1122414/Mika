@@ -220,7 +220,7 @@ Good to know:
 
 If your phone is rooted (Mika can find `su`), you can start the same built-in helper with root, with no pairing and no computer. Mika shows the Root entry under Settings › Advanced & other only when it detects `su`:
 
-1. Go to Settings › Advanced & other › Root and tap the “Start the phone helper automatically” row to explicitly allow Mika to use root.
+1. Go to Settings › Advanced & other › Root and tap the “Start the phone helper with root” row to explicitly allow Mika to use root.
 2. When the system asks for root permission, allow Mika.
 3. Check that “Phone control” shows ready. Once authorized, root startup has no switch and is preferred automatically.
 
@@ -231,7 +231,7 @@ Good to know:
 - **Opening the app doesn't suddenly request permission.** You must approve the first request yourself. If root is denied or nobody answers, Mika doesn't keep asking; Root settings explain what happened and tapping the row asks once more.
 - **Revoked or unavailable root falls back.** Mika still uses existing Wireless debugging pairing or USB startup where available; otherwise Root settings explain that you need to authorize again or choose another startup method.
 - Some root managers hide `su` from apps by default. If you don't see this entry, allow Mika in your root manager first.
-- Root commands are a separate capability, off by default. The agent can run root commands only after you turn this on in the same page and confirm the risk.
+- **Root commands (optional, off by default).** The same page has “Allow Mika to run root commands”. After you turn it on and confirm the risk, Mika can run commands as root when something you ask for really needs it (such as reading another app's data or tidying system files). Root commands can change or delete anything on the phone: in Ask mode, every command that changes or deletes something first shows you the full command on a confirmation card and runs only if you approve; read-only commands (listing folders, viewing files, querying a database) run directly. Leave it off if you don't need it.
 
 ---
 
@@ -261,7 +261,7 @@ Good to know:
 | "Not connected to Wi-Fi" | Join any Wi-Fi network (internet access not required); Mika resumes by itself. |
 | "Pairing expired" | Pair again. Turn on "Disable adb authorization timeout" in Developer options so it won't expire again. |
 | "Phone helper stopped" | The helper was started with the USB start command and doesn't come back by itself after a phone restart. Open Mika once, then run `adb shell sh /sdcard/Android/data/com.wangzan101.mika/files/usb-start.sh` again (you can copy it in "Set up phone control"). If the phone has a working "Wireless debugging", you can also pair once so it comes back by itself after restarts. |
-| "Root access was denied" or "Root didn't answer" | Go to Settings › Advanced & other › Root, tap the “Start the phone helper automatically” row to request permission again, and allow Mika in the system prompt. If root startup is unavailable, existing Wireless debugging pairing continues to work. |
+| "Root access was denied" or "Root didn't answer" | Go to Settings › Advanced & other › Root, tap the “Start the phone helper with root” row to request permission again, and allow Mika in the system prompt. If root startup is unavailable, existing Wireless debugging pairing continues to work. |
 | "Root is no longer available" | Mika can't find `su` anymore. Pair Wireless debugging or start from a computer instead; if already paired, Mika falls back to Wireless debugging automatically. |
 | Mika's accessibility switch is greyed out / "Restricted setting" | Recommended: skip that step; Mika turns it on after pairing. To do it by hand: try turning it on once so the system blocks it, then go to Settings › Apps › Mika, tap ⋮ at the top right › Allow restricted settings, and go back to Accessibility settings to turn Mika on. |
 | Accessibility still off after pairing | Check that "Turn on accessibility for me" in Settings › Recovery & repair is on, and wait a few seconds; if it's still off, turn it on by hand as in the row above. |

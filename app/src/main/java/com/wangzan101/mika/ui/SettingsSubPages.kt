@@ -52,7 +52,7 @@ import com.wangzan101.mika.core.cap.phone.OperatingPace
 
 // ---------- 手机操作 ----------
 
-/** 设置 › 手机操作:权限与配对的状态,重新配对、解除配对,已 root 的手机上另有 root 一组。点哪一项的处理方式和从前一样,交给 [onProblem]。 */
+/** 设置 › 手机操作:权限与配对的状态,重新配对、解除配对。Root 能力集中在高级与其他的独立页面。 */
 @Composable
 fun PhoneOpsScreen(
     status: SystemStatus,
@@ -118,8 +118,6 @@ fun PhoneOpsScreen(
             }
             FooterNote(PhoneSetupCopy.usageNote(status.helperRestart))
         }
-        // 已 root 的手机:用 root 启动助手、允许 root 命令(找不到 su 时整组不显示)
-        RootSwitches(helperRow = status.sdkInt >= Prerequisites.MIN_SDK)
     }
     if (confirmUnpair) {
         MikaDialog(
