@@ -151,7 +151,13 @@
     <string name="phone_root_denied_sub">Root was denied. Tap to ask again.</string>
     <string name="phone_root_no_answer_sub">Root didn’t answer. Tap to ask again.</string>
     <string name="phone_root_no_shell_sub">This root can’t switch to the limited user the helper runs as.</string>
-    <string name="phone_root_note">This option appears because Mika found su on this phone. A helper started with root still runs as the same limited user, with the same permissions as one started over Wireless debugging.</string>
+    <string name="phone_root_commands">Allow Mika to run root commands</string>
+    <string name="phone_root_commands_sub">Off by default. Only for tasks that need it, such as other apps’ data or system files.</string>
+    <string name="phone_root_commands_denied">Root was denied, so this stays off.</string>
+    <string name="phone_root_commands_title">Allow root commands?</string>
+    <string name="phone_root_commands_warning">Root commands can change or delete anything on the phone, including other apps’ data, and can leave the phone unusable. In Ask mode, Mika asks you before each root command that changes or deletes something; in Autonomous mode it doesn’t ask. Turn this on only if you understand the risk.</string>
+    <string name="phone_root_commands_confirm">Allow</string>
+    <string name="phone_root_note">These options appear because Mika found su on this phone. A helper started with root still runs as the same limited user, with the same permissions as one started over Wireless debugging.</string>
     <string name="phone_root_option">This phone is rooted: start with root</string>
     <string name="phone_root_option_body">Mika asks su for permission once, then starts the helper. After a phone restart it starts it again by itself, without pairing.</string>
 </resources>

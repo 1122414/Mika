@@ -259,6 +259,10 @@ object PhoneSetupCopy {
 
     val ROOT_GROUP: String get() = tr(R.string.phone_root_group)
     val ROOT_START: String get() = tr(R.string.phone_root_start)
+    val ROOT_COMMANDS: String get() = tr(R.string.phone_root_commands)
+    val ROOT_COMMANDS_TITLE: String get() = tr(R.string.phone_root_commands_title)
+    val ROOT_COMMANDS_WARNING: String get() = tr(R.string.phone_root_commands_warning)
+    val ROOT_COMMANDS_CONFIRM: String get() = tr(R.string.phone_root_commands_confirm)
     val ROOT_NOTE: String get() = tr(R.string.phone_root_note)
     val ROOT_OPTION: String get() = tr(R.string.phone_root_option)
     val ROOT_OPTION_BODY: String get() = tr(R.string.phone_root_option_body)
@@ -280,6 +284,12 @@ object PhoneSetupCopy {
     /** 点「用 root 启动」那一行是再问一次 su(开着、上次被拒或没回应时)。 */
     fun rootStartRetries(on: Boolean, grant: RootGrant): Boolean = on && (grant == RootGrant.Denied || grant == RootGrant.NoAnswer)
 
+    /** 「允许 Mika 执行 root 命令」那一行下面的说明。 */
+    fun rootCommandsLine(on: Boolean, grant: RootGrant): String = when {
+        grant == RootGrant.Pending -> ROOT_PENDING
+        !on && (grant == RootGrant.Denied || grant == RootGrant.NoAnswer) -> tr(R.string.phone_root_commands_denied)
+        else -> tr(R.string.phone_root_commands_sub)
+    }
     val WIFI_NOT_ALLOWED_LINE: String get() = tr(R.string.phone_wifi_not_allowed_line)
 
     val REPAIR: String get() = tr(R.string.phone_repair)

@@ -229,6 +229,7 @@ Good to know:
 - **No repeated prompts.** If root is denied or nobody answers, Mika doesn't keep asking; Settings says so, and "Retry" asks once more.
 - Some root managers hide su from apps by default. If you don't see this option, allow Mika in your root manager first.
 - To stop, turn the switch off; "Unpair" turns it off too.
+- **Root commands (optional, off by default).** The same group has "Allow Mika to run root commands". When it's on and something you ask for really needs root (such as reading another app's data or tidying system files), Mika can run commands as root. Root commands can change or delete anything on the phone: in Ask mode, every command that changes or deletes something first shows you the full command on a confirmation card and runs only if you approve; read-only commands (listing folders, viewing files, querying a database) run directly. Leave it off if you don't need it.
 
 ---
 
