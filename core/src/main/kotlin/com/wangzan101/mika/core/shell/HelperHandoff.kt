@@ -55,6 +55,13 @@ object HelperHandoff {
 
     fun stdinLine(nonce: String): ByteArray = "$nonce\n".toByteArray(Charsets.UTF_8)
 
+    /**
+     * 经 su 起助手时交给 `su 2000 -c` 的命令:先打一行 `id -u`,App 读到 2000(su 答应了、也切到了 shell 身份)才写口令;
+     * 之后和 [command] 一样(口令走标准输入,App 收到交接后关流)。su 没答应时一行也没有,口令就不写出去。
+     */
+    fun rootCommand(apkPath: String, packageName: String, appUid: Int, certPin: String): String =
+        "id -u; " + command(apkPath, packageName, appUid, certPin)
+
     /** 「用电脑启动」的脚本文件名,放在 App 的外部文件目录里(电脑经 USB 调试以 shell 身份读它)。 */
     const val USB_SCRIPT = "usb-start.sh"
 

@@ -214,6 +214,22 @@ Good to know:
 - After a Mika update, also open Mika once before running it.
 - The start file holds a one-time code only while the helper isn't connected, and the code stops working once used; while the helper is connected, the file only says it's already running.
 
+## Rooted phone: start it with root
+
+If your phone is rooted (it has su), you can start the same built-in helper with root, with no pairing and no computer. Mika shows this option only when it finds su:
+
+1. In the wizard tap "This phone is rooted: start with root", or go to Settings › Phone control › Root and turn on "Use root to start the phone helper" (off by default).
+2. When your root manager asks, allow Mika.
+3. Check that "Phone control" shows ready.
+
+Good to know:
+
+- **It comes back by itself after a restart.** When the phone restarts or the helper stops, Mika starts it again with root, without pairing or a computer.
+- **The helper's permissions don't change.** A helper started with root still runs as the same limited user as one started over Wireless debugging or from a computer, so Mika can do exactly the same things.
+- **No repeated prompts.** If root is denied or nobody answers, Mika doesn't keep asking; Settings says so, and "Retry" asks once more.
+- Some root managers hide su from apps by default. If you don't see this option, allow Mika in your root manager first.
+- To stop, turn the switch off; "Unpair" turns it off too.
+
 ---
 
 ## After setup
@@ -242,6 +258,8 @@ Good to know:
 | "Not connected to Wi-Fi" | Join any Wi-Fi network (internet access not required); Mika resumes by itself. |
 | "Pairing expired" | Pair again. Turn on "Disable adb authorization timeout" in Developer options so it won't expire again. |
 | "Phone helper stopped" | The helper was started with the USB start command and doesn't come back by itself after a phone restart. Open Mika once, then run `adb shell sh /sdcard/Android/data/com.wangzan101.mika/files/usb-start.sh` again (you can copy it in "Set up phone control"). If the phone has a working "Wireless debugging", you can also pair once so it comes back by itself after restarts. |
+| "Root access was denied" or "Root didn't answer" | Tap "Retry" and allow Mika in your root manager's prompt. If you don't want to use root, turn off "Use root to start the phone helper" under Settings › Phone control › Root. |
+| "Root is no longer available" | Mika can't find su anymore. Turn off "Use root to start the phone helper" and pair Wireless debugging or start it from a computer instead. |
 | Mika's accessibility switch is greyed out / "Restricted setting" | Recommended: skip that step; Mika turns it on after pairing. To do it by hand: try turning it on once so the system blocks it, then go to Settings › Apps › Mika, tap ⋮ at the top right › Allow restricted settings, and go back to Accessibility settings to turn Mika on. |
 | Accessibility still off after pairing | Check that "Turn on accessibility for me" in Settings › Recovery & repair is on, and wait a few seconds; if it's still off, turn it on by hand as in the row above. |
 | "An app is obscuring a permission request" when turning on accessibility | Close other apps' floating windows or bubbles (chat bubbles, floating buttons), then go back to Accessibility settings and turn Mika on. |

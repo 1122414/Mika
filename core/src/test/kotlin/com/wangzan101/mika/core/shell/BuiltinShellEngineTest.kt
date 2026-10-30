@@ -53,6 +53,21 @@ class BuiltinShellEngineTest {
         var usb = false
         override fun usbStarted() = usb
         override fun setUsbStarted(on: Boolean) { usb = on }
+
+        /** 「用 root 启动」:开关、有没有 su、su 记下的答复;[suAnswers] 是每次经 su 起助手时 su 的答复,用完后一直答应。 */
+        var rootOn = false
+        var suPresent = true
+        var answered: SuAnswer? = null
+        val suAnswers = ArrayDeque<SuAnswer>()
+        override fun rootStart() = RootStart.of(rootOn, suPresent, answered)
+        override suspend fun launchHelperAsRoot(): SuAnswer? {
+            calls += "su"
+            if (!suPresent) return null
+            val a = suAnswers.removeFirstOrNull() ?: SuAnswer.Granted
+            if (a == SuAnswer.Granted && deliverOnLaunch) helper.value = "root"
+            return a
+        }
+        override fun setRootAnswer(answer: SuAnswer?) { answered = answer }
     }
 
     private val platform = FakePlatform()
@@ -81,6 +96,7 @@ class BuiltinShellEngineTest {
     )
 
     private fun launches() = platform.calls.count { it == "launch" }
+    private fun suCalls() = platform.calls.count { it == "su" }
 
     @Test
     fun backoffDoublesAndStops() {
@@ -550,5 +566,146 @@ class BuiltinShellEngineTest {
         assertEquals(PairingDiscovery.Searching, e.pairingDiscovery.value)
         advanceTimeBy(2 * 60_000L)
         assertEquals(PairingDiscovery.Idle, e.pairingDiscovery.value)
+    }
+
+    /** 打开了「用 root 启动」:没配对也由看门狗经 su 起助手,不碰无线调试;不记成「电脑起的」。 */
+    @Test
+    fun rootStartLaunchesWithoutPairing() = runTest {
+        platform.rootOn = true
+        platform.wireless = false
+        val e = engine()
+        assertEquals(BuiltinShellStatus.Connecting, e.status.value)
+        assertTrue(e.rootStart)
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+        assertEquals(1, suCalls())
+        assertEquals(0, launches())
+        assertEquals(false, platform.usb)
+    }
+
+    /** 助手死了(或重启后)由看门狗经 su 自己再起,不用配对、不用电脑。 */
+    @Test
+    fun rootRestartsTheHelperAfterItDies() = runTest {
+        platform.rootOn = true
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        helper.value = null
+        runCurrent()
+        assertEquals(BuiltinShellStatus.Connecting, e.status.value)
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+        assertEquals(2, suCalls())
+    }
+
+    /** 几条路都有时先走 root;root 起不来(这里是交接超时)且配过对,接着走无线调试。 */
+    @Test
+    fun rootIsPreferredAndWirelessIsTheFallback() = runTest {
+        platform.rootOn = true
+        platform.pairedFlag = true
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        assertEquals(listOf("su"), platform.calls)
+        helper.value = null
+        platform.deliverOnLaunch = false
+        advanceTimeBy(1_000)
+        runCurrent()
+        platform.deliverOnLaunch = true
+        advanceUntilIdle()
+        // 第二次:su 答应了却没等到交接,换无线调试起来
+        assertEquals(listOf("su", "su", "launch"), platform.calls)
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+    }
+
+    /** su 拒绝了:记下来,报「root 被拒绝」,之后不再自己去问 su(助手需要时也不问),直到用户点重试。 */
+    @Test
+    fun rootDenialIsRecordedAndNotRetriedUntilTheUserAsks() = runTest {
+        platform.rootOn = true
+        platform.suAnswers += SuAnswer.Denied
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootDenied), e.status.value)
+        assertEquals(SuAnswer.Denied, platform.answered)
+        assertEquals(false, e.rootStart)
+        e.need()
+        advanceTimeBy(120_000)
+        advanceUntilIdle()
+        assertEquals(1, suCalls())
+        assertEquals(BuiltinShellFix.Retry, (e.status.value as BuiltinShellStatus.Failed).fix)
+        // 用户点了重试:再问一次,这次答应了
+        e.retry()
+        advanceUntilIdle()
+        assertEquals(2, suCalls())
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+    }
+
+    /** su 不回话、切不到 shell 身份也一样不反复去问,各自报自己的原因。 */
+    @Test
+    fun rootNoAnswerAndWrongUidStopAndSaySo() = runTest {
+        platform.rootOn = true
+        platform.suAnswers += SuAnswer.NoAnswer
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootNoAnswer), e.status.value)
+        platform.suAnswers += SuAnswer.WrongUid
+        e.retry()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootNoShellUid), e.status.value)
+        e.need()
+        advanceUntilIdle()
+        assertEquals(2, suCalls())
+    }
+
+    /** 配过对时 su 拒绝了就走无线调试,状态是运行中(root 的问题在设置里那一项说)。 */
+    @Test
+    fun rootDeniedButPairedRunsOverWireless() = runTest {
+        platform.rootOn = true
+        platform.pairedFlag = true
+        platform.suAnswers += SuAnswer.Denied
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+        assertEquals(listOf("su", "launch"), platform.calls)
+        helper.value = null
+        advanceUntilIdle()
+        // 拒绝之后不再问 su
+        assertEquals(listOf("su", "launch", "launch"), platform.calls)
+    }
+
+    /** 打开了「用 root 启动」,su 却没了:没配对时说 root 用不了了。 */
+    @Test
+    fun rootGoneSaysSo() = runTest {
+        platform.rootOn = true
+        platform.suPresent = false
+        val e = engine()
+        assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootUnavailable), e.status.value)
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.RootUnavailable), e.status.value)
+        assertEquals(0, suCalls())
+    }
+
+    /** 用户在设置里打开 / 关掉「用 root 启动」:助手不在时按新的情况马上处理。 */
+    @Test
+    fun rootSwitchChangesTakeEffectRightAway() = runTest {
+        val e = engine()
+        e.start()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.NotPaired, e.status.value)
+        platform.rootOn = true
+        e.rootChanged()
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+        assertEquals(1, suCalls())
+        platform.rootOn = false
+        helper.value = null
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.NotPaired, e.status.value)
+        assertEquals(1, suCalls())
     }
 }
