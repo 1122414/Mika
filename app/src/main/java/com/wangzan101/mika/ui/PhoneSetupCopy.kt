@@ -119,8 +119,11 @@ object PhoneSetupCopy {
     val CONNECT_PORT_SUBMIT: String get() = tr(R.string.phone_connect_port_submit)
     val SUCCESS_LINE: String get() = tr(R.string.phone_success)
     /** 成功页底部的提醒:手机重启后怎么让助手回来,看它上次是怎么起的。 */
-    fun successNote(restart: HelperRestart): String =
-        if (restart == HelperRestart.UsbCommand) tr(R.string.phone_success_note_usb) else tr(R.string.phone_success_note)
+    fun successNote(restart: HelperRestart): String = when (restart) {
+        HelperRestart.UsbCommand -> tr(R.string.phone_success_note_usb)
+        HelperRestart.Root -> tr(R.string.phone_success_note_root)
+        HelperRestart.Wireless, HelperRestart.None -> tr(R.string.phone_success_note)
+    }
     /** 首次上手最后一步成功后的底部按钮;从设置进来的是 [SUCCESS_DONE]。 */
     val START_USING: String get() = tr(R.string.phone_start_using)
     val SUCCESS_DONE: String get() = tr(R.string.done)
@@ -216,9 +219,15 @@ object PhoneSetupCopy {
     val ROW_TITLE: String get() = tr(R.string.settings_phone_ops)
     val ROW_SUBTITLE: String get() = tr(R.string.phone_row_sub)
 
-    /** 设置 › 手机操作页底部的完整说明:只用 USB 启动命令起过助手时,说重启后要再运行命令,不说打开无线调试。 */
-    fun usageNote(restart: HelperRestart): String =
-        if (restart == HelperRestart.UsbCommand) tr(R.string.phone_usage_note_usb) else tr(R.string.phone_usage_note)
+    /**
+     * 设置 › 手机操作页底部的完整说明:只用 USB 启动命令起过助手时,说重启后要再运行命令,不说打开无线调试;
+     * 用 root 启动时说重启后 Mika 自己再用 root 起。
+     */
+    fun usageNote(restart: HelperRestart): String = when (restart) {
+        HelperRestart.UsbCommand -> tr(R.string.phone_usage_note_usb)
+        HelperRestart.Root -> tr(R.string.phone_usage_note_root)
+        HelperRestart.Wireless, HelperRestart.None -> tr(R.string.phone_usage_note)
+    }
 
     fun statusValue(s: BuiltinShellStatus): Pair<String, ValueTone> = when (s) {
         BuiltinShellStatus.Running -> tr(R.string.sandbox_ready) to ValueTone.Ok

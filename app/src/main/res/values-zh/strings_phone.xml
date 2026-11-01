@@ -160,4 +160,6 @@
     <string name="phone_root_note">检测到这台手机上有 su,所以显示这两项。用 root 启动的手机助手仍以同样的受限身份运行,权限和经无线调试启动时一样。</string>
     <string name="phone_root_option">这台手机已 root:用 root 启动</string>
     <string name="phone_root_option_body">Mika 会向 su 请求一次授权,然后启动手机助手。手机重启后它会自己再启动,不用配对。</string>
+    <string name="phone_success_note_root">助手是用 root 启动的;手机重启后,Mika 会自己再把它启动</string>
+    <string name="phone_usage_note_root">Mika 的内置助手是用 root 启动的,常驻后台,有没有 Wi-Fi 都能继续操作手机。手机重启后,Mika 会自己再用 root 启动它,不用配对、不用电脑。root 授权被拒绝或 root 被去掉时,下面 Root 一组会说明。</string>
 </resources>

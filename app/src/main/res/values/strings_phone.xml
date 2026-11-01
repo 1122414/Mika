@@ -160,4 +160,6 @@
     <string name="phone_root_note">These options appear because Mika found su on this phone. A helper started with root still runs as the same limited user, with the same permissions as one started over Wireless debugging.</string>
     <string name="phone_root_option">This phone is rooted: start with root</string>
     <string name="phone_root_option_body">Mika asks su for permission once, then starts the helper. After a phone restart it starts it again by itself, without pairing.</string>
+    <string name="phone_success_note_root">The helper was started with root. After a phone restart, Mika starts it again by itself.</string>
+    <string name="phone_usage_note_root">Mika’s built-in helper was started with root and keeps running in the background, with or without Wi-Fi. After a phone restart, Mika starts it again with root by itself, with no pairing and no computer. If root is denied or removed, the Root group below says so.</string>
 </resources>

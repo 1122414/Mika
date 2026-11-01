@@ -7,6 +7,7 @@ import com.wangzan101.mika.core.shell.HelperRestart
 import com.wangzan101.mika.core.shell.RecoveryCapability
 import com.wangzan101.mika.core.shell.RecoveryConsent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -40,6 +41,23 @@ class RecoveryCopyTest {
             assertNull(RecoveryCopy.pending(c, RecoveryConsent(applied = setOf(c)), paired = true, autoFailed = emptySet(), restart = HelperRestart.Wireless))
         }
         assertNull(RecoveryCopy.pending(RecoveryCapability.Accessibility, RecoveryConsent(), paired = true, autoFailed = emptySet(), restart = usb))
+    }
+
+    /** 用 root 启动:靠无线调试重起助手的两项还没生效时说清用不上(重启后 Mika 自己经 su 再起),不叫人先去设置;生效了不多说。 */
+    @Test
+    fun wirelessOnlyCapabilitiesSayTheyAreNotNeededWithRoot() {
+        val root = HelperRestart.Root
+        listOf(RecoveryCapability.RestoreAfterReboot, RecoveryCapability.AutoWirelessDebugging).forEach { c ->
+            val note = RecoveryCopy.pending(c, RecoveryConsent(), paired = false, autoFailed = emptySet(), restart = root)
+            assertNotNull(c.name, note)
+            assertNotEquals(c.name, RecoveryCopy.NEED_SETUP, note)
+            assertNull(RecoveryCopy.pending(c, RecoveryConsent(applied = setOf(c)), paired = true, autoFailed = emptySet(), restart = root))
+            assertNull(RecoveryCopy.pending(c, RecoveryConsent(declined = setOf(c)), paired = false, autoFailed = emptySet(), restart = root))
+        }
+        assertEquals(
+            RecoveryCopy.NEED_SETUP,
+            RecoveryCopy.pending(RecoveryCapability.Accessibility, RecoveryConsent(), paired = false, autoFailed = emptySet(), restart = root),
+        )
     }
 
     @Test
