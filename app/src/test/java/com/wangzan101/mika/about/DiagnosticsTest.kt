@@ -120,6 +120,18 @@ class DiagnosticsTest {
     }
 
     /** 扫过本机、用户填过端口:只写个数和有没有填,不写端口号。 */
+    /** root 那一行:没找到 su 只说这个;找到了写两个开关和 su 的答复;旧的调用处不给就不写。 */
+    @Test
+    fun rootLineShowsSwitchesAndSuAnswers() {
+        assertEquals("no su found", Diagnostics.rootLine(false, false, "Unknown", false, "Unknown"))
+        assertEquals("su found; start on (Granted); commands off (Unknown)", Diagnostics.rootLine(true, true, "Granted", false, "Unknown"))
+        assertEquals("su not found; start on (Denied); commands off (Unknown)", Diagnostics.rootLine(false, true, "Denied", false, "Unknown"))
+        val base = snapshot()
+        assertFalse(Diagnostics.render(base).contains("\nroot: "))
+        val t = Diagnostics.render(base.copy(phone = base.phone.copy(root = "su found; start on (Granted); commands off (Unknown)")))
+        assertTrue(t, t.contains("root: su found; start on (Granted); commands off (Unknown)\n"))
+    }
+
     @Test
     fun connectServiceShowsScanAndManualWithoutPortNumbers() {
         val c = ConnectCandidates(0, 0, 0, connected = true, scanned = true, scanOpen = 2, scanAdb = 1, manual = true)

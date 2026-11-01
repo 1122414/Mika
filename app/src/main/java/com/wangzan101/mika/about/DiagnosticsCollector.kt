@@ -84,6 +84,9 @@ object DiagnosticsCollector {
                 appCopies = appCopies(app, phone),
                 adbKey = adbKey(app),
                 appsAfterTask = com.wangzan101.mika.task.AppsAfterTaskEnd.lastLine,
+                root = phone.shellManager.root.state.value.let { r ->
+                    Diagnostics.rootLine(r.suPresent, r.start, r.startGrant.name, r.commands, r.commandsGrant.name)
+                },
             ),
             recovery = DiagnosticsSnapshot.Recovery(
                 consent = phone.recoverySettings.consent.value,
