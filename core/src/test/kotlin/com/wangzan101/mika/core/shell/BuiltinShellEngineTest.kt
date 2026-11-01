@@ -677,6 +677,26 @@ class BuiltinShellEngineTest {
         assertEquals(listOf("su", "launch", "launch"), platform.calls)
     }
 
+    /** 打开了「用 root 启动」但 su 拒绝过:这时来的助手只能是电脑起的,照样记下,停了才知道提示再运行命令;root 能用时来的不记。 */
+    @Test
+    fun helperArrivingWhileRootCannotStartIsRecordedAsUsb() = runTest {
+        platform.rootOn = true
+        platform.answered = SuAnswer.Denied
+        val e = engine()
+        e.start()
+        helper.value = Any()
+        advanceUntilIdle()
+        assertEquals(true, platform.usb)
+        assertEquals(HelperRestart.UsbCommand, e.restart)
+        platform.usb = false
+        platform.answered = null
+        helper.value = null
+        advanceUntilIdle()
+        assertEquals(BuiltinShellStatus.Running, e.status.value)
+        assertEquals(false, platform.usb)
+        assertEquals(HelperRestart.Root, e.restart)
+    }
+
     /** 打开了「用 root 启动」,su 却没了:没配对时说 root 用不了了。 */
     @Test
     fun rootGoneSaysSo() = runTest {

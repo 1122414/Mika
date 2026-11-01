@@ -75,11 +75,15 @@ class RootAccessTest {
         assertEquals(RootGrant.NoShellUid, RootGrant.of(SuAnswer.WrongUid))
     }
 
-    /** 经 su 起助手的命令:先打 uid,再和经无线调试起的一样(口令不在命令里)。 */
+    /** 经 su 起助手的命令:先打 uid,再和经无线调试起的一样(口令不在命令里),只多一个 nohup(和 USB 启动脚本一样不怕挂断)。 */
     @Test
     fun rootCommandPrintsTheUidFirstAndKeepsTheNonceOffTheCommandLine() {
         val c = HelperHandoff.rootCommand("/data/app/x/base.apk", "com.wangzan101.mika", 10123, "ab")
         assertTrue(c.startsWith("id -u; read n; "))
-        assertEquals(c, "id -u; " + HelperHandoff.command("/data/app/x/base.apk", "com.wangzan101.mika", 10123, "ab"))
+        assertTrue(c, c.contains(" nohup setsid app_process "))
+        assertEquals(
+            c,
+            "id -u; " + HelperHandoff.command("/data/app/x/base.apk", "com.wangzan101.mika", 10123, "ab").replace(" setsid ", " nohup setsid "),
+        )
     }
 }

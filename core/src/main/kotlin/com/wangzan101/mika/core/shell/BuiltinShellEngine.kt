@@ -153,8 +153,8 @@ class BuiltinShellEngine(
                 if (h != null) {
                     synchronized(this@BuiltinShellEngine) { failures = 0; retryJob?.cancel() }
                     autoOn?.reset()
-                    // 没配对、也没用 root 就来了:是电脑经 USB 起的。记下来,它停了才知道该怎么提示
-                    if (!platform.paired() && platform.rootStart() == RootStart.Off) platform.setUsbStarted(true)
+                    // Mika 自己起不来(没配对、root 没打开或用不了)时来了:是电脑经 USB 起的。记下来,它停了才知道该怎么提示
+                    if (!selfStart()) platform.setUsbStarted(true)
                     _status.value = BuiltinShellStatus.Running
                 } else if (!selfStart()) {
                     // App 刚起来时还活着的助手会自己来交接;用着用着断了也可能是正在换一个新的来交接:
