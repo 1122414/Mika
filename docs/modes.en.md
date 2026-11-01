@@ -12,5 +12,6 @@ When Mika works for you, the mode decides which steps it checks with you first. 
 - The switch applies to all tasks from then on; if a running task switches from Ask to Autonomous, payments are no longer asked about from the next step.
 - In both modes Mika asks you to take over for things only you should do, like logging in, verification codes and payment passwords. It also asks when information is missing or only you can decide (e.g. which of two contacts with the same name).
 - For tasks that run while you are away, such as scheduled tasks, Ask mode does not wait at a money-spending step: it skips it and tells you plainly which step was not done. Everything else is completed as usual.
+- On a rooted phone where you turned on "Allow Mika to run root commands" (off by default; see the [setup guide](setup-guide.en.md)), Ask mode also asks before each root command that changes or deletes something. The card shows the whole command and approves only that one, and in tasks that run while you are away such commands are not run. Autonomous mode does not ask.
 
 You are responsible for actions you approve, and for actions Mika takes on your behalf in Autonomous mode. For anything important, use Ask mode and check the results; see the [disclaimer](disclaimer.en.md).
