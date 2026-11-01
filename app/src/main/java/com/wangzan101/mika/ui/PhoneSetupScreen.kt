@@ -123,7 +123,11 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
     var usbAsked by rememberSaveable { mutableStateOf(false) }
     var stalledMs by remember { mutableLongStateOf(0L) }
 
-    val inputs = status.setupInputs(discovery, repairing, accessibilitySkipped, confirmed, revisit, stalledMs, usbAsked)
+    // 已 root 的手机多一条路:用 root 启动(找得到 su 才显示);有这条路时开发者选项、无线调试都没有也不算设置不了
+    val root = phone.shellManager.root
+    LaunchedEffect(Unit) { root.refresh() }
+    val rootState by root.state.collectAsState()
+    val inputs = status.setupInputs(discovery, repairing, accessibilitySkipped, confirmed, revisit, stalledMs, usbAsked, rootState.suPresent)
     val view = PhoneSetupFlow.view(inputs)
     // 停在同一处没有进展时计时,换了地方从头算;到了时限就不用再数
     val stallPoint = PhoneSetupFlow.stallPoint(view)
@@ -168,11 +172,6 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
     // 打开引导页时把「用电脑启动」的脚本备好(助手不在时带新口令)
     LaunchedEffect(Unit) { phone.shellManager.usbScript.refresh() }
     val usbCommand = remember { phone.shellManager.usbScript.command() }
-    // 已 root 的手机多一条路:用 root 启动(找得到 su 才显示)
-    val root = phone.shellManager.root
-    LaunchedEffect(Unit) { root.refresh() }
-    val rootState by root.state.collectAsState()
-
     val copyUsbCommand = {
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(PhoneSetupCopy.USB_TITLE, usbCommand))
         Toast.makeText(context, PhoneSetupCopy.USB_COPIED, Toast.LENGTH_SHORT).show()
