@@ -668,7 +668,7 @@ class ShellService(
      *
      * 挪到最后面的做法(都是安卓原版的接口):先用 WindowContainerTransaction.setHidden 把任务藏起来,
      * 再 moveRootTaskToDisplay 挪到主屏(系统总是把它放在最上面,藏着就不显示、不拿焦点、不让用户正在用的页面暂停),
-     * 接着 reorder 到最后面,最后取消隐藏。哪一步在这台系统上用不了就不再挪,照旧随屏关掉,结果里写明。
+     * 接着 reorder 到最后面并取消隐藏。移动成功后不再删任务:那会丢掉用户的状态;隐藏或移动本身失败时照旧随屏关掉。
      */
     override fun finishDisplay(displayId: Int, keep: Array<String>?, close: Array<String>?): Bundle? = synchronized(launchLock) {
         if (!ownDisplay(displayId)) return null
@@ -696,7 +696,6 @@ class ShellService(
                         notes += AppsAfterTask.NOTE_MOVE_UNSUPPORTED
                         closed += AppsAfterTask.closedEntry(f.copy(keep = false, why = AppsAfterTask.Why.MoveUnsupported))
                     }
-                    Behind.FAILED -> closed += AppsAfterTask.closedEntry(f.copy(keep = false, why = AppsAfterTask.Why.MoveFailed))
                 }
             }
             // 挪过去之后又出声的(没标过 keep):挪回这块屏,随屏关掉;挪不回就直接关
@@ -707,9 +706,7 @@ class ShellService(
                 moved.removeAll { it.task.id == f.task.id }
                 closed += AppsAfterTask.closedEntry(f)
             }
-            val removed = ensureBehind(moved.map { it.task.id }.toSet(), mainTop)
-            moved.filter { it.task.id in removed }.forEach { closed += AppsAfterTask.closedEntry(it.copy(keep = false, why = AppsAfterTask.Why.MoveFailed)) }
-            moved.removeAll { it.task.id in removed }
+            ensureBehind(moved.map { it.task.id }.toSet(), mainTop)?.let { notes += it }
         } catch (t: Throwable) {
             Log.e(TAG, "finishDisplay: cannot inspect tasks, closing the rest with the display", t)
             notes += "error ${t.javaClass.simpleName}"
@@ -723,7 +720,7 @@ class ShellService(
         }
     }
 
-    private enum class Behind { OK, UNSUPPORTED, FAILED }
+    private enum class Behind { OK, UNSUPPORTED }
 
     /** 任务的一行给 [AppsAfterTask.decide]:键、是不是普通 App 的页面、是不是 Mika 自己的、此刻出不出声。 */
     private fun afterTaskRow(t: Any, playing: Map<Int, Set<String>>?): AppsAfterTask.Task {
@@ -773,7 +770,10 @@ class ShellService(
         }
     }
 
-    /** 把 Mika 屏上的任务 [row] 挪到主屏最后面(做法见 [finishDisplay])。 */
+    /**
+     * 把 Mika 屏上的任务 [row] 挪到主屏最后面。移动成功后 reorder/取消隐藏没做成也不删任务,
+     * 留给 [ensureBehind] 等过渡,或下次 [resumeKept] 取消隐藏。
+     */
     private fun keepBehind(row: Any): Behind {
         val id = TASK_INFO.getField("taskId").getInt(row)
         val token = runCatching { TASK_INFO.getField("token").get(row) }.getOrNull() ?: return Behind.UNSUPPORTED
@@ -782,41 +782,52 @@ class ShellService(
             transact { wct -> wctCall(wct, "setHidden", token, false) }
             return Behind.UNSUPPORTED
         }
-        // 放到最后面之前不取消隐藏:取消隐藏时系统不挪它,先取消就会出现在用户眼前
-        val behind = transact { wct -> wctCall(wct, "reorder", token, false) }
-        if (behind && transact { wct -> wctCall(wct, "setHidden", token, false) }) return Behind.OK
-        // 停在半路(藏着或在最上面)都不能留:关掉
-        Log.w(TAG, "task $id could not be put behind on the main screen, removing it")
-        removeTask(id)
-        return Behind.FAILED
+        // 隐藏着 reorder 再取消隐藏,否则系统不挪它;两步放在同一个事务里。
+        val placed = transact { wct ->
+            wctCall(wct, "reorder", token, false)
+            wctCall(wct, "setHidden", token, false)
+        }
+        if (!placed) {
+            // 别把它留在隐藏状态;reorder 交给 ensureBehind 再试。
+            if (!transact { wct -> wctCall(wct, "setHidden", token, false) }) {
+                Log.w(TAG, "task $id is still hidden on the main screen; resumeKept will unhide it")
+            }
+        }
+        return Behind.OK
     }
 
     /**
-     * 核对:挪过去的任务都没到用户眼前(主屏上看得见)。看得见了(本不该发生)就马上再排到最后面,还看得见就关掉。
-     * 看得见按 TaskInfo.isVisible;读不到这一项的系统按「是不是主屏最上面的任务」看(那里的任务按最近使用排,只作退路)。
-     * [before] 是挪之前主屏最上面的任务,只记进日志。
+     * 核对挪到主屏的任务没有留在用户眼前。TO_BACK 过渡期间 [android.app.TaskInfo.isVisible] 仍是 true,
+     * 所以轮询等它落定;超时也不删任务,留在主屏等下次打开。读不到 isVisible 时按主屏最上面的任务看。
+     * [before] 只记进日志;返回超时仍可见时的一句诊断,正常为 null。
      */
-    private fun ensureBehind(moved: Set<Int>, before: Int): Set<Int> {
-        if (moved.isEmpty()) return emptySet()
-        val removed = HashSet<Int>()
+    private fun ensureBehind(moved: Set<Int>, before: Int): String? {
+        if (moved.isEmpty()) return null
         val visibleField = runCatching { TASK_INFO.getField("isVisible") }.getOrNull()
         fun inFront(): List<Any> = if (visibleField != null) {
             tasksOn(Display.DEFAULT_DISPLAY).filter { TASK_INFO.getField("taskId").getInt(it) in moved && visibleField.getBoolean(it) }
         } else listOfNotNull(tasksOn(Display.DEFAULT_DISPLAY).firstOrNull()?.takeIf { TASK_INFO.getField("taskId").getInt(it) in moved })
-        repeat(2) { attempt ->
+        val deadline = SystemClock.uptimeMillis() + ENSURE_BEHIND_MS
+        var lastReorder = 0L
+        while (true) {
             val front = inFront()
-            if (front.isEmpty()) return removed
-            for (row in front) {
-                val id = TASK_INFO.getField("taskId").getInt(row)
-                Log.w(TAG, "moved task $id is in front on the main screen (top was $before), sending it back")
-                val token = runCatching { TASK_INFO.getField("token").get(row) }.getOrNull()
-                if (attempt == 1 || token == null || !transact { wct -> wctCall(wct, "reorder", token, false) }) {
-                    removeTask(id)
-                    removed += id
+            if (front.isEmpty()) return null
+            val now = SystemClock.uptimeMillis()
+            if (now - lastReorder >= ENSURE_REORDER_MS) {
+                for (row in front) {
+                    val id = TASK_INFO.getField("taskId").getInt(row)
+                    Log.w(TAG, "moved task $id is still visible on the main screen (top was $before), sending it back")
+                    val token = runCatching { TASK_INFO.getField("token").get(row) }.getOrNull() ?: continue
+                    transact { wct -> wctCall(wct, "reorder", token, false) }
                 }
+                lastReorder = now
             }
+            if (now >= deadline) {
+                Log.w(TAG, "moved tasks $moved are still visible on the main screen after ${ENSURE_BEHIND_MS}ms; keeping them")
+                return "still visible on main after ${ENSURE_BEHIND_MS / 1000}s"
+            }
+            Thread.sleep(ENSURE_POLL_MS)
         }
-        return removed
     }
 
     /** IActivityTaskManager.moveRootTaskToDisplay;接口不在时退回 `am display move-stack`(同一个调用)。 */
@@ -869,6 +880,11 @@ class ShellService(
         val row = runCatching { keptOnMain(packageName, userId).firstOrNull() }.getOrNull() ?: return false
         val id = TASK_INFO.getField("taskId").getInt(row)
         if (!moveRoot(id, displayId)) return false
+        // 收尾时没来得及取消隐藏的,挪回来补一次。
+        val token = runCatching { TASK_INFO.getField("token").get(row) }.getOrNull()
+        if (token != null && !transact { wct -> wctCall(wct, "setHidden", token, false) }) {
+            Log.w(TAG, "task $id is still hidden after moving it back to display $displayId")
+        }
         synchronized(kept) { kept.remove(id) }
         return true
     }
@@ -1387,6 +1403,10 @@ class ShellService(
         private const val CMD_TIMEOUT_S = 10L
         private const val COMMAND_OUTPUT_MAX = 64 * 1024
         private const val READER_JOIN_MS = 1_000L
+        // 挪到主屏后等 TO_BACK 过渡;期间 isVisible 仍是 true
+        private const val ENSURE_BEHIND_MS = 2_000L
+        private const val ENSURE_REORDER_MS = 750L
+        private const val ENSURE_POLL_MS = 100L
         private val MODE_RE = Regex("[a-z_]+")
         private const val PER_USER_RANGE = 100_000
 

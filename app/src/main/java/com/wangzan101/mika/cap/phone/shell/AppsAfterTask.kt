@@ -24,8 +24,6 @@ object AppsAfterTask {
         NotApp("not_app"),
         /** 这台系统挪不了任务,照旧随屏关掉。 */
         MoveUnsupported("move_not_supported"),
-        /** 挪到一半没成,为了不留在用户眼前把它关了。 */
-        MoveFailed("move_failed"),
     }
 
     /**
