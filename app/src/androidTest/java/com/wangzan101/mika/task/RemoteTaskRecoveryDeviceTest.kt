@@ -34,7 +34,7 @@ class RemoteTaskRecoveryDeviceTest {
 
     @Test fun retainedIdsAndTerminalResultsSurviveReopening() {
         val db = "receipts-test-" + UUID.randomUUID()
-        val done = RemoteTask("first", "mcp-first", "review", 1, null)
+        val done = RemoteTask("first", "mcp-first", "review", System.currentTimeMillis(), null)
         val result = TaskState.Succeeded("answer", false, "unchecked items", unconfirmed = listOf("one"))
         val notes = listOf(RemoteSteer("s1", "joined"))
         try {
@@ -58,6 +58,36 @@ class RemoteTaskRecoveryDeviceTest {
                 val gone = runCatching { store.find(done.id, done.goal) }.exceptionOrNull() as RemoteTaskError
                 assertEquals(RemoteTaskError.Code.GONE, gone.code)
                 assertTrue(store.recent(110).none { it.conversation == done.conversation })
+            }
+        } finally { app.deleteDatabase(db) }
+    }
+
+    // 收尾的和删对话留下的占位按条数、按时间清;没收尾的不清,清掉的编号再来就当新请求
+    @Test fun finishedReceiptsAndPlaceholdersArePrunedUnfinishedKept() {
+        val db = "receipts-test-" + UUID.randomUUID()
+        var now = 10 * RemoteTaskReceipts.KEEP_MS
+        fun task(id: String, chat: String = "mcp-$id") = RemoteTask(id, chat, "goal $id", now, null)
+        try {
+            RemoteTaskReceipts(app, db, clock = { now }, keep = 3).use { store ->
+                store.insert(task("running"), false)
+                store.insert(task("gone"), false)
+                store.forget("mcp-gone")
+                for (id in listOf("a", "b")) { store.insert(task(id), false); store.finish(id, TaskState.Cancelled, emptyList()) }
+                fun gone() = (runCatching { store.find("gone") }.exceptionOrNull() as? RemoteTaskError)?.code
+                assertNotNull(store.find("running")); assertEquals(RemoteTaskError.Code.GONE, gone())
+                // 第五条收件:最早的两条落在最近三条之外,收尾的占位被清,还没收尾的留着
+                store.insert(task("c"), false)
+                assertNotNull(store.find("running"))
+                assertNull(gone()); assertNull(store.find("gone"))
+                assertNotNull(store.find("a"))
+                store.finish("c", TaskState.Cancelled, emptyList())
+            }
+            now += RemoteTaskReceipts.KEEP_MS + 1
+            RemoteTaskReceipts(app, db, clock = { now }, keep = 3).use { store ->
+                // 重开:running 标成中断后和 a b c 一起过了保留时间,都清掉
+                assertEquals(emptyList<RemoteTask>(), store.recent(10))
+                store.insert(task("a"), false)
+                assertTrue(store.claimStart("a"))
             }
         } finally { app.deleteDatabase(db) }
     }

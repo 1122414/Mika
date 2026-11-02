@@ -145,7 +145,7 @@ Statuses:
 - `failed`: not done, with the reason.
 - `cancelled`: stopped.
 
-When the schema of `mika_run_task` includes `"request_id"`, save a lowercase UUID before submitting and use it with `mika_task_status` if you lose the reply. Replaying the same ID, goal and conversation starts only one task. Use a fresh ID for a different request. After a phone process restart, finished tasks retain their results and unfinished tasks report `failed` with `failure_kind=interrupted`.
+When the schema of `mika_run_task` includes `"request_id"`, save a lowercase UUID before submitting and use it with `mika_task_status` if you lose the reply. Replaying the same ID, goal and conversation starts only one task. Use a fresh ID for a different request. After a phone process restart, finished tasks retain their results and unfinished tasks report `failed` with `failure_kind=interrupted`. Finished records are kept for 30 days, up to the latest 1000.
 
 Suggested flow: `mika_run_task` → `mika_wait_task` repeatedly → on `waiting_for_answer`, reply with `mika_answer` → until `done` / `failed` / `cancelled`.
 

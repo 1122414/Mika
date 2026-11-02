@@ -145,7 +145,7 @@ curl -s http://192.168.1.23:8765/mcp \
 - `failed`：没做成，带着原因。
 - `cancelled`：停掉了。
 
-支持任务恢复的手机会在 `mika_run_task` 的输入结构里列出 `"request_id"`。调用方可先生成并保存一个小写 UUID，丢回执后用它调用 `mika_task_status`。同一编号、目标和对话参数只启动一次，换目标或换对话需要新编号。进程重启后仍能读终态，未完成的任务会报告 `failed` 和 `failure_kind=interrupted`。
+支持任务恢复的手机会在 `mika_run_task` 的输入结构里列出 `"request_id"`。调用方可先生成并保存一个小写 UUID，丢回执后用它调用 `mika_task_status`。同一编号、目标和对话参数只启动一次，换目标或换对话需要新编号。进程重启后仍能读终态，未完成的任务会报告 `failed` 和 `failure_kind=interrupted`。已收尾的记录保留 30 天、至多最近 1000 条。
 
 建议的用法：`mika_run_task` → 反复 `mika_wait_task` → 遇到 `waiting_for_answer` 用 `mika_answer` → 直到 `done` / `failed` / `cancelled`。
 

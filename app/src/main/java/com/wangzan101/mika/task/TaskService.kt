@@ -752,7 +752,7 @@ class TaskService : Service() {
             val app = application as com.wangzan101.mika.MikaApp
             center.runs().forEach { r -> r.mcpExternalId?.let { app.remoteTasks.ended(it, TaskState.Failed(tr(R.string.task_interrupted), FailKind.Interrupted), r.steers.value) } }
             (application as com.wangzan101.mika.MikaApp).runRecovery.settleInterrupted()
-            taskState._state.value = TaskState.Failed(tr(R.string.task_interrupted), FailKind.Environment)
+            taskState._state.value = TaskState.Failed(tr(R.string.task_interrupted), FailKind.Interrupted)
             taskState._runs.value = emptyList()
             taskState._activeConversations.value = emptyList()
             taskState.shownRun = null
