@@ -507,7 +507,7 @@ class TaskRun(
                 catch (_: com.wangzan101.mika.core.access.AppAccessDenied) { false }
             }
             val metrics = mainScreenMetrics()
-            // 在 App 里操作的节奏(设置 › 干活时);评测、真机验收按钩子覆盖
+            // 在 App 里操作的节奏(设置 › 任务运行);评测、真机验收按钩子覆盖
             val pace = env.evalHooks.operatingPace ?: FeatureFlags.get(service).operatingPace()
             // 助手是否连着;没接上手机之前当作连着(网页、沙箱的步骤不看它)
             val shellUp = MutableStateFlow(true)
