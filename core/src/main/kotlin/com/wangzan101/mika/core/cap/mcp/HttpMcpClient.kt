@@ -85,7 +85,11 @@ class HttpMcpEndpoint private constructor(
                 .header("MCP-Session-Id", sid)
                 .header("MCP-Protocol-Version", protocolVersion)
                 .build()
-            http.newCall(request).execute().use { }
+            // 关闭不阻塞调用方(设置页/任务收尾);失败忽略
+            http.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) = Unit
+                override fun onResponse(call: Call, response: Response) = response.close()
+            })
         }
     }
 
