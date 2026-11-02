@@ -180,6 +180,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         val app = this
         ConversationDeleter(
             conversations, taskState.activeConversations,
+            forgetRemoteTasks = { id ->
+                if (com.wangzan101.mika.core.remote.RemoteTaskService.isConversation(id)) remoteTasks.forget(id)
+            },
             cancelTasks = { id -> taskState.runs.value.filter { it.conversationId == id }.forEach { TaskService.cancel(app, it.key) } },
             schedulesOf = { id -> TriggerRuntime.list(app).filter { it.threadId == id }.map { it.id } },
             removeSchedule = { TriggerRuntime.remove(app, it) },

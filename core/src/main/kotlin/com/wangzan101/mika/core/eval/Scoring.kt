@@ -52,7 +52,7 @@ object Scoring {
         FailKind.GaveUp -> GAVE_UP
         FailKind.Model -> "模型出错:${f.reason}"
         FailKind.Guard, FailKind.StepLimit -> f.reason
-        FailKind.Environment -> "${HARNESS_PREFIX}运行环境:${f.reason}"
+        FailKind.Environment, FailKind.Interrupted -> "${HARNESS_PREFIX}运行环境:${f.reason}"
     }
 
     /**
