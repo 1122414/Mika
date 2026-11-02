@@ -685,9 +685,11 @@ class TaskRun(
             }
             // 这个对话里用户发来的屏幕(跟着对话存在工作区里)
             val userScreens = (service.application as MikaApp).userScreens.source(conversationId)
+            val stepLimit = if (conditionCheck) null else FeatureFlags.get(service).taskStepLimit()
             val runSpec = RunSpec(RunId(key), goal, conversationId,
                 priorTurns,
-                provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck)
+                provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck,
+                stepBudget = stepLimit)
             val runApproval = approvalControl.start(remote = provenance.origin == RunOrigin.Mcp).also { approval = it }
             val childRunner = if (provenance.origin == RunOrigin.Ui && web != null) ChildAgentRunner(
                 create = { childSpec ->
@@ -759,7 +761,7 @@ class TaskRun(
                         challengedSites = withContext(Dispatchers.IO) { registry.challengedSites() },
                     )
                 },
-                maxSteps = env.evalHooks.maxSteps ?: AgentLoop.UNLIMITED_STEPS,
+                maxSteps = env.evalHooks.maxSteps ?: runSpec.stepBudget ?: AgentLoop.UNLIMITED_STEPS,
                 reviewFinalAnswer = false,
                 inputTimeoutMs = TaskService.INPUT_TIMEOUT_MS,
                 // 询问 / 自主:询问时只有花钱的一步先问(有确认关卡和 request_confirmation);自主时连付款也不问。

@@ -79,6 +79,19 @@ class RunTimelineViewModelTest {
         assertEquals(1, m.modelCalls)
     }
 
+    @Test fun headerCarriesTheStepLimit() {
+        val limited = run("查天气") {
+            event(RunEvent.TaskStarted(clock, "查天气", "m1", stepLimit = 60))
+            event(RunEvent.TaskEnded(clock + 1_000, "succeeded", "晴"))
+        }
+        assertEquals(60, ready(limited).header.stepLimit)
+        val unlimited = run("看电量") {
+            event(RunEvent.TaskStarted(clock, "看电量", "m1"))
+            event(RunEvent.TaskEnded(clock + 1_000, "succeeded", "85%"))
+        }
+        assertNull(ready(unlimited).header.stepLimit)
+    }
+
     @Test fun groupsEventsIntoSteps() {
         val long = "先".repeat(100)
         val id = run("看电量") {

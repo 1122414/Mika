@@ -106,6 +106,7 @@ fun SettingsScreen(
     var keepScreenOn by remember { mutableStateOf(flags.keepScreenOn()) }
     var muteTarget by remember { mutableStateOf(flags.muteTarget()) }
     var operatingPace by remember { mutableStateOf(flags.operatingPace()) }
+    var stepLimit by remember { mutableStateOf(flags.taskStepLimit()) }
     var selfConfig by remember { mutableStateOf(flags.selfConfig()) }
     var capsuleMode by remember { mutableStateOf(flags.capsuleMode()) }
     // 换语言时界面会重建,这里每次进来读一次即可
@@ -198,6 +199,7 @@ fun SettingsScreen(
             muteTarget, onMuteTarget = { flags.setMuteTarget(it); muteTarget = it },
             parallel, onParallelMax = { flags.setParallelMax(it); parallelMax = it }, onBack = toHome,
             operatingPace = operatingPace, onOperatingPace = { flags.setOperatingPace(it); operatingPace = it },
+            stepLimit = stepLimit, onStepLimit = { flags.setTaskStepLimit(it); stepLimit = it },
             selfConfig = selfConfig, onSelfConfig = { flags.setSelfConfig(it); selfConfig = it },
         )
         SettingsPage.Language -> LanguageScreen(language, onLanguage = { AppLanguage.set(context, it) }, onBack = toHome)

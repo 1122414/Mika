@@ -63,6 +63,8 @@ data class TimelineHeader(
     val verdict: String,
     val duration: String?,
     val modelCalls: Int,
+    /** 这次运行的步数上限;不限制或旧记录为 null。 */
+    val stepLimit: Int? = null,
     val usedMemory: List<String> = emptyList(),
     /** 这次运行的小结;记录里没有开始事件时为 null(只显示用时)。 */
     val metrics: RunMetrics? = null,
@@ -109,6 +111,7 @@ class RunTimelineViewModel(
             verdict = verdictLabel(summary?.verdict ?: events.filterIsInstance<RunEvent.Verifier>().lastOrNull()?.verdict),
             duration = endMs?.let { duration(it - startMs) },
             modelCalls = events.count { it is RunEvent.ModelReply },
+            stepLimit = started?.stepLimit,
             usedMemory = resolveMemory(events.filterIsInstance<RunEvent.MemoryUsed>().lastOrNull()?.ids.orEmpty()),
             metrics = RunMetrics.of(events, runId),
         )

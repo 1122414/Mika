@@ -113,4 +113,11 @@
     <string name="appearance_dark">Selalu gelap</string>
     <string name="settings_self_config">Biarkan Mika mengubah pengaturannya sendiri</string>
     <string name="settings_self_config_sub">Jika aktif, tugas mendapat satu alat untuk membaca dan mengubah preferensi ini (kecepatan, bisu, kapsul, tampilan, layar menyala). Model, kunci API, jaringan kontainer, dan apa pun yang menghapus data tidak pernah disertakan</string>
+    <string name="settings_step_limit">Batas langkah per tugas</string>
+    <string name="settings_step_limit_sub">Mati berarti tanpa batas. Saat batas tercapai, tugas berhenti dan menyebutkan di mana berhentinya.</string>
+    <string name="settings_step_limit_off">Tanpa batas</string>
+    <string name="settings_step_limit_value">%1$d langkah</string>
+    <string name="settings_step_limit_custom">Kustom (1–500)</string>
+    <string name="settings_step_limit_custom_apply">Pakai</string>
+    <string name="settings_step_limit_invalid">Masukkan bilangan bulat 1 sampai 500.</string>
 </resources>
