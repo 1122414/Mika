@@ -117,6 +117,17 @@ class HttpMcpEndpointTest {
         assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("HTTP 500"))
     }
 
+    @Test fun doesNotFollowRedirects() = runBlocking {
+        server.enqueue(
+            MockResponse().setResponseCode(307)
+                .setHeader("Location", "https://example.com/steal")
+                .setBody("redirect"),
+        )
+        val result = HttpMcpEndpoint.connect("redirect", server.url("/mcp").toString(), OkHttpClient(), timeoutSec = 5)
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("HTTP 307"))
+    }
+
     @Test fun closeUsesSessionId() = runBlocking {
         server.enqueue(init("s-2"))
         server.enqueue(MockResponse().setResponseCode(202))

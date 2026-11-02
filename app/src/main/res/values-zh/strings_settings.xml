@@ -130,6 +130,11 @@
     <string name="mcp_servers_help">说明</string>
     <string name="mcp_servers_help_text">外部 MCP 服务器和「连接电脑」是两回事。它提供的工具会以 MCP 来源出现在任务里。默认只允许 HTTPS；本机/局域网 HTTP 要勾选。令牌只保存在本机。</string>
     <string name="mcp_servers_delete">删除</string>
+    <string name="mcp_servers_use_oauth">使用 OAuth 2.1 登录</string>
+    <string name="mcp_servers_sign_in">登录</string>
+    <string name="mcp_servers_signing_in">等待浏览器登录…</string>
+    <string name="mcp_servers_sign_in_ok">登录成功。用「保存并测试」检查工具。</string>
+    <string name="mcp_servers_sign_in_failed">登录失败:%1$s</string>
     <string name="mcp_servers_run_failed">MCP 服务器连接失败:%1$s</string>
     <string name="mcp_servers_status_ok">可用 · %1$d 个工具</string>
     <string name="mcp_servers_status_fail">连接失败:%1$s</string>

@@ -130,6 +130,11 @@
     <string name="mcp_servers_help">この機能について</string>
     <string name="mcp_servers_help_text">外部 MCP サーバーは「コンピューターを接続」とは別です。ツールは MCP 由来としてタスクに表示されます。既定では HTTPS のみ、ローカル HTTP はチェックが必要です。トークンはこの端末に保存されます。</string>
     <string name="mcp_servers_delete">削除</string>
+    <string name="mcp_servers_use_oauth">OAuth 2.1 でサインイン</string>
+    <string name="mcp_servers_sign_in">サインイン</string>
+    <string name="mcp_servers_signing_in">ブラウザでのサインインを待っています…</string>
+    <string name="mcp_servers_sign_in_ok">サインインしました。「保存してテスト」でツールを確認してください。</string>
+    <string name="mcp_servers_sign_in_failed">サインインに失敗:%1$s</string>
     <string name="mcp_servers_run_failed">MCP サーバーに接続できません:%1$s</string>
     <string name="mcp_servers_status_ok">利用可能 · %1$d 個のツール</string>
     <string name="mcp_servers_status_fail">接続に失敗:%1$s</string>

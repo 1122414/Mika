@@ -1,5 +1,6 @@
 package com.wangzan101.mika.settings
 
+import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -58,6 +59,8 @@ class McpServerStoreTest {
         assertTrue(s.add("x", "http://localhost:1234/mcp").isFailure) // 需要显式 allowLocalHttp
         assertTrue(s.add("x", "https://user:pw@example.com/mcp").isFailure)
         assertTrue(s.add("x", "http://169.254.169.254/mcp").isFailure)
+        assertTrue(s.add("x", "https://169.254.169.254/mcp").isFailure)
+        assertTrue(s.add("x", "https://0.0.0.0/mcp").isFailure)
         assertTrue(s.add("x", "not a url").isFailure)
         assertNotNull(s.add("x", "https://example.com/mcp").getOrNull())
     }
@@ -92,6 +95,95 @@ class McpServerStoreTest {
             assertEquals(0, connections.failures.size)
             assertEquals(1, connections.connections.size)
             assertEquals(listOf("search"), connections.connections.single().endpoint.tools().map { it.name })
+            connections.close()
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun oauthTokensAreEncryptedAndSurviveRestart() {
+        val s = store()
+        val added = s.add("oauth", "https://oauth.example/mcp").getOrThrow()
+        val tokens = McpOAuthTokens(
+            accessToken = "at-secret",
+            refreshToken = "rt-secret",
+            expiresAtMs = System.currentTimeMillis() + 3_600_000,
+            clientId = "cid",
+            tokenEndpoint = "https://oauth.example/token",
+        )
+        s.setOAuthTokens(added.id, tokens)
+        assertEquals(tokens.accessToken, s.oauthTokens(added.id)?.accessToken)
+
+        val secrets = File(tmp.root, "mcp-server-secrets.bin").readBytes()
+        assertFalse(String(secrets, Charsets.UTF_8).contains("at-secret"))
+        val reopened = store()
+        assertEquals("at-secret", reopened.oauthTokens(added.id)?.accessToken)
+        assertEquals("cid", reopened.oauthTokens(added.id)?.clientId)
+
+        s.remove(added.id)
+        assertEquals(null, s.oauthTokens(added.id))
+    }
+
+    @Test fun connectionsUseOAuthAccessToken() = runBlocking {
+        val server = MockWebServer().also { it.start() }
+        try {
+            scriptTools(server, "search")
+            val s = store()
+            val added = s.add("oauth", "https://localhost/mcp").getOrThrow()
+            val config = added.copy(
+                url = server.url("/mcp").newBuilder().host("127.0.0.1").build().toString(),
+                allowLocalHttp = true,
+                auth = "oauth",
+            )
+            s.update(config).getOrThrow()
+            s.setOAuthTokens(
+                added.id,
+                McpOAuthTokens("at", null, null, "cid", null,
+                    server.url("/token").newBuilder().host("127.0.0.1").build().toString()),
+            )
+            val connections = s.connections()
+            assertEquals(0, connections.failures.size)
+            assertEquals(listOf("search"), connections.connections.single().endpoint.tools().map { it.name })
+            assertEquals("Bearer at", server.takeRequest().getHeader("Authorization"))
+            connections.close()
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun expiredOAuthTokenIsRefreshedBeforeConnecting() = runBlocking {
+        val server = MockWebServer().also { it.start() }
+        try {
+            val tokenUrl = server.url("/token").newBuilder().host("127.0.0.1").build().toString()
+            server.enqueue(
+                MockResponse().setHeader("Content-Type", "application/json")
+                    .setBody("""{"access_token":"new-at","expires_in":3600}"""),
+            )
+            scriptTools(server, "search")
+            val s = store()
+            val added = s.add("oauth", "https://localhost/mcp").getOrThrow()
+            s.update(
+                added.copy(
+                    url = server.url("/mcp").newBuilder().host("127.0.0.1").build().toString(),
+                    allowLocalHttp = true,
+                    auth = "oauth",
+                ),
+            ).getOrThrow()
+            s.setOAuthTokens(
+                added.id,
+                McpOAuthTokens("old-at", "rt", 0L, "cid", null, tokenUrl),
+            )
+
+            val connections = s.connections()
+            assertEquals(0, connections.failures.size)
+            val refresh = server.takeRequest()
+            assertEquals("/token", refresh.path)
+            assertTrue(refresh.body.readUtf8().contains("grant_type=refresh_token"))
+            val init = server.takeRequest()
+            assertEquals("/mcp", init.path)
+            assertEquals("Bearer new-at", init.getHeader("Authorization"))
+            assertEquals("new-at", s.oauthTokens(added.id)?.accessToken)
+            assertEquals("rt", s.oauthTokens(added.id)?.refreshToken)
             connections.close()
         } finally {
             server.shutdown()

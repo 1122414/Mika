@@ -142,6 +142,11 @@
     <string name="mcp_servers_help">О функции</string>
     <string name="mcp_servers_help_text">Внешние MCP-серверы не связаны с «Подключить компьютер». Их инструменты появляются в задачах с источником MCP. По умолчанию только HTTPS; для локального HTTP нужна галочка. Токены остаются на этом телефоне.</string>
     <string name="mcp_servers_delete">Удалить</string>
+    <string name="mcp_servers_use_oauth">Использовать вход OAuth 2.1</string>
+    <string name="mcp_servers_sign_in">Войти</string>
+    <string name="mcp_servers_signing_in">Ожидание входа в браузере…</string>
+    <string name="mcp_servers_sign_in_ok">Вход выполнен. Нажмите «Сохранить и проверить», чтобы проверить инструменты.</string>
+    <string name="mcp_servers_sign_in_failed">Не удалось войти: %1$s</string>
     <string name="mcp_servers_run_failed">Серверы MCP недоступны: %1$s</string>
     <string name="mcp_servers_status_ok">Доступно · инструментов: %1$d</string>
     <string name="mcp_servers_status_fail">Ошибка подключения: %1$s</string>

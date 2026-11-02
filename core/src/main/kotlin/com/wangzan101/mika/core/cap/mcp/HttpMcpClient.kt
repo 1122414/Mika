@@ -55,6 +55,8 @@ class HttpMcpEndpoint private constructor(
 ) : McpEndpoint, Closeable {
     private val json = Json { ignoreUnknownKeys = true }
     private val ids = AtomicLong(1)
+    // MCP 端点不应该靠重定向跳转;禁止重定向,避免把请求(含认证头)带去别的主机
+    private val client = http.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
     override fun tools(): List<McpToolDescriptor> = tools
 
@@ -86,7 +88,7 @@ class HttpMcpEndpoint private constructor(
                 .header("MCP-Protocol-Version", protocolVersion)
                 .build()
             // 关闭不阻塞调用方(设置页/任务收尾);失败忽略
-            http.newCall(request).enqueue(object : Callback {
+            client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) = Unit
                 override fun onResponse(call: Call, response: Response) = response.close()
             })
@@ -121,7 +123,7 @@ class HttpMcpEndpoint private constructor(
         sessionId?.let { builder.header("MCP-Session-Id", it) }
         headers.forEach { (k, v) -> if (!k.equals("Content-Type", true) && !k.equals("Accept", true)) builder.header(k, v) }
         val request = builder.post(body.toRequestBody(JSON_MEDIA)).build()
-        val response = http.newCall(request).await(timeoutSec)
+        val response = client.newCall(request).await(timeoutSec)
         return RawResponse(response.code, response.header("Mcp-Session-Id"), response.body?.string().orEmpty())
     }
 
@@ -333,7 +335,8 @@ class HttpMcpEndpoint private constructor(
             if (session != null) builder.header("MCP-Session-Id", session)
             headers.forEach { (k, v) -> if (!k.equals("Content-Type", true) && !k.equals("Accept", true)) builder.header(k, v) }
             val request = builder.post(body.toRequestBody(JSON_MEDIA)).build()
-            val client = http.newBuilder().callTimeout(timeoutSec.toLong(), TimeUnit.SECONDS).build()
+            val client = http.newBuilder().callTimeout(timeoutSec.toLong(), TimeUnit.SECONDS)
+                .followRedirects(false).followSslRedirects(false).build()
             val response = client.newCall(request).await(timeoutSec)
             return RawResponse(response.code, response.header("Mcp-Session-Id"), response.body?.string().orEmpty())
         }

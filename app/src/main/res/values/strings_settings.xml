@@ -143,6 +143,11 @@
     <string name="mcp_servers_help">About</string>
     <string name="mcp_servers_help_text">External MCP servers are separate from Connect a computer. Their tools appear with an MCP source in tasks. HTTPS only by default; local HTTP needs the checkbox. Tokens stay on this phone.</string>
     <string name="mcp_servers_delete">Delete</string>
+    <string name="mcp_servers_use_oauth">Use OAuth 2.1 sign-in</string>
+    <string name="mcp_servers_sign_in">Sign in</string>
+    <string name="mcp_servers_signing_in">Waiting for browser sign-in…</string>
+    <string name="mcp_servers_sign_in_ok">Signed in. Use Save &amp; test to check tools.</string>
+    <string name="mcp_servers_sign_in_failed">Sign-in failed: %1$s</string>
     <string name="mcp_servers_run_failed">MCP servers unavailable: %1$s</string>
     <string name="mcp_servers_status_ok">Available · %1$d tools</string>
     <string name="mcp_servers_status_fail">Connection failed: %1$s</string>

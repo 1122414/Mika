@@ -2,11 +2,16 @@ package com.wangzan101.mika.settings
 
 import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.core.cap.mcp.HttpMcpEndpoint
+import com.wangzan101.mika.core.cap.mcp.McpOAuth
+import com.wangzan101.mika.core.cap.mcp.McpOAuthException
+import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
 import com.wangzan101.mika.core.cap.mcp.McpConnection
 import com.wangzan101.mika.core.cap.mcp.McpTrust
 import com.wangzan101.mika.core.net.NetProxy
+import com.wangzan101.mika.core.oauth.LoopbackCallback
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +45,8 @@ data class McpServerConfig(
     val previewChars: Int = 4000,
     val maxCostUnits: Long? = null,
     val allowLocalHttp: Boolean = false,
+    /** token | oauth(token 是手动 Bearer/自定义头;oauth 走 OAuth 2.1 登录) */
+    val auth: String = "token",
     /** 只暴露这些工具;null 表示全部。 */
     val allowedTools: List<String>? = null,
     /** 非密的自定义请求头;Authorization 另存。 */
@@ -72,6 +79,8 @@ class McpServerStore(
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
     private val _servers = MutableStateFlow(loadServers())
     val servers: StateFlow<List<McpServerConfig>> = _servers.asStateFlow()
+    private val oauth = McpOAuth(http)
+    private val tokenJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _health = MutableStateFlow<Map<String, McpHealth>>(emptyMap())
     /** 最近一次连接/测试的结果;只在进程内,不落盘。 */
     val health: StateFlow<Map<String, McpHealth>> = _health.asStateFlow()
@@ -101,7 +110,9 @@ class McpServerStore(
         saveConfigs(next)
         _servers.value = next
         val secrets = loadSecrets().toMutableMap()
-        if (secrets.remove(id) != null) saveSecrets(secrets)
+        val hadToken = secrets.remove(id) != null
+        val hadOAuth = secrets.remove("oauth:$id") != null
+        if (hadToken || hadOAuth) saveSecrets(secrets)
     }
 
     @Synchronized fun setEnabled(id: String, enabled: Boolean) {
@@ -125,24 +136,32 @@ class McpServerStore(
         if (config.timeoutSec !in 1..600) return "timeout must be 1..600 seconds"
         if (config.previewChars !in 100..100_000) return "preview length must be 100..100000"
         if (config.maxCostUnits != null && config.maxCostUnits < 0) return "cost limit must be >= 0"
+        if (isBlockedHost(url.host)) return "this host is not allowed"
         if (url.scheme == "http") {
             if (!config.allowLocalHttp) return "HTTP is only allowed for local/private servers after enabling it"
             if (!isLocalHost(url.host)) return "HTTP is only allowed for local/private hosts"
         } else if (url.scheme != "https") {
             return "URL must be https (or http for a local server)"
         }
-        if (isBlockedHost(url.host)) return "this host is not allowed"
         return null
     }
 
     suspend fun test(config: McpServerConfig): Result<McpTestResult> {
         validate(config)?.let { return Result.failure(IllegalArgumentException(it)) }
+        val headers = try {
+            authHeaders(config)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _health.update { it + (config.id to healthFailure(e)) }
+            return Result.failure(e)
+        }
         val endpoint = HttpMcpEndpoint.connect(
             serverId = config.id, url = config.url, http = http,
-            headers = authHeaders(config), timeoutSec = config.timeoutSec,
+            headers = headers, timeoutSec = config.timeoutSec,
             clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
         ).getOrElse { e ->
-            _health.update { it + (config.id to McpHealth(false, e.javaClass.simpleName + ": " + e.message.orEmpty(), emptyList(), System.currentTimeMillis())) }
+            _health.update { it + (config.id to healthFailure(e)) }
             return Result.failure(e)
         }
         return try {
@@ -164,11 +183,18 @@ class McpServerStore(
         val attempts = coroutineScope {
             _servers.value.filter { it.enabled }.map { config ->
                 async {
-                    val result = HttpMcpEndpoint.connect(
-                        serverId = config.id, url = config.url, http = http,
-                        headers = authHeaders(config), timeoutSec = config.timeoutSec,
-                        clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
-                    ).map { endpoint ->
+                    val result = try {
+                        HttpMcpEndpoint.connect(
+                            serverId = config.id, url = config.url, http = http,
+                            headers = authHeaders(config), timeoutSec = config.timeoutSec,
+                            clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                    val connection: Result<McpConnection> = result.map { endpoint ->
                         McpConnection(
                             endpoint = endpoint,
                             resultStore = resultStore,
@@ -179,12 +205,12 @@ class McpServerStore(
                         )
                     }
                     _health.update {
-                        it + (config.id to result.fold(
+                        it + (config.id to connection.fold(
                             onSuccess = { c -> McpHealth(true, null, c.endpoint.tools().map { t -> t.name }, System.currentTimeMillis()) },
                             onFailure = { e -> McpHealth(false, e.message ?: e.javaClass.simpleName, emptyList(), System.currentTimeMillis()) },
                         ))
                     }
-                    config to result
+                    config to connection
                 }
             }.awaitAll()
         }
@@ -199,9 +225,88 @@ class McpServerStore(
         )
     }
 
-    private fun authHeaders(config: McpServerConfig): Map<String, String> = buildMap {
+    private suspend fun authHeaders(config: McpServerConfig): Map<String, String> = buildMap {
         putAll(config.headers)
-        token(config.id)?.let { put("Authorization", "Bearer $it") }
+        if (config.auth == "oauth") {
+            var tokens = oauthTokens(config.id) ?: throw McpOAuthException("oauth_login_required")
+            if (!tokens.isFresh()) {
+                tokens = oauth.refresh(tokens)
+                setOAuthTokens(config.id, tokens)
+            }
+            put("Authorization", "Bearer ${tokens.accessToken}")
+        } else {
+            token(config.id)?.let { put("Authorization", "Bearer $it") }
+        }
+    }
+
+    @Synchronized fun oauthTokens(id: String): McpOAuthTokens? =
+        loadSecrets()["oauth:$id"]?.let { runCatching { tokenJson.decodeFromString<McpOAuthTokens>(it) }.getOrNull() }
+
+    @Synchronized fun setOAuthTokens(id: String, tokens: McpOAuthTokens) {
+        val secrets = loadSecrets().toMutableMap()
+        secrets["oauth:$id"] = tokenJson.encodeToString(tokens)
+        saveSecrets(secrets)
+    }
+
+    @Synchronized fun clearOAuth(id: String) {
+        val secrets = loadSecrets().toMutableMap()
+        if (secrets.remove("oauth:$id") != null) saveSecrets(secrets)
+    }
+
+    /**
+     * OAuth 2.1 登录:发现授权服务器 → 动态注册本机回调 → 打开浏览器 → 等回调换令牌。
+     * [openBrowser] 在登录开始时调用一次(由 UI 打开系统浏览器);整个流程最多等 5 分钟。
+     */
+    suspend fun authorize(config: McpServerConfig, openBrowser: (String) -> Unit): Result<McpOAuthTokens> {
+        validate(config)?.let { return Result.failure(IllegalArgumentException(it)) }
+        val serverUrl = config.url.toHttpUrlOrNull() ?: return Result.failure(IllegalArgumentException("invalid URL"))
+        return try {
+            Result.success(LoopbackCallback.open().use { callback ->
+                val server = oauth.discover(serverUrl)
+                val redirect = callback.redirectUri(LoopbackCallback.HOST)
+                val registration = oauth.register(server, redirect)
+                val attempt = oauth.newAttempt(redirect)
+                openBrowser(oauth.authorizeUrl(server, registration, attempt, server.resource))
+                var tokens: McpOAuthTokens? = null
+                var failure: Exception? = null
+                callback.await(
+                    timeoutMs = 5 * 60_000L,
+                    accept = { it["state"] == attempt.state },
+                ) { params ->
+                    try {
+                        val error = oauth.readCallbackError(params, attempt)
+                        if (error != null) {
+                            failure = error
+                            oauthPage(false)
+                        } else {
+                            tokens = oauth.exchange(server, registration, oauth.readCode(params, attempt), attempt, server.resource)
+                            tokens?.let { setOAuthTokens(config.id, it) }
+                            oauthPage(true)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        failure = e
+                        oauthPage(false)
+                    }
+                } ?: throw McpOAuthException("oauth_timeout")
+                failure?.let { throw it }
+                tokens ?: throw McpOAuthException("oauth_no_token")
+            })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun healthFailure(e: Throwable): McpHealth =
+        McpHealth(false, e.message ?: e.javaClass.simpleName, emptyList(), System.currentTimeMillis())
+
+    private fun oauthPage(ok: Boolean): String = if (ok) {
+        "<html><body><h3>Mika: 登录成功</h3><p>Sign-in complete. You can return to Mika.</p></body></html>"
+    } else {
+        "<html><body><h3>Mika: 登录失败</h3><p>Sign-in failed. Return to Mika and try again.</p></body></html>"
     }
 
     private fun loadServers(): List<McpServerConfig> = runCatching {
@@ -243,5 +348,6 @@ class McpServerStore(
 
     private fun isBlockedHost(host: String): Boolean =
         host == "169.254.169.254" || host == "metadata.google.internal" ||
-            host.startsWith("169.254.")
+            host.startsWith("169.254.") || host == "0.0.0.0" || host == "::" || host == "[::]" ||
+            host.startsWith("fd00:ec2:") || host.startsWith("fe80:")
 }

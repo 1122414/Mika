@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,8 @@ import com.wangzan101.mika.ui.components.RowChevron
 import com.wangzan101.mika.ui.components.MikaButton
 import com.wangzan101.mika.ui.components.ButtonSize
 import com.wangzan101.mika.ui.theme.MikaIcons
+import android.content.Intent
+import android.net.Uri
 import kotlinx.coroutines.launch
 
 /** 设置 › MCP 服务器:连接外部 MCP server(outbound),和「连接电脑」的 inbound 设置分开。 */
@@ -113,11 +116,16 @@ private fun McpServerDialog(
     var token by remember { mutableStateOf("") }
     var allowLocal by remember { mutableStateOf(initial?.allowLocalHttp == true) }
     var trustAnnotations by remember { mutableStateOf(initial?.trust == "trust-annotations") }
+    var oauth by remember { mutableStateOf(initial?.auth == "oauth") }
     var allowlist by remember { mutableStateOf(initial?.allowedTools?.joinToString(", ").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
+    var signingIn by remember { mutableStateOf(false) }
     var savedId by remember { mutableStateOf(initial?.id) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val signInLabel = stringResource(R.string.mcp_servers_sign_in)
+    val signInOk = stringResource(R.string.mcp_servers_sign_in_ok)
 
     fun config() = McpServerConfig(
         id = savedId ?: initial?.id ?: java.util.UUID.randomUUID().toString(),
@@ -125,6 +133,7 @@ private fun McpServerDialog(
         url = url.trim(),
         allowLocalHttp = allowLocal,
         trust = if (trustAnnotations) "trust-annotations" else "restricted",
+        auth = if (oauth) "oauth" else "token",
         allowedTools = allowlist.split(',').map { it.trim() }.filter { it.isNotEmpty() }.takeIf { it.isNotEmpty() },
     )
 
@@ -133,7 +142,10 @@ private fun McpServerDialog(
         val result = if (savedId == null) {
             store.add(cfg, token.ifBlank { null }).onSuccess { savedId = it.id }
         } else {
-            store.update(cfg).also { if (it.isSuccess && token.isNotBlank()) store.setToken(cfg.id, token) }
+            store.update(cfg).also {
+                if (it.isSuccess && token.isNotBlank()) store.setToken(cfg.id, token)
+                if (it.isSuccess && !oauth && initial?.auth == "oauth") store.clearOAuth(cfg.id)
+            }
         }
         result.exceptionOrNull()?.let { error = it.message; return null }
         error = null
@@ -147,21 +159,50 @@ private fun McpServerDialog(
             Column {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.mcp_servers_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.mcp_servers_url)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(
-                    token, { token = it }, label = { Text(stringResource(R.string.mcp_servers_token)) },
-                    singleLine = true, visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
+                if (!oauth) {
+                    OutlinedTextField(
+                        token, { token = it }, label = { Text(stringResource(R.string.mcp_servers_token)) },
+                        singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                }
                 OutlinedTextField(
                     allowlist, { allowlist = it },
                     label = { Text(stringResource(R.string.mcp_servers_allowlist)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                ToggleRow(stringResource(R.string.mcp_servers_use_oauth), oauth) { oauth = it }
+                if (oauth) {
+                    TextButton({
+                        val saved = save() ?: return@TextButton
+                        signingIn = true
+                        scope.launch {
+                            val result = store.authorize(saved) { link ->
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(link))
+                                        .addCategory(Intent.CATEGORY_BROWSABLE)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                            signingIn = false
+                            result.fold(
+                                onSuccess = { error = signInOk },
+                                onFailure = {
+                                    error = context.getString(
+                                        R.string.mcp_servers_sign_in_failed,
+                                        it.message ?: it.javaClass.simpleName,
+                                    )
+                                },
+                            )
+                        }
+                    }) { Text(signInLabel) }
+                }
                 ToggleRow(stringResource(R.string.mcp_servers_allow_local_http), allowLocal) { allowLocal = it }
                 ToggleRow(stringResource(R.string.mcp_servers_trust_annotations), trustAnnotations) { trustAnnotations = it }
                 error?.let { Text(it, Modifier.padding(top = 6.dp)) }
                 if (testing) Text(stringResource(R.string.mcp_servers_testing), Modifier.padding(top = 6.dp))
+                if (signingIn) Text(stringResource(R.string.mcp_servers_signing_in), Modifier.padding(top = 6.dp))
                 if (initial != null) TextButton({ store.remove(initial.id); onChanged() }) { Text(stringResource(R.string.mcp_servers_delete)) }
             }
         },
