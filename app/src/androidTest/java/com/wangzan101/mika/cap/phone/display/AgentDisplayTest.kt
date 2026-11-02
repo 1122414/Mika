@@ -5,6 +5,8 @@ import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.util.Log
+import java.io.File
 import android.os.ParcelFileDescriptor
 import android.os.Build
 import android.view.Display
@@ -141,6 +143,7 @@ class AgentDisplayTest {
         val d = newDisplay()
         val main = context.getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY)
         val mainRotation = main.rotation
+        val mainState = DeviceSupport.mainScreenState(shell)
         val screen = AndroidScreen(DeviceSupport.service(), shell, DeviceSupport.ready(d))
         val testPackage = InstrumentationRegistry.getInstrumentation().context.packageName
         for (orientation in listOf(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
@@ -152,9 +155,27 @@ class AgentDisplayTest {
                 orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
             val width = if (landscape) 1600 else 720
             val height = if (landscape) 720 else 1600
-            assertNotNull("preview did not follow orientation $orientation", pollUntil(5_000) {
+            val preview = pollUntil(5_000) {
                 d.frames.value?.takeIf { it.width == 360 && it.height == height * 360 / width && uprightCorners(it) }
-            })
+            }
+            val dir = File(context.getExternalFilesDir(null), "preview-tests").apply { mkdirs() }
+            d.latestFramePng()?.let { File(dir, "activity-$orientation.png").writeBytes(it) }
+            d.frames.value?.let { frame ->
+                File(dir, "activity-$orientation-preview.png").outputStream().use { frame.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+            if (preview == null) {
+                val windows = shellCommand("dumpsys window displays").substringAfter("Display: mDisplayId=${d.displayId}", "")
+                    .substringBefore("Display: mDisplayId=")
+                File(dir, "activity-$orientation-window.txt").writeText(windows)
+            }
+            Log.i("MikaRotationTest", "requested=$orientation logical=${d.width}x${d.height} " +
+                "rotation=${context.getSystemService(DisplayManager::class.java).getDisplay(d.displayId)?.rotation} " +
+                "preview=${d.frames.value?.let { "${it.width}x${it.height} " +
+                    listOf(it.getPixel(it.width / 4, it.height / 4), it.getPixel(it.width * 3 / 4, it.height / 4),
+                        it.getPixel(it.width / 4, it.height * 3 / 4), it.getPixel(it.width * 3 / 4, it.height * 3 / 4))
+                        .joinToString { color -> Integer.toHexString(color) } }}")
+            assertNotNull("preview did not follow orientation $orientation: logical=${d.width}x${d.height}, " +
+                "preview=${d.frames.value?.let { "${it.width}x${it.height}" }}", preview)
             assertEquals(width, d.width)
             assertEquals(height, d.height)
             val snapshot = screen.snapshot()
@@ -170,18 +191,25 @@ class AgentDisplayTest {
             assertTrue(shell.injectTap(d.displayId, width * 3 / 4, height * 3 / 4))
             assertNotNull("logical tap missed the bottom-right quadrant", pollUntil(3_000) {
                 val image = d.latestFrameBitmap() ?: return@pollUntil null
-                try { true.takeIf { image.getPixel(width * 3 / 4, height * 3 / 4) == Color.CYAN } }
+                try { true.takeIf { nearColor(image.getPixel(width * 3 / 4, height * 3 / 4), Color.CYAN) } }
                 finally { image.recycle() }
             })
             assertEquals("main display rotated", mainRotation, main.rotation)
+            assertEquals("main screen focus changed", mainState, DeviceSupport.mainScreenState(shell))
         }
     }
 
     private fun uprightCorners(frame: Bitmap): Boolean =
-        frame.getPixel(frame.width / 4, frame.height / 4) == Color.RED &&
-            frame.getPixel(frame.width * 3 / 4, frame.height / 4) == Color.GREEN &&
-            frame.getPixel(frame.width / 4, frame.height * 3 / 4) == Color.BLUE &&
-            frame.getPixel(frame.width * 3 / 4, frame.height * 3 / 4) == Color.YELLOW
+        nearColor(frame.getPixel(frame.width / 4, frame.height / 4), Color.RED) &&
+            nearColor(frame.getPixel(frame.width * 3 / 4, frame.height / 4), Color.GREEN) &&
+            nearColor(frame.getPixel(frame.width / 4, frame.height * 3 / 4), Color.BLUE) &&
+            nearColor(frame.getPixel(frame.width * 3 / 4, frame.height * 3 / 4), Color.YELLOW)
+
+    // Surface 合成和 GPU 转屏可能把通道的 255 变为 254;容许量化误差,仍严格区分四个象限。
+    private fun nearColor(actual: Int, expected: Int): Boolean =
+        kotlin.math.abs(Color.red(actual) - Color.red(expected)) <= 4 &&
+            kotlin.math.abs(Color.green(actual) - Color.green(expected)) <= 4 &&
+            kotlin.math.abs(Color.blue(actual) - Color.blue(expected)) <= 4
 
     @Test
     fun movesTaskBetweenVirtualDisplays() {
@@ -268,8 +296,7 @@ class AgentDisplayTest {
         ?.get(0)?.toIntOrNull()
 
     private fun shellCommand(cmd: String): String {
-        val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
-        return ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
+        return DeviceSupport.sh(cmd)
     }
 
     /** 等画面静止(相隔 500ms 的两帧一样),返回该帧。 */

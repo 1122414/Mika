@@ -61,6 +61,7 @@ class ShellService(
 ) : IMikaShell.Stub() {
     private val context: Context = ShellContext.create()
     private val displays = HashMap<Int, VirtualDisplay>()
+    private var orientationWatch: DisplayOrientationWatch? = null
     /** 被静音的包 → 静音前的 PLAY_AUDIO 模式("default" 表示原先未设置),落在 [stateDir] 里,进程被杀后下次启动接着恢复。 */
     private val muted = AudioMuteLedger(File(stateDir, "mika_audio_mute_$allowedUid"))
     /** Mika 所在的用户:本来那份 App 装在这里;别的用户里的是另一份(分身、工作资料)。 */
@@ -111,6 +112,13 @@ class ShellService(
         val vd = displayManager.createVirtualDisplay("mika-agent", width, height, dpi, surface, flags)
         val id = vd.display.displayId
         synchronized(displays) { displays[id] = vd }
+        // STEAL_TOP_FOCUS_DISABLED 保住主屏焦点,但部分系统因此不再采纳后台 Activity 的转屏请求。
+        // 监听系统的 letterbox 尺寸,只纠正自己这块屏的方向,保留原来的焦点隔离。
+        if (Build.VERSION.SDK_INT >= 34) synchronized(displays) {
+            if (orientationWatch == null) runCatching {
+                DisplayOrientationWatch(taskManager, ::syncDisplayOrientations)
+            }.onSuccess { orientationWatch = it }.onFailure { Log.w(TAG, "display orientation watcher unavailable", it) }
+        }
         setImePolicy(id)
         if (DisplayAwake.needed(flags, FLAG_OWN_DISPLAY_GROUP, displayGroup(id))) awake.start(id)
         return id
@@ -159,7 +167,36 @@ class ShellService(
 
     override fun releaseDisplay(displayId: Int) {
         awake.stop(displayId)
-        synchronized(displays) { displays.remove(displayId) }?.release()
+        synchronized(displays) {
+            displays.remove(displayId).also {
+                if (displays.isEmpty()) { orientationWatch?.close(); orientationWatch = null }
+            }
+        }?.release()
+    }
+
+    @SuppressLint("PrivateApi")
+    private fun syncDisplayOrientations() {
+        val top = allTasks().groupBy { TASK_INFO.getField("displayId").getInt(it) }
+        synchronized(displays) {
+            for ((id, vd) in displays) {
+                val task = top[id]?.firstOrNull() ?: continue
+                val compat = runCatching { TASK_INFO.getField("appCompatTaskInfo").get(task) }.getOrNull() ?: task
+                val cls = compat.javaClass
+                // Android 14 只有应用窗口的宽高,15 起另有明确的 letterbox 标志。
+                if (runCatching { cls.getField("topActivityBoundsLetterboxed").getBoolean(compat) }.getOrDefault(true).not()) continue
+                val width = runCatching { cls.getField("topActivityLetterboxWidth").getInt(compat) }.getOrDefault(0)
+                val height = runCatching { cls.getField("topActivityLetterboxHeight").getInt(compat) }.getOrDefault(0)
+                val display = vd.display
+                val mode = display.mode
+                val rotation = DisplayOrientation.rotation(mode.physicalWidth, mode.physicalHeight, display.rotation, width, height) ?: continue
+                val ok = runCatching {
+                    val wm = Class.forName("android.view.WindowManagerGlobal").getMethod("getWindowManagerService").invoke(null)!!
+                    val method = wm.javaClass.methods.first { it.name == "freezeDisplayRotation" }
+                    if (method.parameterTypes.size == 3) method.invoke(wm, id, rotation, "mika") else method.invoke(wm, id, rotation)
+                }.isSuccess
+                if (!ok) exec("wm", "user-rotation", "-d", "$id", "lock", "$rotation")
+            }
+        }
     }
 
     /**
@@ -1302,6 +1339,8 @@ class ShellService(
             AppAudioKey.parse(key)?.let { (pkg, user) -> audioMuted(pkg, user, false) } ?: synchronized(muted) { muted.remove(key) }
         }
         awake.stopAll()
+        orientationWatch?.close()
+        orientationWatch = null
         synchronized(displays) { displays.values.toList().also { displays.clear() } }.forEach { it.release() }
     }
 
