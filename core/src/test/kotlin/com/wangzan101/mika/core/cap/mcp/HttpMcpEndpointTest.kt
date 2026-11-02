@@ -117,6 +117,25 @@ class HttpMcpEndpointTest {
         assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("HTTP 500"))
     }
 
+    @Test fun readsResourcesAndPromptsWhenAdvertised() = runBlocking {
+        server.enqueue(json(
+            """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26","serverInfo":{"name":"caps"},""" +
+                """"capabilities":{"tools":{},"resources":{},"prompts":{}}}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(202))
+        server.enqueue(tools(2, "search"))
+        server.enqueue(json("""{"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"file://a","name":"A","mimeType":"text/plain"}]}}"""))
+        server.enqueue(json("""{"jsonrpc":"2.0","id":2,"result":{"prompts":[{"name":"summarize","description":"Sum"}]}}"""))
+        server.enqueue(json("""{"jsonrpc":"2.0","id":2,"result":{"contents":[{"uri":"file://a","text":"hello"}]}}"""))
+        server.enqueue(json("""{"jsonrpc":"2.0","id":3,"result":{"description":"Sum","messages":[{"role":"user","content":{"type":"text","text":"do it"}}]}}"""))
+
+        val endpoint = HttpMcpEndpoint.connect("caps", server.url("/mcp").toString(), OkHttpClient(), timeoutSec = 5).getOrThrow()
+        assertEquals(listOf("file://a"), endpoint.resources().map { it.uri })
+        assertEquals(listOf("summarize"), endpoint.prompts().map { it.name })
+        assertEquals("hello", endpoint.readResource("file://a").text)
+        assertEquals("Sum\nuser: do it", endpoint.getPrompt("summarize", buildJsonObject {}).text)
+    }
+
     @Test fun doesNotFollowRedirects() = runBlocking {
         server.enqueue(
             MockResponse().setResponseCode(307)

@@ -48,6 +48,8 @@ class LegacySseMcpEndpoint private constructor(
     private val sseCall: Call,
     private val scope: CoroutineScope,
     private val tools: List<McpToolDescriptor>,
+    private val resources: List<McpResourceDescriptor>,
+    private val prompts: List<McpPromptDescriptor>,
     private val post: suspend (String) -> Response,
     val serverName: String?,
     val instructions: String?,
@@ -55,6 +57,27 @@ class LegacySseMcpEndpoint private constructor(
     private val ids = AtomicLong(0)
 
     override fun tools(): List<McpToolDescriptor> = tools
+    override fun resources(): List<McpResourceDescriptor> = resources
+    override fun prompts(): List<McpPromptDescriptor> = prompts
+
+    override suspend fun readResource(uri: String): McpResult = try {
+        LegacyResultReader.resultToResource(rpc("resources/read", buildJsonObject { put("uri", uri) }))
+    } catch (e: McpClientException) {
+        McpResult(e.message.orEmpty(), isError = true)
+    } catch (e: IOException) {
+        McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
+    }
+
+    override suspend fun getPrompt(name: String, arguments: JsonObject): McpResult = try {
+        LegacyResultReader.resultToPrompt(rpc("prompts/get", buildJsonObject {
+            put("name", name)
+            put("arguments", arguments)
+        }))
+    } catch (e: McpClientException) {
+        McpResult(e.message.orEmpty(), isError = true)
+    } catch (e: IOException) {
+        McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
+    }
 
     override suspend fun call(name: String, arguments: JsonObject): McpResult {
         if (tools.none { it.name == name }) return McpResult("unknown MCP tool: $name", isError = true)
@@ -218,6 +241,49 @@ class LegacySseMcpEndpoint private constructor(
                     pages++
                 } while (cursor != null && pages < MAX_TOOL_PAGES)
 
+                // resources/prompts 是可选能力:服务端自称支持却报错时,工具照常可用,不让整个连接失败
+                val caps = init["capabilities"] as? JsonObject
+                val resources = if (caps?.get("resources") is JsonObject) {
+                    try {
+                        val list = mutableListOf<McpResourceDescriptor>()
+                        var cursor: String? = null
+                        var pages = 0
+                        do {
+                            val result = request("resources/list", buildJsonObject { cursor?.let { put("cursor", it) } })
+                            (result["resources"] as? JsonArray)?.forEach { element ->
+                                (element as? JsonObject)?.let { list += mcpResourceDescriptor(it) }
+                            }
+                            cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+                            pages++
+                        } while (cursor != null && pages < MAX_TOOL_PAGES)
+                        list
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                } else emptyList()
+                val prompts = if (caps?.get("prompts") is JsonObject) {
+                    try {
+                        val list = mutableListOf<McpPromptDescriptor>()
+                        var cursor: String? = null
+                        var pages = 0
+                        do {
+                            val result = request("prompts/list", buildJsonObject { cursor?.let { put("cursor", it) } })
+                            (result["prompts"] as? JsonArray)?.forEach { element ->
+                                (element as? JsonObject)?.let { list += mcpPromptDescriptor(it) }
+                            }
+                            cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+                            pages++
+                        } while (cursor != null && pages < MAX_TOOL_PAGES)
+                        list
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                } else emptyList()
+
                 LegacySseMcpEndpoint(
                     serverId = serverId,
                     pending = pending,
@@ -225,6 +291,8 @@ class LegacySseMcpEndpoint private constructor(
                     sseCall = sseCall,
                     scope = scope,
                     tools = tools,
+                    resources = resources,
+                    prompts = prompts,
                     post = ::postRaw,
                     serverName = serverName,
                     instructions = instructions,
@@ -301,6 +369,9 @@ class LegacySseMcpEndpoint private constructor(
 
 /** 工具结果解析和 HTTP 传输保持一致;单独放一处,避免两边分叉。 */
 private object LegacyResultReader {
+    fun resultToResource(result: JsonObject): McpResult = mcpResourceResult(result)
+    fun resultToPrompt(result: JsonObject): McpResult = mcpPromptResult(result)
+
     fun resultToMcpResult(result: JsonObject): McpResult {
         val isError = (result["isError"] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull() == true
         val content = result["content"] as? JsonArray

@@ -29,8 +29,15 @@ class McpClientTest {
         var offered = listOf(McpToolDescriptor("search", "Search", buildJsonObject { put("type", "object") }, McpAnnotations(readOnlyHint = true)))
         var result = McpResult("found")
         var calls = 0
+        var offeredResources: List<McpResourceDescriptor> = emptyList()
+        var offeredPrompts: List<McpPromptDescriptor> = emptyList()
         override fun tools() = offered
+        override fun resources() = offeredResources
+        override fun prompts() = offeredPrompts
         override suspend fun call(name: String, arguments: JsonObject): McpResult { calls++; return result }
+        override suspend fun readResource(uri: String) = McpResult("resource:$uri")
+        override suspend fun getPrompt(name: String, arguments: JsonObject) =
+            McpResult("prompt:$name\n$arguments")
     }
 
     @Test fun annotationRiskDefaultsToWriteAndEscalatesOpenWorldAndDestructive() {
@@ -67,6 +74,34 @@ class McpClientTest {
         assertEquals(listOf("mcp_demo__search", "mcp_demo__write"), mcpNames(McpConnection(endpoint)))
         assertEquals(listOf("mcp_demo__write"), mcpNames(McpConnection(endpoint, allowedTools = setOf("write"))))
         assertEquals(emptyList<String>(), mcpNames(McpConnection(endpoint, allowedTools = emptySet())))
+    }
+
+    @Test fun resourcesAndPromptsBecomeReadOnlyTools() = runBlocking {
+        val endpoint = FakeEndpoint().apply {
+            offeredResources = listOf(McpResourceDescriptor("file://a", "A", "first"))
+            offeredPrompts = listOf(
+                McpPromptDescriptor("summarize", "Summarize", listOf(McpPromptArgument("topic", "Topic", true))),
+            )
+        }
+        val tools = toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(endpoint)))
+        val names = tools.definitions().map { it.name }
+        assertTrue("mcp_demo__resource_read" in names)
+        assertTrue("mcp_demo__prompt_get" in names)
+        assertEquals(ActionRisk.Read, tools.approvalRisk("mcp_demo__resource_read")?.level)
+        assertEquals(ActionRisk.Read, tools.approvalRisk("mcp_demo__prompt_get")?.level)
+
+        val resource = tools.execute(
+            Part.ToolCall("c", "mcp_demo__resource_read", """{"uri":"file://a"}"""),
+            ActionPass(),
+        )
+        assertEquals("resource:file://a", resource.observations.single().text)
+        assertEquals(Trust.Untrusted, resource.observations.single().trust)
+
+        val prompt = tools.execute(
+            Part.ToolCall("c", "mcp_demo__prompt_get", """{"name":"summarize","arguments":{"topic":"x"}}"""),
+            ActionPass(),
+        )
+        assertTrue(prompt.observations.single().text.contains("prompt:summarize"))
     }
 
     @Test fun largeResultUsesReferenceAndUntrustedObservation() = runBlocking {

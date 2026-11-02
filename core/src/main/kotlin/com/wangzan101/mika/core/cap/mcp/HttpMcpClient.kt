@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.cap.mcp
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -49,6 +50,8 @@ class HttpMcpEndpoint private constructor(
     private val protocolVersion: String,
     private val sessionId: String?,
     private val tools: List<McpToolDescriptor>,
+    private val resources: List<McpResourceDescriptor>,
+    private val prompts: List<McpPromptDescriptor>,
     private val timeoutSec: Int,
     val serverName: String?,
     val instructions: String?,
@@ -59,6 +62,27 @@ class HttpMcpEndpoint private constructor(
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
     override fun tools(): List<McpToolDescriptor> = tools
+    override fun resources(): List<McpResourceDescriptor> = resources
+    override fun prompts(): List<McpPromptDescriptor> = prompts
+
+    override suspend fun readResource(uri: String): McpResult = try {
+        mcpResourceResult(rpc("resources/read", buildJsonObject { put("uri", uri) }))
+    } catch (e: McpClientException) {
+        McpResult(e.message.orEmpty(), isError = true)
+    } catch (e: IOException) {
+        McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
+    }
+
+    override suspend fun getPrompt(name: String, arguments: JsonObject): McpResult = try {
+        mcpPromptResult(rpc("prompts/get", buildJsonObject {
+            put("name", name)
+            put("arguments", arguments)
+        }))
+    } catch (e: McpClientException) {
+        McpResult(e.message.orEmpty(), isError = true)
+    } catch (e: IOException) {
+        McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
+    }
 
     override suspend fun call(name: String, arguments: JsonObject): McpResult {
         if (tools.none { it.name == name }) return McpResult("unknown MCP tool: $name", isError = true)
@@ -265,6 +289,27 @@ class HttpMcpEndpoint private constructor(
                 requestId++
             } while (cursor != null && pages < MAX_TOOL_PAGES)
 
+            // resources/prompts 是可选能力:服务端自称支持却报错时,工具照常可用,不让整个连接失败
+            val caps = initResult["capabilities"] as? JsonObject
+            val resources = if (caps?.get("resources") is JsonObject) {
+                try {
+                    listResources(parsed, headers, timeoutSec, http, session, negotiated)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            } else emptyList()
+            val prompts = if (caps?.get("prompts") is JsonObject) {
+                try {
+                    listPrompts(parsed, headers, timeoutSec, http, session, negotiated)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            } else emptyList()
+
             HttpMcpEndpoint(
                 serverId = serverId,
                 url = parsed,
@@ -273,6 +318,8 @@ class HttpMcpEndpoint private constructor(
                 protocolVersion = negotiated,
                 sessionId = session,
                 tools = tools,
+                resources = resources,
+                prompts = prompts,
                 timeoutSec = timeoutSec,
                 serverName = serverName,
                 instructions = instructions,
@@ -281,6 +328,82 @@ class HttpMcpEndpoint private constructor(
 
         private fun JsonObject.matchesId(id: Long): Boolean =
             (this["id"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull() == id
+
+        private suspend fun listResources(
+            url: HttpUrl,
+            headers: Map<String, String>,
+            timeoutSec: Int,
+            http: OkHttpClient,
+            session: String?,
+            protocolVersion: String,
+        ): List<McpResourceDescriptor> {
+            val resources = mutableListOf<McpResourceDescriptor>()
+            var cursor: String? = null
+            var pages = 0
+            var requestId = 2L
+            do {
+                val body = buildJsonObject {
+                    put("jsonrpc", "2.0")
+                    put("id", requestId)
+                    put("method", "resources/list")
+                    putJsonObject("params") { cursor?.let { put("cursor", it) } }
+                }
+                val response = postRaw(url, body.toString(), headers, timeoutSec, http, session, protocolVersion)
+                if (response.code !in 200..299) throw McpClientException("MCP resources/list returned HTTP ${response.code}")
+                val message = parseMessages(response.body).firstOrNull { it.matchesId(requestId) }
+                    ?: throw McpClientException("MCP resources/list returned no response")
+                message["error"]?.let {
+                    throw McpClientException("MCP resources/list rejected: ${mcpErrorMessage(it)}")
+                }
+                val result = message["result"] as? JsonObject
+                    ?: throw McpClientException("MCP resources/list returned no result")
+                (result["resources"] as? JsonArray)?.forEach { element ->
+                    (element as? JsonObject)?.let { resources += mcpResourceDescriptor(it) }
+                }
+                cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+                pages++
+                requestId++
+            } while (cursor != null && pages < MAX_TOOL_PAGES)
+            return resources
+        }
+
+        private suspend fun listPrompts(
+            url: HttpUrl,
+            headers: Map<String, String>,
+            timeoutSec: Int,
+            http: OkHttpClient,
+            session: String?,
+            protocolVersion: String,
+        ): List<McpPromptDescriptor> {
+            val prompts = mutableListOf<McpPromptDescriptor>()
+            var cursor: String? = null
+            var pages = 0
+            var requestId = 2L
+            do {
+                val body = buildJsonObject {
+                    put("jsonrpc", "2.0")
+                    put("id", requestId)
+                    put("method", "prompts/list")
+                    putJsonObject("params") { cursor?.let { put("cursor", it) } }
+                }
+                val response = postRaw(url, body.toString(), headers, timeoutSec, http, session, protocolVersion)
+                if (response.code !in 200..299) throw McpClientException("MCP prompts/list returned HTTP ${response.code}")
+                val message = parseMessages(response.body).firstOrNull { it.matchesId(requestId) }
+                    ?: throw McpClientException("MCP prompts/list returned no response")
+                message["error"]?.let {
+                    throw McpClientException("MCP prompts/list rejected: ${mcpErrorMessage(it)}")
+                }
+                val result = message["result"] as? JsonObject
+                    ?: throw McpClientException("MCP prompts/list returned no result")
+                (result["prompts"] as? JsonArray)?.forEach { element ->
+                    (element as? JsonObject)?.let { prompts += mcpPromptDescriptor(it) }
+                }
+                cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+                pages++
+                requestId++
+            } while (cursor != null && pages < MAX_TOOL_PAGES)
+            return prompts
+        }
 
         private fun parseMessages(body: String): List<JsonObject> {
             if (body.trimStart().startsWith("{")) {
