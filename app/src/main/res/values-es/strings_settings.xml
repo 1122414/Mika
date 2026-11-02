@@ -127,4 +127,37 @@
     <string name="settings_step_limit_custom">Personalizado (1–500)</string>
     <string name="settings_step_limit_custom_apply">Usar</string>
     <string name="settings_step_limit_invalid">Introduce un número entero de 1 a 500.</string>
+    <string name="mcp_servers_title">Servidores MCP</string>
+    <string name="mcp_servers_empty">Aún no hay servidores MCP</string>
+    <string name="mcp_servers_empty_sub">Añade un servidor MCP externo para que Mika use sus herramientas.</string>
+    <string name="mcp_servers_add">Añadir servidor</string>
+    <string name="mcp_servers_edit">Editar servidor</string>
+    <string name="mcp_servers_name">Nombre</string>
+    <string name="mcp_servers_url">URL del servidor</string>
+    <string name="mcp_servers_token">Token de acceso (opcional)</string>
+    <string name="mcp_servers_allow_local_http">Permitir HTTP para servidores locales/privados</string>
+    <string name="mcp_servers_trust_annotations">Confiar en las anotaciones de solo lectura del servidor</string>
+    <string name="mcp_servers_save">Guardar</string>
+    <string name="mcp_servers_save_test">Guardar y probar</string>
+    <string name="mcp_servers_testing">Probando…</string>
+    <string name="mcp_servers_count">%1$d servidores</string>
+    <string name="mcp_servers_help">Acerca de</string>
+    <string name="mcp_servers_help_text">Los servidores MCP externos son independientes de «Conectar un ordenador». Sus herramientas aparecen como MCP en las tareas. Solo HTTPS por defecto; HTTP local requiere la casilla. Los tokens se quedan en este teléfono.</string>
+    <string name="mcp_servers_delete">Eliminar</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">Proceso local</string>
+    <string name="mcp_servers_command">Comando (ejecutable y argumentos)</string>
+    <string name="mcp_servers_stdio_help">Se ejecuta dentro del sandbox de Linux. Instala primero el servidor allí.</string>
+    <string name="mcp_servers_legacy_sse">Usar transporte HTTP+SSE antiguo (2024-11-05)</string>
+    <string name="mcp_servers_use_oauth">Usar inicio de sesión OAuth 2.1</string>
+    <string name="mcp_servers_sign_in">Iniciar sesión</string>
+    <string name="mcp_servers_signing_in">Esperando el inicio de sesión en el navegador…</string>
+    <string name="mcp_servers_sign_in_ok">Sesión iniciada. Usa Guardar y probar para comprobar las herramientas.</string>
+    <string name="mcp_servers_sign_in_failed">Error al iniciar sesión: %1$s</string>
+    <string name="mcp_servers_run_failed">Servidores MCP no disponibles: %1$s</string>
+    <string name="mcp_servers_status_ok">Disponible · %1$d herramientas</string>
+    <string name="mcp_servers_status_fail">Error de conexión: %1$s</string>
+    <string name="mcp_servers_refresh_all">Probar todo</string>
+    <string name="mcp_servers_allowlist">Herramientas permitidas (separadas por comas, vacío = todas)</string>
 </resources>
