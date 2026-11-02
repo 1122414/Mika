@@ -3,6 +3,9 @@ package com.wangzan101.mika.ui
 import com.wangzan101.mika.i18n.ChineseTexts
 import com.wangzan101.mika.task.TaskGate
 
+import com.wangzan101.mika.chat.BranchCopyResult
+import com.wangzan101.mika.chat.BranchOrigin
+import com.wangzan101.mika.chat.BranchWorkspace
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.chat.CurrentChat
 import com.wangzan101.mika.confirm.ConfirmationNotifier
@@ -35,6 +38,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -1971,5 +1975,109 @@ class ChatViewModelTest {
         emit(TaskState.Succeeded("晴"))
         // 结束后还是它:胶囊不会跳回上一个对话
         assertEquals(CurrentChat.Open(id), store.currentChat())
+    }
+
+    /** 只记下复制了哪两个工作区,返回事先给的结果。 */
+    private class FakeBranchWorkspace(var result: BranchCopyResult? = BranchCopyResult(copied = 1)) : BranchWorkspace {
+        val calls = mutableListOf<Pair<String, String>>()
+        override suspend fun copyInbox(sourceId: String, targetId: String, maxBytes: Long): BranchCopyResult? {
+            calls += sourceId to targetId
+            return result
+        }
+    }
+
+    /** 从回答分支:复制到这一轮(含),标题加后缀,切到新对话;原对话不变,工作区的 inbox 也复制过去。 */
+    @Test fun branchFromCopiesThroughTheTurnAndOpensTheBranch() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        store.append(source, Turn("二", "乙", "succeeded"))
+        store.append(source, Turn("三", "丙", "succeeded"))
+        store.setTitle(source, "原对话")
+        val workspace = FakeBranchWorkspace()
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, store,
+            branchWorkspace = workspace, branchTitle = { it + " · 分支" }, clock = { 123L },
+        ).also { runCurrent() }
+        vm.openConversation(source)
+
+        val target = vm.branchFrom(1)
+
+        assertNotNull(target)
+        assertTrue(target != source)
+        assertEquals(target, vm.ui.value.conversationId)
+        assertEquals(listOf("一", "二"), vm.ui.value.exchanges.map { it.goal })
+        assertEquals(listOf("一", "二", "三"), store.turns(source).map { it.userText })
+        assertEquals("原对话 · 分支", store.title(target!!))
+        assertEquals(BranchOrigin(source, 1, afterTurn = true, at = 123L), store.branchOrigin(target))
+        assertEquals(listOf(source to target), workspace.calls)
+    }
+
+    /** 源对话没有标题时用第一句话当底,再加后缀。 */
+    @Test fun branchTitleFallsBackToTheFirstWords() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("帮我整理发票", "好了", "succeeded"))
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, store, branchTitle = { it + " · 分支" },
+        ).also { runCurrent() }
+        vm.openConversation(source)
+        val target = vm.branchFrom(0)
+        assertNotNull(target)
+        assertEquals("帮我整理发票 · 分支", store.title(target!!))
+    }
+
+    /** 任务在跑、输入框正忙、轮次越界、这一轮还没结束、没有对话:都不分支。 */
+    @Test fun branchFromRefusesRunningBusyAndBadTurns() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val activeNow = MutableStateFlow<List<String>>(emptyList())
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, activeConversations = activeNow).also { runCurrent() }
+        vm.openConversation(source)
+
+        activeNow.value = listOf(source)
+        runCurrent()
+        assertTrue(vm.currentRunning())
+        assertNull(vm.branchFrom(0))
+
+        activeNow.value = emptyList()
+        runCurrent()
+        assertFalse(vm.currentRunning())
+        assertNull(vm.branchFrom(1))
+        assertNull(vm.branchFrom(-1))
+
+        // 发出新一句后输入框正忙,不能再分支
+        assertTrue(vm.send("新一句", ok))
+        assertNull(vm.branchFrom(0))
+    }
+
+    /** 工作区超过上限、没复制成:轮次照常分支,界面能拿到「附件没有全部复制」的提示。 */
+    @Test fun branchFromReportsAttachmentsThatDidNotCopy() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val workspace = FakeBranchWorkspace(BranchCopyResult(copied = 0, truncated = true))
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, branchWorkspace = workspace).also { runCurrent() }
+        vm.openConversation(source)
+
+        assertNotNull(vm.branchFrom(0))
+        assertEquals(BranchCopyResult(copied = 0, truncated = true), vm.branchCopy.value)
+        vm.clearBranchCopy()
+        assertNull(vm.branchCopy.value)
+    }
+
+    /** 源对话文件坏了:返回 null,不切走。 */
+    @Test fun branchFromFailsWithoutSwitchingWhenTheSourceIsUnreadable() = runTest {
+        val dir = tmp.newFolder()
+        val store = ConversationStore(dir)
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val vm = vm(store)
+        vm.openConversation(source)
+        java.io.File(dir, "$source.json").writeText("{not json")
+
+        assertNull(vm.branchFrom(0))
+        assertEquals(source, vm.ui.value.conversationId)
     }
 }

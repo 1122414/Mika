@@ -133,6 +133,12 @@
     <string name="chat_quote">引用</string>
     <string name="chat_select_text">テキストを選択</string>
     <string name="chat_copied">コピーしました</string>
+    <string name="chat_branch">ここから分岐</string>
+    <string name="chat_branch_done">分岐を作成しました</string>
+    <string name="chat_branch_failed">分岐を作成できませんでした</string>
+    <string name="chat_branch_title_suffix">" · 分岐"</string>
+    <string name="chat_branch_origin">別の会話から分岐</string>
+    <string name="chat_branch_attachments_skipped">添付ファイルをすべてコピーできませんでした</string>
     <string name="chat_select_hint">テキストを長押しして選択します</string>
     <string name="chat_quote_remove">引用を削除</string>
     <string name="chat_quoting_mika">Mika を引用: %1$s</string>

@@ -133,6 +133,12 @@
     <string name="chat_quote">引用</string>
     <string name="chat_select_text">选择文字</string>
     <string name="chat_copied">已复制</string>
+    <string name="chat_branch">从这里分支</string>
+    <string name="chat_branch_done">已创建分支</string>
+    <string name="chat_branch_failed">没能创建分支</string>
+    <string name="chat_branch_title_suffix">" · 分支"</string>
+    <string name="chat_branch_origin">从另一个对话分支</string>
+    <string name="chat_branch_attachments_skipped">附件没有全部复制</string>
     <string name="chat_select_hint">长按文字就能选择</string>
     <string name="chat_quote_remove">去掉引用</string>
     <string name="chat_quoting_mika">引用 Mika:%1$s</string>

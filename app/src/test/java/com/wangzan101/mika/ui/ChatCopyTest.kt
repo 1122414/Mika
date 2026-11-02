@@ -2,6 +2,7 @@ package com.wangzan101.mika.ui
 
 import org.junit.Rule
 import com.wangzan101.mika.i18n.ChineseTexts
+import com.wangzan101.mika.chat.BranchOrigin
 import com.wangzan101.mika.chat.ConversationSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -84,6 +85,14 @@ class ChatCopyTest {
         val s = drawerSections(all, CurrentConversation("x", false, "", ""), others = listOf("c"), { null }, canSwitch = true, now = 0L, zone = zone)
         assertEquals(listOf("shop.example.com", null), s.recent.map { it.site })
         assertEquals("shop.example.com", s.running.single().site)
+    }
+
+    /** 分支出来的对话在侧栏带分支标记;普通对话不带。 */
+    @Test fun drawerMarksBranchedConversations() {
+        val origin = BranchOrigin("parent", 1, afterTurn = true, at = 5L)
+        val all = listOf(ConversationSummary("a", "一", 0L, branchOf = origin), ConversationSummary("b", "二", 0L))
+        val s = drawerSections(all, CurrentConversation("x", false, "", ""), emptyList(), { null }, canSwitch = true, now = 0L, zone = zone)
+        assertEquals(listOf(true, false), s.recent.map { it.branch })
     }
 
     /** 任务进行中、没开并行:只有当前对话能点。 */

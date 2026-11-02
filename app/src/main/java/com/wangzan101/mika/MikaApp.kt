@@ -1,12 +1,15 @@
 package com.wangzan101.mika
 
 import com.wangzan101.mika.record.DetailedTraces
+import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.ResourceTexts
 import com.wangzan101.mika.i18n.UiText
 import com.wangzan101.mika.i18n.AppLanguage
+import com.wangzan101.mika.i18n.tr
 import android.app.Application
 import android.net.Uri
 import android.util.Log
+import com.wangzan101.mika.chat.AndroidBranchWorkspace
 import com.wangzan101.mika.chat.ConversationDeleter
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.core.cap.sandbox.SandboxStatus
@@ -288,6 +291,12 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             removeConversation = conversationDeleter::delete,
             keptPage = pageKeeper.page,
             closeKept = { pageKeeper.close(com.wangzan101.mika.core.cap.web.KeptPageClose.User) },
+            branchWorkspace = AndroidBranchWorkspace(app),
+            // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
+            branchTitle = { base ->
+                val suffix = tr(R.string.chat_branch_title_suffix)
+                base.take((24 - suffix.length).coerceAtLeast(0)).trimEnd() + suffix
+            },
         )
     }
 

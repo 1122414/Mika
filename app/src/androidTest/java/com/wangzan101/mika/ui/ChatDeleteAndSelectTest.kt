@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -74,6 +75,7 @@ class ChatDeleteAndSelectTest {
         MutableStateFlow(TaskState.Idle), MutableStateFlow(Takeover.Stage.None), actions, store,
         deletionImpact = { impact },
         removeConversation = { removed += it; store.delete(it) },
+        branchTitle = { it + " · 分支" },
     )
 
     private fun show(vm: ChatViewModel, drawerOpen: Boolean) {
@@ -250,5 +252,26 @@ class ChatDeleteAndSelectTest {
         compose.runOnUiThread { vm.quote(QuoteMessage.From.You, "今天天气怎么样") }
         compose.onNodeWithContentDescription("去掉引用").performClick()
         compose.onNodeWithTag("quote-chip").assertDoesNotExist()
+    }
+
+    // 长按一条答完的回答「从这里分支」:复制到这一轮(含),切到新对话,标题带后缀,原对话不变
+    @Test fun branchFromAnAnswerOpensTheCopiedChat() {
+        store.append("s", Turn("今天天气怎么样", "上海今天晴", "succeeded"))
+        store.append("s", Turn("那明天呢", "明天多云", "succeeded"))
+        val vm = vm()
+        compose.runOnUiThread { vm.openConversation("s") }
+        show(vm, drawerOpen = false)
+
+        compose.onNodeWithText("明天多云").performTouchInput { longClick() }
+        compose.onNodeWithTag("message-menu-branch").assert(hasText("从这里分支")).performClick()
+        compose.waitUntil(10_000) { vm.ui.value.conversationId != "s" }
+        val branch = vm.ui.value.conversationId
+        assertNotNull(branch)
+        assertEquals(listOf("今天天气怎么样", "那明天呢"), store.turns(branch!!).map { it.userText })
+        assertEquals("今天天气怎么样 · 分支", store.title(branch))
+        assertEquals(store.branchOrigin(branch)?.parentId, "s")
+        assertEquals(listOf("今天天气怎么样", "那明天呢"), vm.ui.value.exchanges.map { it.goal })
+        // 原对话还是两轮
+        assertEquals(2, store.turns("s").size)
     }
 }
