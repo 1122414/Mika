@@ -387,10 +387,13 @@ fun ChatScreen(
             },
         )
 
-        // 长按消息的菜单盖在最上面:复制纯文字;引用放到输入框上方;选择文字让那条换回系统的长按选中
+        // 长按消息的菜单盖在最上面:复制纯文字;引用放到输入框上方;选择文字让那条换回系统的长按选中;
+        // 已经答完的一轮还能从这里分支
         menu?.let { m ->
             val pending = withdrawableSteer(ui.exchanges, m.key)
             val canEdit = input.isBlank() && ui.quote == null && ui.attachments.isEmpty() && !ui.importing
+            val branchTurn = if (ui.conversationId != null) branchableTurn(ui.exchanges, m.key, active = vm.currentRunning()) else null
+            val retryTurn = if (ui.conversationId != null) retryableTurn(ui.exchanges, m.key, active = vm.currentRunning()) else null
             MessageMenu(
                 m, progress = { lift.value },
                 onCopy = { closeMenu { copyMessage(context, m.text) } },
@@ -402,6 +405,38 @@ fun ChatScreen(
                     }
                 },
                 onDismiss = { closeMenu() },
+                onBranch = branchTurn?.let { turn -> {
+                    closeMenu {
+                        scope.launch {
+                            val id = vm.branchFrom(turn)
+                            val copy = vm.branchCopy.value
+                            val message = when {
+                                id == null -> R.string.chat_branch_failed
+                                copy?.truncated == true -> R.string.chat_branch_attachments_skipped
+                                else -> R.string.chat_branch_done
+                            }
+                            if (id != null) input = ""
+                            Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
+                            vm.clearBranchCopy()
+                        }
+                    }
+                } },
+                onBranchRetry = retryTurn?.let { turn -> {
+                    closeMenu {
+                        scope.launch {
+                            val result = vm.branchBefore(turn)
+                            val message = when {
+                                result == null -> R.string.chat_branch_failed
+                                result.needsReattach -> R.string.chat_branch_attachments_readd
+                                vm.branchCopy.value?.truncated == true -> R.string.chat_branch_attachments_skipped
+                                else -> R.string.chat_branch_done
+                            }
+                            if (result != null) input = result.prefill
+                            Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
+                            vm.clearBranchCopy()
+                        }
+                    }
+                } },
                 onEdit = if (pending != null && canEdit && editableSteer(pending.text)) ({ closeMenu {
                     vm.editSteer(pending.id)?.let { input = it; editRequest++ }
                 } }) else null,
