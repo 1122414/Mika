@@ -126,4 +126,21 @@
     <string name="appearance_dark">Always dark</string>
     <string name="settings_self_config">Let Mika change its own settings</string>
     <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
+    <string name="mcp_servers_title">MCP servers</string>
+    <string name="mcp_servers_empty">No MCP server added</string>
+    <string name="mcp_servers_empty_sub">Add an external MCP server to expose its tools to Mika.</string>
+    <string name="mcp_servers_add">Add server</string>
+    <string name="mcp_servers_edit">Edit server</string>
+    <string name="mcp_servers_name">Name</string>
+    <string name="mcp_servers_url">Server URL</string>
+    <string name="mcp_servers_token">Access token (optional)</string>
+    <string name="mcp_servers_allow_local_http">Allow HTTP for local/private servers</string>
+    <string name="mcp_servers_trust_annotations">Trust the server’s read-only annotations</string>
+    <string name="mcp_servers_save">Save</string>
+    <string name="mcp_servers_save_test">Save &amp; test</string>
+    <string name="mcp_servers_testing">Testing…</string>
+    <string name="mcp_servers_count">%1$d servers</string>
+    <string name="mcp_servers_help">About</string>
+    <string name="mcp_servers_help_text">External MCP servers are separate from Connect a computer. Their tools appear with an MCP source in tasks. HTTPS only by default; local HTTP needs the checkbox. Tokens stay on this phone.</string>
+    <string name="mcp_servers_delete">Delete</string>
 </resources>

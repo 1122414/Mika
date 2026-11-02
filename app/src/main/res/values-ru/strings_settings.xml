@@ -125,4 +125,21 @@
     <string name="appearance_dark">Всегда тёмное</string>
     <string name="settings_self_config">Разрешить Mika менять свои настройки</string>
     <string name="settings_self_config_sub">Когда включено, у задач появляется один инструмент для чтения и изменения этих настроек (темп, звук, капсула, оформление, экран не гаснет). Модели, ключи API, сеть контейнера и всё, что удаляет данные, никогда не включаются</string>
+    <string name="mcp_servers_title">MCP-серверы</string>
+    <string name="mcp_servers_empty">MCP-серверов пока нет</string>
+    <string name="mcp_servers_empty_sub">Добавьте внешний MCP-сервер, чтобы Mika могла использовать его инструменты.</string>
+    <string name="mcp_servers_add">Добавить сервер</string>
+    <string name="mcp_servers_edit">Изменить сервер</string>
+    <string name="mcp_servers_name">Имя</string>
+    <string name="mcp_servers_url">URL сервера</string>
+    <string name="mcp_servers_token">Токен доступа (необязательно)</string>
+    <string name="mcp_servers_allow_local_http">Разрешить HTTP для локальных/частных серверов</string>
+    <string name="mcp_servers_trust_annotations">Доверять аннотациям «только чтение» сервера</string>
+    <string name="mcp_servers_save">Сохранить</string>
+    <string name="mcp_servers_save_test">Сохранить и проверить</string>
+    <string name="mcp_servers_testing">Проверка…</string>
+    <string name="mcp_servers_count">%1$d серверов</string>
+    <string name="mcp_servers_help">О функции</string>
+    <string name="mcp_servers_help_text">Внешние MCP-серверы не связаны с «Подключить компьютер». Их инструменты появляются в задачах с источником MCP. По умолчанию только HTTPS; для локального HTTP нужна галочка. Токены остаются на этом телефоне.</string>
+    <string name="mcp_servers_delete">Удалить</string>
 </resources>

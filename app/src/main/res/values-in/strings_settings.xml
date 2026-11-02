@@ -113,4 +113,21 @@
     <string name="appearance_dark">Selalu gelap</string>
     <string name="settings_self_config">Biarkan Mika mengubah pengaturannya sendiri</string>
     <string name="settings_self_config_sub">Jika aktif, tugas mendapat satu alat untuk membaca dan mengubah preferensi ini (kecepatan, bisu, kapsul, tampilan, layar menyala). Model, kunci API, jaringan kontainer, dan apa pun yang menghapus data tidak pernah disertakan</string>
+    <string name="mcp_servers_title">Server MCP</string>
+    <string name="mcp_servers_empty">Belum ada server MCP</string>
+    <string name="mcp_servers_empty_sub">Tambahkan server MCP eksternal agar Mika dapat memakai alatnya.</string>
+    <string name="mcp_servers_add">Tambah server</string>
+    <string name="mcp_servers_edit">Edit server</string>
+    <string name="mcp_servers_name">Nama</string>
+    <string name="mcp_servers_url">URL server</string>
+    <string name="mcp_servers_token">Token akses (opsional)</string>
+    <string name="mcp_servers_allow_local_http">Izinkan HTTP untuk server lokal/privat</string>
+    <string name="mcp_servers_trust_annotations">Percayai anotasi hanya-baca server</string>
+    <string name="mcp_servers_save">Simpan</string>
+    <string name="mcp_servers_save_test">Simpan dan uji</string>
+    <string name="mcp_servers_testing">Menguji…</string>
+    <string name="mcp_servers_count">%1$d server</string>
+    <string name="mcp_servers_help">Tentang</string>
+    <string name="mcp_servers_help_text">Server MCP eksternal terpisah dari «Sambungkan komputer». Alatnya muncul dengan sumber MCP di tugas. Bawaan hanya HTTPS; HTTP lokal perlu dicentang. Token tetap di ponsel ini.</string>
+    <string name="mcp_servers_delete">Hapus</string>
 </resources>

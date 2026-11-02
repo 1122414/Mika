@@ -113,4 +113,21 @@
     <string name="appearance_dark">常にダーク</string>
     <string name="settings_self_config">Mika に自分の設定を変更させる</string>
     <string name="settings_self_config_sub">オンにすると、タスクがこれらの設定(ペース、ミュート、カプセル、外観、画面オン)を読み取り・変更するツールを 1 つ使えるようになります。モデル、API キー、コンテナのネットワーク、データを削除するものは含まれません</string>
+    <string name="mcp_servers_title">MCP サーバー</string>
+    <string name="mcp_servers_empty">MCP サーバーはまだありません</string>
+    <string name="mcp_servers_empty_sub">外部 MCP サーバーを追加すると、そのツールを Mika から使えます。</string>
+    <string name="mcp_servers_add">サーバーを追加</string>
+    <string name="mcp_servers_edit">サーバーを編集</string>
+    <string name="mcp_servers_name">名前</string>
+    <string name="mcp_servers_url">サーバー URL</string>
+    <string name="mcp_servers_token">アクセストークン（任意）</string>
+    <string name="mcp_servers_allow_local_http">ローカル/プライベートの HTTP を許可</string>
+    <string name="mcp_servers_trust_annotations">サーバーの読み取り専用注釈を信頼する</string>
+    <string name="mcp_servers_save">保存</string>
+    <string name="mcp_servers_save_test">保存してテスト</string>
+    <string name="mcp_servers_testing">テスト中…</string>
+    <string name="mcp_servers_count">%1$d 台</string>
+    <string name="mcp_servers_help">この機能について</string>
+    <string name="mcp_servers_help_text">外部 MCP サーバーは「コンピューターを接続」とは別です。ツールは MCP 由来としてタスクに表示されます。既定では HTTPS のみ、ローカル HTTP はチェックが必要です。トークンはこの端末に保存されます。</string>
+    <string name="mcp_servers_delete">削除</string>
 </resources>

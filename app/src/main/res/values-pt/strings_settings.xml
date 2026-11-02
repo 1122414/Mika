@@ -121,4 +121,21 @@
     <string name="appearance_dark">Sempre escuro</string>
     <string name="settings_self_config">Deixar o Mika alterar as próprias configurações</string>
     <string name="settings_self_config_sub">Ativado, as tarefas ganham uma ferramenta para ler e alterar estas preferências (ritmo, silenciar, cápsula, aparência, tela ligada). Modelos, chaves de API, rede do contêiner e qualquer coisa que apague dados nunca são incluídos</string>
+    <string name="mcp_servers_title">Servidores MCP</string>
+    <string name="mcp_servers_empty">Ainda não há servidores MCP</string>
+    <string name="mcp_servers_empty_sub">Adicione um servidor MCP externo para que o Mika use as ferramentas dele.</string>
+    <string name="mcp_servers_add">Adicionar servidor</string>
+    <string name="mcp_servers_edit">Editar servidor</string>
+    <string name="mcp_servers_name">Nome</string>
+    <string name="mcp_servers_url">URL do servidor</string>
+    <string name="mcp_servers_token">Token de acesso (opcional)</string>
+    <string name="mcp_servers_allow_local_http">Permitir HTTP para servidores locais/privados</string>
+    <string name="mcp_servers_trust_annotations">Confiar nas anotações somente leitura do servidor</string>
+    <string name="mcp_servers_save">Salvar</string>
+    <string name="mcp_servers_save_test">Salvar e testar</string>
+    <string name="mcp_servers_testing">Testando…</string>
+    <string name="mcp_servers_count">%1$d servidores</string>
+    <string name="mcp_servers_help">Sobre</string>
+    <string name="mcp_servers_help_text">Servidores MCP externos são separados de «Conectar um computador». As ferramentas aparecem como MCP nas tarefas. Apenas HTTPS por padrão; HTTP local exige a caixa. Os tokens ficam neste telefone.</string>
+    <string name="mcp_servers_delete">Remover</string>
 </resources>
