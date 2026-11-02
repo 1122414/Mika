@@ -692,7 +692,11 @@ class TaskRun(
                 provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck)
             // 外部 MCP server 只在主任务接;子任务/条件检查/评测不接,避免绕过父任务审批、影响评测可复现
             if (!conditionCheck) {
-                mcpConnections = withContext(Dispatchers.IO) { (service.application as MikaApp).mcpServers.connections() }
+                mcpConnections = withContext(Dispatchers.IO) {
+                    (service.application as MikaApp).mcpServers.connections(
+                        com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), conversationId),
+                    )
+                }
             }
             val runApproval = approvalControl.start(remote = provenance.origin == RunOrigin.Mcp).also { approval = it }
             val childRunner = if (provenance.origin == RunOrigin.Ui && web != null) ChildAgentRunner(

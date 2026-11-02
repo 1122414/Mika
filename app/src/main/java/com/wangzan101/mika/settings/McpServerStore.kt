@@ -142,7 +142,7 @@ class McpServerStore(
     }
 
     /** 连接所有启用项;单个失败只记录,不抛。 */
-    suspend fun connections(): McpConnections {
+    suspend fun connections(resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null): McpConnections {
         val connected = mutableListOf<Pair<McpServerConfig, McpConnection>>()
         val failures = mutableListOf<Pair<String, String>>()
         for (config in _servers.value.filter { it.enabled }) {
@@ -153,7 +153,7 @@ class McpServerStore(
             ).onSuccess { endpoint ->
                 connected += config to McpConnection(
                     endpoint = endpoint,
-                    resultStore = null,
+                    resultStore = resultStore,
                     maxCostUnits = config.maxCostUnits,
                     previewChars = config.previewChars,
                     trust = if (config.trust == "trust-annotations") McpTrust.TrustAnnotations else McpTrust.Restricted,
