@@ -46,7 +46,6 @@ import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.about.Diagnostics
 import com.wangzan101.mika.about.DiagnosticsCollector
 import com.wangzan101.mika.about.MikaLinks
-import com.wangzan101.mika.about.QrImage
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.task.TaskService
@@ -370,7 +369,6 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             },
             onCheck = app.updates::checkInBackground,
             onOpenUrl = { openInBrowser(context, it) },
-            onSaveQr = { QrImage.saveToPictures(context) },
             onOpenLicense = { nav.push(Route.License) },
             onBack = back,
             diagnostics = {
