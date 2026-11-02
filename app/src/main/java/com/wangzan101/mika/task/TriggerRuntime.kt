@@ -38,8 +38,6 @@ object TriggerRuntime {
     @Synchronized fun schedule(context: Context, definition: TriggerDefinition): Scheduled {
         val store = store(context)
         store.upsert(definition)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_DEVICE_ZONE, ZoneId.systemDefault().id).apply()
         engine(context, store).rearm(System.currentTimeMillis())
         val granted = canScheduleExactly(context)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

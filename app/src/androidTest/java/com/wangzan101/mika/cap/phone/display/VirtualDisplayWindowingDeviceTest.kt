@@ -14,7 +14,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** HyperOS 默认把虚拟屏上的 App 开成小窗;同时检查无障碍读到的实际窗口范围,不只检查屏的分辨率。 */
+/** 有的系统默认把虚拟屏上的 App 开成小窗:Mika 的屏要是全屏模式;同时检查无障碍读到的实际窗口范围,不只检查屏的分辨率。 */
 @RunWith(AndroidJUnit4::class)
 class VirtualDisplayWindowingDeviceTest {
     @Test
