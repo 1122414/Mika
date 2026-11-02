@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.cap.mcp
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,15 +99,6 @@ class LegacySseMcpEndpoint private constructor(
         } finally {
             pending.remove(id)
         }
-    }
-
-    private suspend fun notify(method: String) {
-        val body = buildJsonObject {
-            put("jsonrpc", "2.0")
-            put("method", method)
-            putJsonObject("params") {}
-        }
-        post(body.toString()).close()
     }
 
     override fun close() {
@@ -285,10 +277,11 @@ class LegacySseMcpEndpoint private constructor(
                     }
                 }
                 throw IOException("MCP SSE stream ended")
-            } catch (e: IOException) {
+            } catch (e: Throwable) {
                 endpointUrl.completeExceptionally(e)
                 pending.values.forEach { it.completeExceptionally(e) }
                 pending.clear()
+                if (e is CancellationException) throw e
             } finally {
                 body.close()
             }
