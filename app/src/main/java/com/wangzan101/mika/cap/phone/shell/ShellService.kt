@@ -111,11 +111,11 @@ class ShellService(
         val flags = displayFlags(Build.VERSION.SDK_INT, trusted)
         val vd = displayManager.createVirtualDisplay("mika-agent", width, height, dpi, surface, flags)
         val id = vd.display.displayId
-        synchronized(displays) { displays[id] = vd }
         // STEAL_TOP_FOCUS_DISABLED 保住主屏焦点,但部分系统因此不再采纳后台 Activity 的转屏请求。
         // 监听系统的 letterbox 尺寸,只纠正自己这块屏的方向,保留原来的焦点隔离。
-        if (Build.VERSION.SDK_INT >= 34) synchronized(displays) {
-            if (orientationWatch == null) runCatching {
+        synchronized(displays) {
+            displays[id] = vd
+            if (Build.VERSION.SDK_INT >= 34 && orientationWatch == null) runCatching {
                 DisplayOrientationWatch(taskManager, ::syncDisplayOrientations)
             }.onSuccess { orientationWatch = it }.onFailure { Log.w(TAG, "display orientation watcher unavailable", it) }
         }
@@ -1339,9 +1339,11 @@ class ShellService(
             AppAudioKey.parse(key)?.let { (pkg, user) -> audioMuted(pkg, user, false) } ?: synchronized(muted) { muted.remove(key) }
         }
         awake.stopAll()
-        orientationWatch?.close()
-        orientationWatch = null
-        synchronized(displays) { displays.values.toList().also { displays.clear() } }.forEach { it.release() }
+        synchronized(displays) {
+            orientationWatch?.close()
+            orientationWatch = null
+            displays.values.toList().also { displays.clear() }
+        }.forEach { it.release() }
     }
 
     override fun destroy() {

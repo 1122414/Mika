@@ -174,6 +174,7 @@ class CapsuleCardContentTest {
         assertEquals(listOf("zoom false"), calls)
     }
 
+    @com.wangzan101.mika.LocaleIndependentUi
     @Test fun previewFollowsPortraitLandscapeAndBackWithoutRotatingThePhone() {
         var frame by mutableStateOf(Bitmap.createBitmap(36, 80, Bitmap.Config.ARGB_8888))
         var zoomed by mutableStateOf(false)

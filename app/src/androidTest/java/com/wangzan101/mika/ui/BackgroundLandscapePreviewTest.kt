@@ -1,6 +1,7 @@
 package com.wangzan101.mika.ui
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -34,8 +35,9 @@ class BackgroundLandscapePreviewTest {
             }
             val pkg = InstrumentationRegistry.getInstrumentation().context.packageName
             DeviceSupport.sh("am start -W --display ${agent.display.displayId} -n $pkg/${RotationTestActivity::class.java.name} --ei orientation 0")
-            compose.waitUntil(10_000) { agent.display.frames.value?.let { it.width > it.height } == true }
-            compose.mainClock.advanceTimeBy(500)
+            // 转屏时宽高会先变,像素仍可能是旧帧;等后台 Activity 的四个象限真的画好。
+            compose.waitUntil(10_000) { agent.display.frames.value?.let(::readyFrame) == true }
+            compose.waitForIdle()
             compose.waitUntil(5_000) { compose.onAllNodesWithTag("pip-frame", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
             val captured = compose.onNodeWithTag("pip-frame", useUnmergedTree = true).captureToImage()
             val pixels = captured.toPixelMap()
@@ -53,5 +55,17 @@ class BackgroundLandscapePreviewTest {
                 captured.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
             }
         } finally { agent.release() }
+    }
+
+    private fun readyFrame(frame: Bitmap): Boolean {
+        if (frame.width <= frame.height) return false
+        val red = frame.getPixel(frame.width / 4, frame.height / 4)
+        val green = frame.getPixel(frame.width * 3 / 4, frame.height / 4)
+        val blue = frame.getPixel(frame.width / 4, frame.height * 3 / 4)
+        val yellow = frame.getPixel(frame.width * 3 / 4, frame.height * 3 / 4)
+        return Color.red(red) > 240 && Color.green(red) < 15 &&
+            Color.green(green) > 240 && Color.red(green) < 15 &&
+            Color.blue(blue) > 240 && Color.red(blue) < 15 &&
+            Color.red(yellow) > 240 && Color.green(yellow) > 240 && Color.blue(yellow) < 15
     }
 }

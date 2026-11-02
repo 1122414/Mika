@@ -1,13 +1,11 @@
 package com.wangzan101.mika.ui
 
-import com.wangzan101.mika.ChineseUi
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.ImageBitmap
@@ -27,8 +25,6 @@ import org.junit.runner.RunWith
 /** 小窗按画面比例定大小:横向网页看得到左右两端,长屏手机的画面看得到最底下。 */
 @RunWith(AndroidJUnit4::class)
 class AgentPipWebFrameTest {
-    @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
-
     @get:Rule val compose = createComposeRule()
 
     @Test fun landscapeWebFrameShowsBothEdges() = checkLandscape(web = true)
@@ -46,7 +42,7 @@ class AgentPipWebFrameTest {
             AgentPip(PipUi(visible = true), frame, webContent = web, reduceMotion = true,
                 topInset = 0f, bottomInset = 120f, onExpand = {}, onCollapse = {}, onAttention = {})
         }
-        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
         val size = compose.onNodeWithTag("pip-window").fetchSemanticsNode().size
         assertTrue("landscape preview stayed portrait: $size", size.width > size.height)
         val pixels = capture("landscape-${if (web) "web" else "phone"}").toPixelMap()
@@ -69,7 +65,7 @@ class AgentPipWebFrameTest {
             AgentPip(PipUi(visible = true), frame, webContent = false, reduceMotion = true,
                 topInset = 0f, bottomInset = 120f, onExpand = {}, onCollapse = {}, onAttention = {})
         }
-        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
         val pixels = capture("tall-phone").toPixelMap()
         val bottom = pixels[pixels.width / 2, pixels.height - 3]
         assertTrue("bottom of phone frame was cropped: $bottom", bottom.green > .8f && bottom.red < .2f)
@@ -84,7 +80,7 @@ class AgentPipWebFrameTest {
                 topInset = 0f, bottomInset = 120f, onExpand = {}, onCollapse = {}, onAttention = {})
         }
         fun check(landscape: Boolean) {
-            compose.mainClock.advanceTimeBy(500)
+            compose.waitForIdle()
             val size = compose.onNodeWithTag("pip-window").fetchSemanticsNode().size
             assertTrue("unexpected preview shape: $size", (size.width > size.height) == landscape)
         }
