@@ -442,6 +442,8 @@ class ConversationStoreTest {
         store.append(source, Turn("一", "甲", "succeeded"))
         store.append(source, Turn("二", "乙", "succeeded"))
         store.append(source, Turn("三", "丙", "succeeded"))
+        val page = PageOrigin("https://a.example/", "a.example", "示例")
+        store.setPageOrigin(source, page)
         val target = store.newConversation()
         val origin = BranchOrigin(source, 1, afterTurn = false, at = 2L)
 
@@ -449,6 +451,7 @@ class ConversationStoreTest {
 
         assertEquals(listOf("一"), ConversationStore(dir).turns(target).map { it.userText })
         assertEquals(origin, store.branchOrigin(target))
+        assertEquals(page, store.pageOrigin(target))
         assertEquals(listOf("一", "二", "三"), store.turns(source).map { it.userText })
     }
 
