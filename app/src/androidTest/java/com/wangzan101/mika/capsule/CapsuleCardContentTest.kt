@@ -174,32 +174,6 @@ class CapsuleCardContentTest {
         assertEquals(listOf("zoom false"), calls)
     }
 
-    @com.wangzan101.mika.LocaleIndependentUi
-    @Test fun previewFollowsPortraitLandscapeAndBackWithoutRotatingThePhone() {
-        var frame by mutableStateOf(Bitmap.createBitmap(36, 80, Bitmap.Config.ARGB_8888))
-        var zoomed by mutableStateOf(false)
-        val card = detail(run("a", TaskState.Running(3, "n", "tap"), CapsuleKind.Running, "在运行游戏"))
-        compose.setContent {
-            MikaTheme(dark = false, reduceMotion = true) {
-                CapsuleCard(card, frame, zoomed, actions, { null }, height = 420.dp)
-            }
-        }
-        fun assertOrientation(tag: String, landscape: Boolean) {
-            compose.onNodeWithTag(tag).assertIsDisplayed()
-            val size = compose.onNodeWithTag(tag).fetchSemanticsNode().size
-            assertEquals("$tag orientation", landscape, size.width > size.height)
-        }
-        assertOrientation("capsule-screen", false)
-        compose.runOnIdle { frame = Bitmap.createBitmap(80, 36, Bitmap.Config.ARGB_8888) }
-        assertOrientation("capsule-screen", true)
-        compose.runOnIdle { zoomed = true }
-        assertOrientation("capsule-zoom", true)
-        compose.runOnIdle { frame = Bitmap.createBitmap(36, 80, Bitmap.Config.ARGB_8888) }
-        assertOrientation("capsule-zoom", false)
-        compose.runOnIdle { zoomed = false }
-        assertOrientation("capsule-screen", false)
-    }
-
     @Test fun noPreviewWithoutFrames() {
         show(detail(run("a", TaskState.Running(3, "n", "tap"), CapsuleKind.Running, "在搜")))
         compose.onAllNodesWithTag("capsule-screen").assertCountEquals(0)

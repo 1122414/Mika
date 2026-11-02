@@ -7,15 +7,12 @@ import android.graphics.Paint
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -32,6 +29,7 @@ class AgentPipWebFrameTest {
     @Test fun landscapePhoneFrameShowsBothEdges() = checkLandscape(web = false)
 
     private fun checkLandscape(web: Boolean) {
+        compose.mainClock.autoAdvance = false
         val frame = Bitmap.createBitmap(1280, 800, Bitmap.Config.ARGB_8888)
         Canvas(frame).apply {
             drawColor(Color.WHITE)
@@ -45,7 +43,7 @@ class AgentPipWebFrameTest {
         compose.waitForIdle()
         val size = compose.onNodeWithTag("pip-window").fetchSemanticsNode().size
         assertTrue("landscape preview stayed portrait: $size", size.width > size.height)
-        val pixels = capture("landscape-${if (web) "web" else "phone"}").toPixelMap()
+        val pixels = capture().toPixelMap()
         val y = pixels.height / 2
         val left = pixels[pixels.width / 10, y]
         val right = pixels[pixels.width * 9 / 10, y]
@@ -55,6 +53,7 @@ class AgentPipWebFrameTest {
     }
 
     @Test fun tallPhoneFrameShowsItsBottom() {
+        compose.mainClock.autoAdvance = false
         // 长屏手机的画面(高约为宽的 2.2 倍):最底下一截涂成绿色,小窗按画面比例定高,底部不能被裁掉
         val frame = Bitmap.createBitmap(360, 794, Bitmap.Config.ARGB_8888)
         Canvas(frame).apply {
@@ -66,7 +65,7 @@ class AgentPipWebFrameTest {
                 topInset = 0f, bottomInset = 120f, onExpand = {}, onCollapse = {}, onAttention = {})
         }
         compose.waitForIdle()
-        val pixels = capture("tall-phone").toPixelMap()
+        val pixels = capture().toPixelMap()
         val bottom = pixels[pixels.width / 2, pixels.height - 3]
         assertTrue("bottom of phone frame was cropped: $bottom", bottom.green > .8f && bottom.red < .2f)
         frame.recycle()
@@ -93,14 +92,10 @@ class AgentPipWebFrameTest {
         check(false)
     }
 
-    private fun capture(name: String): ImageBitmap =
+    private fun capture(): ImageBitmap =
         run {
             compose.waitForIdle()
             compose.waitUntil(5_000) { compose.onAllNodesWithTag("pip-frame", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
             compose.onNodeWithTag("pip-frame", useUnmergedTree = true).captureToImage()
-        }.also { image ->
-            val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "preview-tests")
-            dir.mkdirs()
-            File(dir, "$name.png").outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
 }

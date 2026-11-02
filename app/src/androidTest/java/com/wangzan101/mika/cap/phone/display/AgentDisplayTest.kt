@@ -5,8 +5,6 @@ import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.util.Log
-import java.io.File
 import android.os.ParcelFileDescriptor
 import android.os.Build
 import android.view.Display
@@ -158,22 +156,6 @@ class AgentDisplayTest {
             val preview = pollUntil(5_000) {
                 d.frames.value?.takeIf { it.width == 360 && it.height == height * 360 / width && uprightCorners(it) }
             }
-            val dir = File(context.getExternalFilesDir(null), "preview-tests").apply { mkdirs() }
-            d.latestFramePng()?.let { File(dir, "activity-$orientation.png").writeBytes(it) }
-            d.frames.value?.let { frame ->
-                File(dir, "activity-$orientation-preview.png").outputStream().use { frame.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            }
-            if (preview == null) {
-                val windows = shellCommand("dumpsys window displays").substringAfter("Display: mDisplayId=${d.displayId}", "")
-                    .substringBefore("Display: mDisplayId=")
-                File(dir, "activity-$orientation-window.txt").writeText(windows)
-            }
-            Log.i("MikaRotationTest", "requested=$orientation logical=${d.width}x${d.height} " +
-                "rotation=${context.getSystemService(DisplayManager::class.java).getDisplay(d.displayId)?.rotation} " +
-                "preview=${d.frames.value?.let { "${it.width}x${it.height} " +
-                    listOf(it.getPixel(it.width / 4, it.height / 4), it.getPixel(it.width * 3 / 4, it.height / 4),
-                        it.getPixel(it.width / 4, it.height * 3 / 4), it.getPixel(it.width * 3 / 4, it.height * 3 / 4))
-                        .joinToString { color -> Integer.toHexString(color) } }}")
             assertNotNull("preview did not follow orientation $orientation: logical=${d.width}x${d.height}, " +
                 "preview=${d.frames.value?.let { "${it.width}x${it.height}" }}", preview)
             assertEquals(width, d.width)
