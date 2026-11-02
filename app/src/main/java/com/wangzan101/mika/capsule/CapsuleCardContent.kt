@@ -813,7 +813,7 @@ private fun MiniScreen(frame: Bitmap, onZoom: () -> Unit) {
             .clickable(role = Role.Image, onClickLabel = CardCopy.SCREEN, onClick = onZoom)
             .semantics { contentDescription = CardCopy.SCREEN },
     ) {
-        Image(image, null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        Image(image, null, Modifier.matchParentSize(), contentScale = ContentScale.Fit)
         Text(
             CardCopy.SCREEN_LABEL, Modifier.align(Alignment.BottomStart).padding(6.dp)
                 .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 1.dp),
@@ -832,7 +832,7 @@ private fun Zoomed(frame: Bitmap, actions: CardActions) {
             .clickable(role = Role.Image, onClickLabel = CardCopy.ZOOMED) { actions.zoom(false) }
             .semantics { contentDescription = CardCopy.ZOOMED },
     ) {
-        Image(image, null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        Image(image, null, Modifier.matchParentSize(), contentScale = ContentScale.Fit)
         Text(
             CardCopy.ZOOM_HINT, Modifier.align(Alignment.BottomCenter).padding(10.dp)
                 .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
