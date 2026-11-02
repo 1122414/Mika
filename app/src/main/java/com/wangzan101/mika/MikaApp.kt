@@ -52,7 +52,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.wangzan101.mika.cap.web.cdp.WebDevtools
 import com.wangzan101.mika.cap.web.WebOwner
 import com.wangzan101.mika.cap.web.SiteRegistry
@@ -184,9 +183,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             schedulesOf = { id -> TriggerRuntime.list(app).filter { it.threadId == id }.map { it.id } },
             removeSchedule = { TriggerRuntime.remove(app, it) },
             deleteWorkspace = { id ->
-                // 工作区里有附件、用户发来的屏幕、任务写的文件;沙箱里的命令碰得到这里,按句柄删、不跟进链接,和重置互斥
-                val dirs = SandboxDirs(app)
-                dirs.tree.shared { withContext(Dispatchers.IO) { dirs.gate.deleteTree(dirs.work, dirs.workspace(id).name) } }
+                // 工作区里有附件、用户发来的屏幕、任务写的文件;沙箱里的命令碰得到这里,和命令、导入、重置互斥着删
+                SandboxDirs(app).deleteWorkspace(id)
             },
         )
     }
