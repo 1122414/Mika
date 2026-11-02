@@ -151,4 +151,6 @@
     <string name="pip_reopen">显示画面</string>
     <string name="pip_closed_needs_you">等你处理</string>
     <string name="pip_closed_hint">这个任务不再浮出小画面。点右下角「显示画面」，或在侧栏「后台屏」里看。</string>
+    <string name="chat_conversation_tokens">本对话共 %1$s</string>
+    <string name="chat_conversation_tokens_partial">本对话至少 %1$s</string>
 </resources>
