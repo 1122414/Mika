@@ -252,7 +252,7 @@
 
 普通 API 仅提供只读设备状态供 CLI doctor 使用;MCP 另提供主屏准备工具 `mika_device_state`、`mika_wake_device`、`mika_unlock_device`。它们属于宿主设备管理(同配对与恢复),不注册为模型的 `AgentTool`,不进入模型上下文、动作历史或凭据日志。MCP 原有认证之后由 `McpDeviceTools` 调 `core/device/DeviceAccess.kt`:主屏状态 → 唤醒 → 请求显示凭据页 → 必要时输入本机凭据 → 核实系统状态。核心只依赖 `DeviceAccessPort`、`DeviceAccessStore`;安卓适配在 `app/device/`,主屏输入的 shell 实现在 `cap/phone/shell/DeviceUnlockInput.kt`,AIDL 有单独方法,普通虚拟屏按键白名单保持不变。
 
-`DeviceAccess` 每进程一份、Mutex 串行化;远程许可默认关,凭据只能手机端设置。`DeviceAccessSettings` 用独立 Keystore 密钥加密原子写整个配置,仅缓存非秘密状态。输入前持久化失败占位,只有系统已解锁才清掉;失败/中断后必须本机重新保存凭据。Android 适配只在主屏 SystemUI 的唯一、类型匹配密码框上输入,不处理 SIM PIN 或无法辨认的厂商页;凭据按键经 `ShellService.injectTo` 定向注入,只投给 SystemUI 拥有的焦点窗口(安卓 13 起的 `injectInputEvent(event, mode, targetUid)`),锁屏上方另有窗口或已解锁回到 App 时系统拒绝,按键不会落到别处,修饰键也只在发过按键后向 SystemUI 释放;安卓 13 以前不输入凭据(`unsupported_keyguard`)。`TaskGate` 不变,系统实际亮屏解锁后自动继续。设置 UI 是电脑连接页的分组卡片,使用已有行/输入/按钮组件及中英文资源,凭据不进可恢复 UI 状态、编辑时禁止截图。此功能不改变任务来源和付款策略。
+`DeviceAccess` 每进程一份、Mutex 串行化;远程许可默认关,凭据只能手机端设置。`DeviceAccessSettings` 用独立 Keystore 密钥加密原子写整个配置,仅缓存非秘密状态。输入前持久化失败占位,只有系统已解锁才清掉;失败/中断后必须本机重新保存凭据。Android 适配只在主屏 SystemUI 的唯一、类型匹配密码框上输入,不处理 SIM PIN 或无法辨认的厂商页;输入框没声明输入类型时,同一窗口里 0–9 数字键齐全就按 PIN 页认,否则按密码页;输入框拿不到焦点时先请求聚焦、再点一下,都不行但它所在的 SystemUI 窗口是输入焦点窗口也算可以输入;凭据按键经 `ShellService.injectTo` 定向注入,只投给 SystemUI 拥有的焦点窗口(安卓 13 起的 `injectInputEvent(event, mode, targetUid)`),锁屏上方另有窗口或已解锁回到 App 时系统拒绝,按键不会落到别处,修饰键也只在发过按键后向 SystemUI 释放;安卓 13 以前不输入凭据(`unsupported_keyguard`)。`TaskGate` 不变,系统实际亮屏解锁后自动继续。设置 UI 是电脑连接页的分组卡片,使用已有行/输入/按钮组件及中英文资源,凭据不进可恢复 UI 状态、编辑时禁止截图。此功能不改变任务来源和付款策略。
 
 ## 7. 上下文与压缩
 
