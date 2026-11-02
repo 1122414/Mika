@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.hasAnyAncestor
@@ -273,5 +274,23 @@ class ChatDeleteAndSelectTest {
         assertEquals(listOf("今天天气怎么样", "那明天呢"), vm.ui.value.exchanges.map { it.goal })
         // 原对话还是两轮
         assertEquals(2, store.turns("s").size)
+    }
+
+    // 长按自己说过的话「从这里重新问」:复制这一轮之前,输入框预填原话,不自动发送
+    @Test fun retryFromAUserMessagePrefillsTheNewChat() {
+        store.append("s", Turn("今天天气怎么样", "上海今天晴", "succeeded"))
+        store.append("s", Turn("那明天呢", "明天多云", "succeeded"))
+        val vm = vm()
+        compose.runOnUiThread { vm.openConversation("s") }
+        show(vm, drawerOpen = false)
+
+        compose.onNodeWithText("那明天呢").performTouchInput { longClick() }
+        compose.onNodeWithTag("message-menu-branch-retry").assert(hasText("从这里重新问")).performClick()
+        compose.waitUntil(10_000) { vm.ui.value.conversationId != "s" }
+        val branch = vm.ui.value.conversationId
+        assertNotNull(branch)
+        assertEquals(listOf("今天天气怎么样"), store.turns(branch!!).map { it.userText })
+        assertEquals(false, store.branchOrigin(branch)?.afterTurn)
+        compose.onNodeWithTag("composer-field").assertTextContains("那明天呢")
     }
 }

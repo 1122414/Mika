@@ -139,6 +139,8 @@
     <string name="chat_branch_title_suffix">" · 分支"</string>
     <string name="chat_branch_origin">从另一个对话分支</string>
     <string name="chat_branch_attachments_skipped">附件没有全部复制</string>
+    <string name="chat_branch_retry">从这里重新问</string>
+    <string name="chat_branch_attachments_readd">附件需要重新添加</string>
     <string name="chat_select_hint">长按文字就能选择</string>
     <string name="chat_quote_remove">去掉引用</string>
     <string name="chat_quoting_mika">引用 Mika:%1$s</string>

@@ -2080,4 +2080,74 @@ class ChatViewModelTest {
         assertNull(vm.branchFrom(0))
         assertEquals(source, vm.ui.value.conversationId)
     }
+
+    /** 从用户消息重新问:复制这一轮之前,返回要预填的文字;原对话不变,切到新对话。 */
+    @Test fun branchBeforeCopiesEarlierTurnsAndReturnsPrefill() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        store.append(source, Turn("二", "乙", "succeeded"))
+        store.append(source, Turn("三", "丙", "succeeded"))
+        store.setTitle(source, "原对话")
+        val workspace = FakeBranchWorkspace()
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, store,
+            branchWorkspace = workspace, branchTitle = { it + " · 分支" }, clock = { 7L },
+        ).also { runCurrent() }
+        vm.openConversation(source)
+
+        val result = vm.branchBefore(1)
+
+        assertNotNull(result)
+        val branch = result!!.conversationId
+        assertEquals("二", result.prefill)
+        assertFalse(result.needsReattach)
+        assertEquals(listOf("一"), store.turns(branch).map { it.userText })
+        assertEquals("原对话 · 分支", store.title(branch))
+        assertEquals(BranchOrigin(source, 1, afterTurn = false, at = 7L), store.branchOrigin(branch))
+        assertEquals(branch, vm.ui.value.conversationId)
+        assertEquals(listOf("一"), vm.ui.value.exchanges.map { it.goal })
+        assertEquals(listOf(source to branch), workspace.calls)
+    }
+
+    /** 第一轮之前没有轮次:新对话是空的;原消息带附件时提示重新添加。 */
+    @Test fun branchBeforeTheFirstTurnIsEmptyAndFlagsAttachments() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("看这个\n附件:/workspace/inbox/a.pdf(1 KB)", "好", "succeeded"))
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, branchTitle = { it + " · 分支" }).also { runCurrent() }
+        vm.openConversation(source)
+
+        val result = vm.branchBefore(0)
+
+        assertNotNull(result)
+        assertEquals("看这个", result!!.prefill)
+        assertTrue(result.needsReattach)
+        assertTrue(store.turns(result.conversationId).isEmpty())
+        assertTrue(store.list().none { it.id == result.conversationId })
+        assertEquals(result.conversationId, vm.ui.value.conversationId)
+        assertTrue(vm.ui.value.exchanges.isEmpty())
+    }
+
+    /** 任务在跑、轮次越界、输入框正忙:都不重新问。 */
+    @Test fun branchBeforeRefusesRunningBusyAndBadTurns() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val activeNow = MutableStateFlow<List<String>>(emptyList())
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, activeConversations = activeNow).also { runCurrent() }
+        vm.openConversation(source)
+
+        activeNow.value = listOf(source)
+        runCurrent()
+        assertNull(vm.branchBefore(0))
+
+        activeNow.value = emptyList()
+        runCurrent()
+        assertNull(vm.branchBefore(1))
+        assertNull(vm.branchBefore(-1))
+
+        assertTrue(vm.send("新一句", ok))
+        assertNull(vm.branchBefore(0))
+    }
 }

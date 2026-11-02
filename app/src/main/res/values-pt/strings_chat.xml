@@ -149,6 +149,8 @@
     <string name="chat_branch_title_suffix">" · ramo"</string>
     <string name="chat_branch_origin">Ramificada de outra conversa</string>
     <string name="chat_branch_attachments_skipped">Nem todos os anexos foram copiados</string>
+    <string name="chat_branch_retry">Perguntar de novo daqui</string>
+    <string name="chat_branch_attachments_readd">Anexe novamente os arquivos que quiser incluir</string>
     <string name="chat_select_hint">Toque e segure o texto para selecioná-lo</string>
     <string name="chat_quote_remove">Remover citação</string>
     <string name="chat_quoting_mika">Citando o Mika: %1$s</string>

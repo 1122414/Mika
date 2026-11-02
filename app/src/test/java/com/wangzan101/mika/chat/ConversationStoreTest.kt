@@ -433,4 +433,61 @@ class ConversationStoreTest {
         assertEquals(origin, listed.getValue(target).branchOf)
         assertEquals(null, listed.getValue(source).branchOf)
     }
+
+    /** 从用户消息重新问:只复制这一轮之前的轮次,来源记 after=false。 */
+    @Test fun branchBeforeCopiesOnlyEarlierTurns() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        store.append(source, Turn("二", "乙", "succeeded"))
+        store.append(source, Turn("三", "丙", "succeeded"))
+        val target = store.newConversation()
+        val origin = BranchOrigin(source, 1, afterTurn = false, at = 2L)
+
+        assertTrue(store.branchBefore(source, target, beforeTurn = 1, title = "原对话 · 分支", origin = origin))
+
+        assertEquals(listOf("一"), ConversationStore(dir).turns(target).map { it.userText })
+        assertEquals(origin, store.branchOrigin(target))
+        assertEquals(listOf("一", "二", "三"), store.turns(source).map { it.userText })
+    }
+
+    /** 第一轮之前没有轮次:分支是空的,不进侧栏;标题和来源已经写好,第一句话存进来后接着用。 */
+    @Test fun branchBeforeTheFirstTurnMakesAnEmptyBranch() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val target = store.newConversation()
+        val origin = BranchOrigin(source, 0, afterTurn = false, at = 3L)
+
+        assertTrue(store.branchBefore(source, target, beforeTurn = 0, title = "一 · 分支", origin = origin))
+
+        assertEquals(emptyList<Turn>(), store.turns(target))
+        assertTrue(java.io.File(dir, "$target.json").isFile)
+        assertTrue(store.list().none { it.id == target })
+        assertEquals("一 · 分支", store.title(target))
+        assertEquals(origin, store.branchOrigin(target))
+        store.append(target, Turn("换个问法", "另一个答", "succeeded"))
+        assertEquals(listOf("换个问法"), store.turns(target).map { it.userText })
+        assertTrue(store.list().any { it.id == target })
+    }
+
+    /** 重新问也拒绝坏输入:源不存在、轮次越界、目标已有文件。 */
+    @Test fun branchBeforeRejectsBadInput() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val target = store.newConversation()
+
+        assertFalse(store.branchBefore("missing", target, 0))
+        assertFalse(store.branchBefore(source, target, 1))
+        assertFalse(store.branchBefore(source, target, -1))
+        assertFalse(java.io.File(dir, "$target.json").exists())
+
+        store.append(target, Turn("已有", "好", "succeeded"))
+        assertFalse(store.branchBefore(source, target, 0))
+        assertEquals(listOf("已有"), store.turns(target).map { it.userText })
+    }
 }

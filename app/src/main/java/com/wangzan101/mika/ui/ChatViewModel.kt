@@ -1049,6 +1049,33 @@ class ChatViewModel(
         return targetId
     }
 
+    /**
+     * 从当前对话的第 [turn] 条用户消息「重新问」:复制这一轮之前的轮次,返回新对话编号和要预填的文字,不自动发送。
+     * 原消息的附件/屏幕不会带进输入框,用 [BranchRetry.needsReattach] 告诉界面提示重新添加。
+     * 守卫同 [branchFrom]。
+     */
+    suspend fun branchBefore(turn: Int): BranchRetry? {
+        refreshParallel()
+        _branchCopy.value = null
+        val ui = _ui.value
+        val sourceId = ui.conversationId ?: return null
+        if (sourceId in activeConversations.value || sourceId in deleted.value || sourceId in deleting) return null
+        if (busy()) return null
+        if (turn !in ui.exchanges.indices) return null
+        if (!ui.exchanges[turn].status.branchable) return null
+        val raw = ui.exchanges[turn].goal
+        if (raw.isBlank()) return null
+        val targetId = store.newConversation()
+        val base = withContext(io) { store.title(sourceId) }?.takeIf { it.isNotBlank() }
+            ?: ChatCopy.title(ui.exchanges).ifBlank { tr(R.string.chat_new) }
+        val origin = BranchOrigin(sourceId, turn, afterTurn = false, at = clock())
+        val created = withContext(io) { store.branchBefore(sourceId, targetId, turn, branchTitle(base), origin) }
+        if (!created) return null
+        _branchCopy.value = try { branchWorkspace?.copyInbox(sourceId, targetId) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+        openConversation(targetId)
+        return BranchRetry(targetId, retryText(raw), needsReattach(raw))
+    }
+
     /** 删掉 [id] 会连带什么:侧栏的确认弹窗据此写明会停掉任务、删掉定时任务。 */
     fun deleteImpact(id: String): DeleteImpact = deletionImpact(id)
 

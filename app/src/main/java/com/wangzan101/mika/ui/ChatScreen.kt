@@ -393,6 +393,7 @@ fun ChatScreen(
             val pending = withdrawableSteer(ui.exchanges, m.key)
             val canEdit = input.isBlank() && ui.quote == null && ui.attachments.isEmpty() && !ui.importing
             val branchTurn = if (ui.conversationId != null) branchableTurn(ui.exchanges, m.key, active = vm.currentRunning()) else null
+            val retryTurn = if (ui.conversationId != null) retryableTurn(ui.exchanges, m.key, active = vm.currentRunning()) else null
             MessageMenu(
                 m, progress = { lift.value },
                 onCopy = { closeMenu { copyMessage(context, m.text) } },
@@ -415,6 +416,22 @@ fun ChatScreen(
                                 else -> R.string.chat_branch_done
                             }
                             if (id != null) input = ""
+                            Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
+                            vm.clearBranchCopy()
+                        }
+                    }
+                } },
+                onBranchRetry = retryTurn?.let { turn -> {
+                    closeMenu {
+                        scope.launch {
+                            val result = vm.branchBefore(turn)
+                            val message = when {
+                                result == null -> R.string.chat_branch_failed
+                                result.needsReattach -> R.string.chat_branch_attachments_readd
+                                vm.branchCopy.value?.truncated == true -> R.string.chat_branch_attachments_skipped
+                                else -> R.string.chat_branch_done
+                            }
+                            if (result != null) input = result.prefill
                             Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
                             vm.clearBranchCopy()
                         }

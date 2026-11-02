@@ -203,14 +203,36 @@ class ConversationStore(private val dir: File) {
         throughTurn: Int,
         title: String? = null,
         origin: BranchOrigin? = null,
-    ): Boolean {
+    ): Boolean = copyBranch(sourceId, targetId, throughTurn, includeTurn = true, title, origin)
+
+    /**
+     * 把 [sourceId] 在 [beforeTurn] 之前的轮次(不含这一轮)复制成新对话 [targetId],给「从用户消息重新问」用。
+     * [beforeTurn] 为 0 时新对话还没有轮次(和刚新开的对话一样,不进侧栏列表),第一句话存进来后才算这个对话的第一轮。
+     * 其余条件同 [branch]。
+     */
+    @Synchronized
+    fun branchBefore(
+        sourceId: String,
+        targetId: String,
+        beforeTurn: Int,
+        title: String? = null,
+        origin: BranchOrigin? = null,
+    ): Boolean = copyBranch(sourceId, targetId, beforeTurn, includeTurn = false, title, origin)
+
+    private fun copyBranch(sourceId: String, targetId: String, turn: Int, includeTurn: Boolean, title: String?, origin: BranchOrigin?): Boolean {
         val source = file(sourceId)
         if (!source.isFile) return false
         val records = read(source) ?: return false
-        if (throughTurn !in records.indices) return false
+        val count = if (includeTurn) {
+            if (turn !in records.indices) return false
+            turn + 1
+        } else {
+            if (turn !in records.indices) return false
+            turn
+        }
         if (file(targetId).exists()) return false
         deleted -= safe(targetId)
-        write(targetId, records.take(throughTurn + 1))
+        write(targetId, records.take(count))
         title?.let { writeTitle(targetId, it) }
         pageOrigin(sourceId)?.let { setPageOrigin(targetId, it) }
         origin?.let { writeBranchOrigin(targetId, it) }

@@ -119,7 +119,7 @@ internal fun MessageArea(
 
 /**
  * 长按一条消息后的菜单(和侧栏里长按对话同一个样子,见 [LongPressMenu]):那条消息抬起,下面是复制、引用、选择文字;
- * 一条已答完的回答还能「从这里分支」(见 [onBranch])。用户自己的话靠右,菜单也靠右。
+ * 一条已答完的回答还能「从这里分支」,用户自己的话能「从这里重新问」(见 [onBranch]、[onBranchRetry])。用户自己的话靠右,菜单也靠右。
  */
 @Composable
 internal fun MessageMenu(
@@ -132,6 +132,7 @@ internal fun MessageMenu(
     onEdit: (() -> Unit)? = null,
     onWithdraw: (() -> Unit)? = null,
     onBranch: (() -> Unit)? = null,
+    onBranchRetry: (() -> Unit)? = null,
 ) {
     LongPressMenu(
         target.bounds, progress, pane = stringResource(R.string.chat_message_actions), tag = "message-menu",
@@ -140,6 +141,7 @@ internal fun MessageMenu(
             add(MenuEntry(stringResource(R.string.chat_quote), MikaIcons.Quote, "message-menu-quote", onClick = onQuote))
             add(MenuEntry(stringResource(R.string.chat_select_text), MikaIcons.SelectText, "message-menu-select", onClick = onSelect))
             onBranch?.let { add(MenuEntry(stringResource(R.string.chat_branch), MikaIcons.Route, "message-menu-branch", onClick = it)) }
+            onBranchRetry?.let { add(MenuEntry(stringResource(R.string.chat_branch_retry), MikaIcons.Route, "message-menu-branch-retry", onClick = it)) }
             onEdit?.let { add(MenuEntry(stringResource(R.string.chat_edit_message), MikaIcons.Edit, "message-menu-edit", onClick = it)) }
             onWithdraw?.let { add(MenuEntry(stringResource(R.string.chat_withdraw_message), MikaIcons.Close, "message-menu-withdraw", onClick = it)) }
         },

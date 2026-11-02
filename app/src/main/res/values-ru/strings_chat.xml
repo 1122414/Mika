@@ -154,6 +154,8 @@
     <string name="chat_branch_title_suffix">" · ветка"</string>
     <string name="chat_branch_origin">Ответвление от другого чата</string>
     <string name="chat_branch_attachments_skipped">Не все вложения скопированы</string>
+    <string name="chat_branch_retry">Спросить заново отсюда</string>
+    <string name="chat_branch_attachments_readd">Добавьте нужные вложения заново</string>
     <string name="chat_select_hint">Нажмите на текст и удерживайте, чтобы выделить его</string>
     <string name="chat_quote_remove">Убрать цитату</string>
     <string name="chat_quoting_mika">Цитата Mika: %1$s</string>
