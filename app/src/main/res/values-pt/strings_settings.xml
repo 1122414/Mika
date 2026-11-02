@@ -138,6 +138,7 @@
     <string name="mcp_servers_help">Sobre</string>
     <string name="mcp_servers_help_text">Servidores MCP externos são separados de «Conectar um computador». As ferramentas aparecem como MCP nas tarefas. Apenas HTTPS por padrão; HTTP local exige a caixa. Os tokens ficam neste telefone.</string>
     <string name="mcp_servers_delete">Remover</string>
+    <string name="mcp_servers_legacy_sse">Usar transporte HTTP+SSE antigo (2024-11-05)</string>
     <string name="mcp_servers_use_oauth">Usar login OAuth 2.1</string>
     <string name="mcp_servers_sign_in">Entrar</string>
     <string name="mcp_servers_signing_in">Aguardando login no navegador…</string>

@@ -130,6 +130,7 @@
     <string name="mcp_servers_help">정보</string>
     <string name="mcp_servers_help_text">외부 MCP 서버는 ‘컴퓨터 연결’과 별개입니다. 도구는 MCP 출처로 작업에 표시됩니다. 기본은 HTTPS만 허용하며 로컬 HTTP는 선택해야 합니다. 토큰은 이 기기에만 저장됩니다.</string>
     <string name="mcp_servers_delete">삭제</string>
+    <string name="mcp_servers_legacy_sse">레거시 HTTP+SSE 전송 사용(2024-11-05)</string>
     <string name="mcp_servers_use_oauth">OAuth 2.1 로그인 사용</string>
     <string name="mcp_servers_sign_in">로그인</string>
     <string name="mcp_servers_signing_in">브라우저 로그인을 기다리는 중…</string>

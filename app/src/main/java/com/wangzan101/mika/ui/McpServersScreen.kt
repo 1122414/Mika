@@ -117,6 +117,7 @@ private fun McpServerDialog(
     var allowLocal by remember { mutableStateOf(initial?.allowLocalHttp == true) }
     var trustAnnotations by remember { mutableStateOf(initial?.trust == "trust-annotations") }
     var oauth by remember { mutableStateOf(initial?.auth == "oauth") }
+    var legacySse by remember { mutableStateOf(initial?.transport == "http-sse") }
     var allowlist by remember { mutableStateOf(initial?.allowedTools?.joinToString(", ").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
@@ -134,6 +135,7 @@ private fun McpServerDialog(
         allowLocalHttp = allowLocal,
         trust = if (trustAnnotations) "trust-annotations" else "restricted",
         auth = if (oauth) "oauth" else "token",
+        transport = if (legacySse) "http-sse" else "streamable-http",
         allowedTools = allowlist.split(',').map { it.trim() }.filter { it.isNotEmpty() }.takeIf { it.isNotEmpty() },
     )
 
@@ -172,6 +174,7 @@ private fun McpServerDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                ToggleRow(stringResource(R.string.mcp_servers_legacy_sse), legacySse) { legacySse = it }
                 ToggleRow(stringResource(R.string.mcp_servers_use_oauth), oauth) { oauth = it }
                 if (oauth) {
                     TextButton({

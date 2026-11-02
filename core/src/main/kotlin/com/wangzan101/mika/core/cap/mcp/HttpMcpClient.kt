@@ -258,7 +258,7 @@ class HttpMcpEndpoint private constructor(
                 }
                 val result = message["result"] as? JsonObject ?: throw McpClientException("MCP tools/list returned no result")
                 (result["tools"] as? JsonArray)?.forEach { element ->
-                    (element as? JsonObject)?.let { tools += descriptor(it) }
+                    (element as? JsonObject)?.let { tools += mcpToolDescriptor(it) }
                 }
                 cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
                 pages++
@@ -281,21 +281,6 @@ class HttpMcpEndpoint private constructor(
 
         private fun JsonObject.matchesId(id: Long): Boolean =
             (this["id"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull() == id
-
-        private fun descriptor(o: JsonObject): McpToolDescriptor {
-            val annotations = o["annotations"] as? JsonObject
-            return McpToolDescriptor(
-                name = (o["name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
-                description = (o["description"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
-                inputSchema = o["inputSchema"] as? JsonObject ?: JsonObject(emptyMap()),
-                annotations = McpAnnotations(
-                    readOnlyHint = (annotations?.get("readOnlyHint") as? JsonPrimitive)?.booleanOrNull,
-                    destructiveHint = (annotations?.get("destructiveHint") as? JsonPrimitive)?.booleanOrNull,
-                    openWorldHint = (annotations?.get("openWorldHint") as? JsonPrimitive)?.booleanOrNull,
-                ),
-                estimatedCostUnits = (o["estimatedCostUnits"] as? JsonPrimitive)?.longOrNull ?: 0,
-            )
-        }
 
         private fun parseMessages(body: String): List<JsonObject> {
             if (body.trimStart().startsWith("{")) {
@@ -348,8 +333,22 @@ class HttpMcpEndpoint private constructor(
 private val JSON_MEDIA = "application/json".toMediaType()
 
 /** OkHttp 的异步调用包成可取消的 suspend;取消时取消底层 call。 */
-private suspend fun Call.await(timeoutSec: Int): Response = suspendCancellableCoroutine { continuation ->
+internal suspend fun Call.await(timeoutSec: Int): Response = suspendCancellableCoroutine { continuation ->
     timeout()?.timeout(timeoutSec.toLong(), TimeUnit.SECONDS)
+    continuation.invokeOnCancellation { cancel() }
+    enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            if (continuation.isActive) continuation.resumeWithException(e)
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            if (continuation.isActive) continuation.resume(response) else response.close()
+        }
+    })
+}
+
+/** SSE 长连接不能设整次调用超时(会在一段时间后掐断流);只等响应头,之后的超时由协议层控制。 */
+internal suspend fun Call.awaitStream(): Response = suspendCancellableCoroutine { continuation ->
     continuation.invokeOnCancellation { cancel() }
     enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) {

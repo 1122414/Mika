@@ -2,6 +2,7 @@ package com.wangzan101.mika.settings
 
 import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.core.cap.mcp.HttpMcpEndpoint
+import com.wangzan101.mika.core.cap.mcp.LegacySseMcpEndpoint
 import com.wangzan101.mika.core.cap.mcp.McpOAuth
 import com.wangzan101.mika.core.cap.mcp.McpOAuthException
 import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
@@ -24,6 +25,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.Closeable
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import java.io.File
@@ -45,6 +47,8 @@ data class McpServerConfig(
     val previewChars: Int = 4000,
     val maxCostUnits: Long? = null,
     val allowLocalHttp: Boolean = false,
+    /** streamable-http | http-sse(后者是 2024-11-05 旧版传输) */
+    val transport: String = "streamable-http",
     /** token | oauth(token 是手动 Bearer/自定义头;oauth 走 OAuth 2.1 登录) */
     val auth: String = "token",
     /** 只暴露这些工具;null 表示全部。 */
@@ -156,20 +160,26 @@ class McpServerStore(
             _health.update { it + (config.id to healthFailure(e)) }
             return Result.failure(e)
         }
-        val endpoint = HttpMcpEndpoint.connect(
-            serverId = config.id, url = config.url, http = http,
-            headers = headers, timeoutSec = config.timeoutSec,
-            clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
-        ).getOrElse { e ->
+        val endpoint = open(config, headers).getOrElse { e ->
             _health.update { it + (config.id to healthFailure(e)) }
             return Result.failure(e)
         }
         return try {
-            val result = McpTestResult(endpoint.serverName, endpoint.instructions, endpoint.tools().map { it.name })
+            val name = when (endpoint) {
+                is HttpMcpEndpoint -> endpoint.serverName
+                is LegacySseMcpEndpoint -> endpoint.serverName
+                else -> null
+            }
+            val instructions = when (endpoint) {
+                is HttpMcpEndpoint -> endpoint.instructions
+                is LegacySseMcpEndpoint -> endpoint.instructions
+                else -> null
+            }
+            val result = McpTestResult(name, instructions, endpoint.tools().map { it.name })
             _health.update { it + (config.id to McpHealth(true, null, result.tools, System.currentTimeMillis())) }
             Result.success(result)
         } finally {
-            endpoint.close()
+            (endpoint as? Closeable)?.close()
         }
     }
 
@@ -184,11 +194,7 @@ class McpServerStore(
             _servers.value.filter { it.enabled }.map { config ->
                 async {
                     val result = try {
-                        HttpMcpEndpoint.connect(
-                            serverId = config.id, url = config.url, http = http,
-                            headers = authHeaders(config), timeoutSec = config.timeoutSec,
-                            clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
-                        )
+                        open(config, authHeaders(config))
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -219,11 +225,26 @@ class McpServerStore(
         return McpConnections(
             connections = connected.map { it.second },
             close = {
-                connected.mapNotNull { it.second.endpoint as? HttpMcpEndpoint }.forEach { it.close() }
+                connected.forEach { (it.second.endpoint as? Closeable)?.close() }
             },
             failures = failures,
         )
     }
+
+    private suspend fun open(config: McpServerConfig, headers: Map<String, String>): Result<com.wangzan101.mika.core.cap.mcp.McpEndpoint> =
+        if (config.transport == "http-sse") {
+            LegacySseMcpEndpoint.connect(
+                serverId = config.id, url = config.url, http = http,
+                headers = headers, timeoutSec = config.timeoutSec,
+                clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
+            ).map { it as com.wangzan101.mika.core.cap.mcp.McpEndpoint }
+        } else {
+            HttpMcpEndpoint.connect(
+                serverId = config.id, url = config.url, http = http,
+                headers = headers, timeoutSec = config.timeoutSec,
+                clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
+            ).map { it as com.wangzan101.mika.core.cap.mcp.McpEndpoint }
+        }
 
     private suspend fun authHeaders(config: McpServerConfig): Map<String, String> = buildMap {
         putAll(config.headers)

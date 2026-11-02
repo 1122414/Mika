@@ -130,6 +130,7 @@
     <string name="mcp_servers_help">この機能について</string>
     <string name="mcp_servers_help_text">外部 MCP サーバーは「コンピューターを接続」とは別です。ツールは MCP 由来としてタスクに表示されます。既定では HTTPS のみ、ローカル HTTP はチェックが必要です。トークンはこの端末に保存されます。</string>
     <string name="mcp_servers_delete">削除</string>
+    <string name="mcp_servers_legacy_sse">旧版 HTTP+SSE 伝送を使う(2024-11-05)</string>
     <string name="mcp_servers_use_oauth">OAuth 2.1 でサインイン</string>
     <string name="mcp_servers_sign_in">サインイン</string>
     <string name="mcp_servers_signing_in">ブラウザでのサインインを待っています…</string>
