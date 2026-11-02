@@ -113,4 +113,37 @@
     <string name="appearance_dark">Selalu gelap</string>
     <string name="settings_self_config">Biarkan Mika mengubah pengaturannya sendiri</string>
     <string name="settings_self_config_sub">Jika aktif, tugas mendapat satu alat untuk membaca dan mengubah preferensi ini (kecepatan, bisu, kapsul, tampilan, layar menyala). Model, kunci API, jaringan kontainer, dan apa pun yang menghapus data tidak pernah disertakan</string>
+    <string name="mcp_servers_title">Server MCP</string>
+    <string name="mcp_servers_empty">Belum ada server MCP</string>
+    <string name="mcp_servers_empty_sub">Tambahkan server MCP eksternal agar Mika dapat memakai alatnya.</string>
+    <string name="mcp_servers_add">Tambah server</string>
+    <string name="mcp_servers_edit">Edit server</string>
+    <string name="mcp_servers_name">Nama</string>
+    <string name="mcp_servers_url">URL server</string>
+    <string name="mcp_servers_token">Token akses (opsional)</string>
+    <string name="mcp_servers_allow_local_http">Izinkan HTTP untuk server lokal/privat</string>
+    <string name="mcp_servers_trust_annotations">Percayai anotasi hanya-baca server</string>
+    <string name="mcp_servers_save">Simpan</string>
+    <string name="mcp_servers_save_test">Simpan dan uji</string>
+    <string name="mcp_servers_testing">Menguji…</string>
+    <string name="mcp_servers_count">%1$d server</string>
+    <string name="mcp_servers_help">Tentang</string>
+    <string name="mcp_servers_help_text">Server MCP eksternal terpisah dari «Sambungkan komputer». Alatnya muncul dengan sumber MCP di tugas. Bawaan hanya HTTPS; HTTP lokal perlu dicentang. Token tetap di ponsel ini.</string>
+    <string name="mcp_servers_delete">Hapus</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">Proses lokal</string>
+    <string name="mcp_servers_command">Perintah (eksekusi dan argumen)</string>
+    <string name="mcp_servers_stdio_help">Berjalan di dalam sandbox Linux. Pasang server di sana terlebih dahulu.</string>
+    <string name="mcp_servers_legacy_sse">Gunakan transport HTTP+SSE lama (2024-11-05)</string>
+    <string name="mcp_servers_use_oauth">Gunakan login OAuth 2.1</string>
+    <string name="mcp_servers_sign_in">Masuk</string>
+    <string name="mcp_servers_signing_in">Menunggu login di browser…</string>
+    <string name="mcp_servers_sign_in_ok">Berhasil masuk. Gunakan Simpan &amp; uji untuk memeriksa alat.</string>
+    <string name="mcp_servers_sign_in_failed">Gagal masuk: %1$s</string>
+    <string name="mcp_servers_run_failed">Server MCP tidak tersedia: %1$s</string>
+    <string name="mcp_servers_status_ok">Tersedia · %1$d alat</string>
+    <string name="mcp_servers_status_fail">Gagal terhubung: %1$s</string>
+    <string name="mcp_servers_refresh_all">Uji semua</string>
+    <string name="mcp_servers_allowlist">Alat yang diizinkan (dipisah koma, kosong = semua)</string>
 </resources>

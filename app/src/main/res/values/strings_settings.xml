@@ -126,4 +126,37 @@
     <string name="appearance_dark">Always dark</string>
     <string name="settings_self_config">Let Mika change its own settings</string>
     <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
+    <string name="mcp_servers_title">MCP servers</string>
+    <string name="mcp_servers_empty">No MCP server added</string>
+    <string name="mcp_servers_empty_sub">Add an external MCP server to expose its tools to Mika.</string>
+    <string name="mcp_servers_add">Add server</string>
+    <string name="mcp_servers_edit">Edit server</string>
+    <string name="mcp_servers_name">Name</string>
+    <string name="mcp_servers_url">Server URL</string>
+    <string name="mcp_servers_token">Access token (optional)</string>
+    <string name="mcp_servers_allow_local_http">Allow HTTP for local/private servers</string>
+    <string name="mcp_servers_trust_annotations">Trust the server’s read-only annotations</string>
+    <string name="mcp_servers_save">Save</string>
+    <string name="mcp_servers_save_test">Save &amp; test</string>
+    <string name="mcp_servers_testing">Testing…</string>
+    <string name="mcp_servers_count">%1$d servers</string>
+    <string name="mcp_servers_help">About</string>
+    <string name="mcp_servers_help_text">External MCP servers are separate from Connect a computer. Their tools appear with an MCP source in tasks. HTTPS only by default; local HTTP needs the checkbox. Tokens stay on this phone.</string>
+    <string name="mcp_servers_delete">Delete</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">Local process</string>
+    <string name="mcp_servers_command">Command (executable and arguments)</string>
+    <string name="mcp_servers_stdio_help">Runs inside the Linux sandbox. Install the server there first.</string>
+    <string name="mcp_servers_legacy_sse">Use legacy HTTP+SSE transport (2024-11-05)</string>
+    <string name="mcp_servers_use_oauth">Use OAuth 2.1 sign-in</string>
+    <string name="mcp_servers_sign_in">Sign in</string>
+    <string name="mcp_servers_signing_in">Waiting for browser sign-in…</string>
+    <string name="mcp_servers_sign_in_ok">Signed in. Use Save &amp; test to check tools.</string>
+    <string name="mcp_servers_sign_in_failed">Sign-in failed: %1$s</string>
+    <string name="mcp_servers_run_failed">MCP servers unavailable: %1$s</string>
+    <string name="mcp_servers_status_ok">Available · %1$d tools</string>
+    <string name="mcp_servers_status_fail">Connection failed: %1$s</string>
+    <string name="mcp_servers_refresh_all">Test all</string>
+    <string name="mcp_servers_allowlist">Allowed tools (comma separated, empty = all)</string>
 </resources>

@@ -99,6 +99,23 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             com.wangzan101.mika.settings.RelaySettings(settingsDir, com.wangzan101.mika.settings.KeystoreKeyCipher("mika-remote-relay")))
     }
     val childRuns by lazy { FileChildRunStore(java.io.File(filesDir, "children-v3.json")) }
+
+    /** 外部 MCP server 的设置(与「连接电脑」的 inbound 设置分开)。 */
+    val mcpServers by lazy {
+        com.wangzan101.mika.settings.McpServerStore(
+            java.io.File(filesDir, "settings"),
+            com.wangzan101.mika.settings.KeystoreKeyCipher("mika-mcp-servers"),
+            stdio = com.wangzan101.mika.core.cap.mcp.McpStdioLauncher { workspace, argv ->
+                val process = AndroidSandbox(this, SandboxState.get(this)).openProcess(workspace, argv, null)
+                object : com.wangzan101.mika.core.cap.mcp.McpStdioProcess {
+                    override val stdin get() = process.stdin
+                    override val stdout get() = process.stdout
+                    override val stderr get() = process.stderr
+                    override fun close() = process.close()
+                }
+            },
+        )
+    }
     override val tabBudget get() = resources.tabBudget
 
     /** 任务结束后留在后台接着运行的那一页;关掉时在来源对话那一轮记下原因(对话页那一轮下面显示「后台网页已关闭」)。 */

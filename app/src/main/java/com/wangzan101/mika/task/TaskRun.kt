@@ -159,6 +159,8 @@ class TaskRun(
     internal var mcpExternalId: String? = null
     internal val conditionCheck get() = triggerActionGoal != null
     @Volatile private var children: ChildAgentRunner? = null
+    /** 这次任务连上的外部 MCP server;结束时关闭会话。 */
+    @Volatile private var mcpConnections: com.wangzan101.mika.settings.McpConnections? = null
     /** 自己的一份;显示中时同步写到服务对外的那份。[show] 时整份抄过去。 */
     /** App 给的模型来源、评测钩子、屏幕画面的开关。 */
     private val env = TaskEnvironment.of(service)
@@ -689,6 +691,23 @@ class TaskRun(
             val runSpec = RunSpec(RunId(key), goal, conversationId,
                 priorTurns,
                 provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck)
+            // 外部 MCP server 只在主任务接;子任务/条件检查/评测不接,避免绕过父任务审批、影响评测可复现
+            if (!conditionCheck) {
+                mcpConnections = withContext(Dispatchers.IO) {
+                    (service.application as MikaApp).mcpServers.connections(
+                        com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), conversationId),
+                        conversationId,
+                    )
+                }
+                // 连接失败只在任务卡片上提示一句,不打断任务;详情在设置页的健康状态里
+                mcpConnections?.failures?.takeIf { it.isNotEmpty() }?.let { failures ->
+                    val store = (service.application as MikaApp).mcpServers
+                    val names = store.servers.value.associate { it.id to it.name }
+                    (_state.value as? TaskState.Running)?.let {
+                        publish(it.copy(note = tr(R.string.mcp_servers_run_failed, failures.joinToString(", ") { f -> names[f.first] ?: f.first })))
+                    }
+                }
+            }
             val runApproval = approvalControl.start(remote = provenance.origin == RunOrigin.Mcp).also { approval = it }
             val childRunner = if (provenance.origin == RunOrigin.Ui && web != null) ChildAgentRunner(
                 create = { childSpec ->
@@ -740,7 +759,8 @@ class TaskRun(
                 // 用户要求时写下或改写个人技能(和自学收下的放在同一处,设置里立刻能看到)
                 personalSkills = memoryRuntime.skills(),
                 // 这个对话之前几轮的运行记录(只读;history_read 只认 runSpec 里这个对话的轮次)
-                runRecords = RunStore(service).reader())
+                runRecords = RunStore(service).reader(),
+                mcpServers = mcpConnections?.connections.orEmpty())
             dispatcher = tools
             val agent = AgentLoop(
                 model, tools,
@@ -893,6 +913,8 @@ class TaskRun(
             shellDeath?.let { d -> runCatching { shellBinder?.unlinkToDeath(d, 0) } }
             loop = null
             children = null
+            mcpConnections?.close()
+            mcpConnections = null
             mcpEvents?.close()
             liveFeed?.close()
             approval?.let { approvalControl.end(it) }
