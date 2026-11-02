@@ -260,7 +260,6 @@ fun ChatScreen(
     // 已结束各轮的运行小结:每轮结束那一行写这一轮的 token,顶栏闲着时写这个对话合起来的
     val endedRuns = ui.exchanges.filter { !it.status.isActive() }.mapNotNull { it.runId }
     val runMetrics = rememberRunMetrics(endedRuns)
-    val conversationTokens = ConversationTokens.of(endedRuns, runMetrics)
 
     val c = MikaTheme.colors
     val backdrop = rememberGlassBackdrop()
@@ -323,9 +322,10 @@ fun ChatScreen(
         }
 
         // 没有任务在跑、这个对话留着一页在后台运行时:顶栏写「后台保持着 1 个网页」;都没有时写这个对话用了多少 token
+        // (对话合计只在最后这一行,不要它时删掉这一行)
         val sub: Pair<String, ChatCopy.Tone?>? = ChatCopy.subtitle(last, last?.let(vm::livePlace))
             ?: kept?.let { ChatCopy.KEPT_PAGE to ChatCopy.Tone.Ok }
-            ?: conversationTokens?.let { ChatTokensCopy.conversation(it) to null }
+            ?: ChatTokensCopy.conversationSubtitle(endedRuns, runMetrics)?.let { it to null }
         Column(Modifier.behindMenu(menuOpen) { lift.value }.onSizeChanged { topHeight = it.height }) {
             TopBar(
                 ChatCopy.APP_TITLE,
