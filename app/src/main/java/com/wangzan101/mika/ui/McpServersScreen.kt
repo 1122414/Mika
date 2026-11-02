@@ -30,6 +30,7 @@ import com.wangzan101.mika.ui.components.GroupLabel
 import com.wangzan101.mika.ui.components.ListRow
 import com.wangzan101.mika.ui.components.MikaSwitch
 import com.wangzan101.mika.ui.components.PageScaffold
+import com.wangzan101.mika.ui.components.SegmentedControl
 import com.wangzan101.mika.ui.components.RowChevron
 import com.wangzan101.mika.ui.components.MikaButton
 import com.wangzan101.mika.ui.components.ButtonSize
@@ -57,13 +58,14 @@ fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
             GroupCard {
                 servers.forEachIndexed { i, server ->
                     val state = health[server.id]
+                    val address = if (server.transport == "stdio") server.command else server.url
                     ListRow(
                         MikaIcons.Link, server.name,
                         subtitle = (state?.let {
                             if (it.ok) stringResource(R.string.mcp_servers_status_ok, it.tools.size)
                             else stringResource(R.string.mcp_servers_status_fail, it.message.orEmpty())
-                        } ?: server.url),
-                        detail = state?.let { server.url },
+                        } ?: address),
+                        detail = state?.let { address },
                         first = i == 0,
                         onClick = { editing = server },
                     ) {
@@ -117,7 +119,8 @@ private fun McpServerDialog(
     var allowLocal by remember { mutableStateOf(initial?.allowLocalHttp == true) }
     var trustAnnotations by remember { mutableStateOf(initial?.trust == "trust-annotations") }
     var oauth by remember { mutableStateOf(initial?.auth == "oauth") }
-    var legacySse by remember { mutableStateOf(initial?.transport == "http-sse") }
+    var transport by remember { mutableStateOf(initial?.transport ?: "streamable-http") }
+    var command by remember { mutableStateOf(initial?.command.orEmpty()) }
     var allowlist by remember { mutableStateOf(initial?.allowedTools?.joinToString(", ").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
@@ -127,15 +130,22 @@ private fun McpServerDialog(
     val context = LocalContext.current
     val signInLabel = stringResource(R.string.mcp_servers_sign_in)
     val signInOk = stringResource(R.string.mcp_servers_sign_in_ok)
+    val transportIds = listOf("streamable-http", "http-sse", "stdio")
+    val transportLabels = listOf(
+        stringResource(R.string.mcp_servers_transport_http),
+        stringResource(R.string.mcp_servers_transport_sse),
+        stringResource(R.string.mcp_servers_transport_stdio),
+    )
 
     fun config() = McpServerConfig(
         id = savedId ?: initial?.id ?: java.util.UUID.randomUUID().toString(),
         name = name.trim(),
-        url = url.trim(),
+        url = if (transport == "stdio") "" else url.trim(),
         allowLocalHttp = allowLocal,
         trust = if (trustAnnotations) "trust-annotations" else "restricted",
-        auth = if (oauth) "oauth" else "token",
-        transport = if (legacySse) "http-sse" else "streamable-http",
+        auth = if (oauth && transport != "stdio") "oauth" else "token",
+        transport = transport,
+        command = if (transport == "stdio") command.trim() else "",
         allowedTools = allowlist.split(',').map { it.trim() }.filter { it.isNotEmpty() }.takeIf { it.isNotEmpty() },
     )
 
@@ -160,13 +170,29 @@ private fun McpServerDialog(
         text = {
             Column {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.mcp_servers_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.mcp_servers_url)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                if (!oauth) {
+                SegmentedControl(
+                    options = transportLabels,
+                    selected = transportIds.indexOf(transport).coerceAtLeast(0),
+                    onSelect = { transport = transportIds[it] },
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                if (transport == "stdio") {
                     OutlinedTextField(
-                        token, { token = it }, label = { Text(stringResource(R.string.mcp_servers_token)) },
-                        singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                        command, { command = it },
+                        label = { Text(stringResource(R.string.mcp_servers_command)) },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
+                    Text(stringResource(R.string.mcp_servers_stdio_help), Modifier.padding(top = 4.dp))
+                } else {
+                    OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.mcp_servers_url)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    if (!oauth) {
+                        OutlinedTextField(
+                            token, { token = it }, label = { Text(stringResource(R.string.mcp_servers_token)) },
+                            singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        )
+                    }
                 }
                 OutlinedTextField(
                     allowlist, { allowlist = it },
@@ -174,9 +200,8 @@ private fun McpServerDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
-                ToggleRow(stringResource(R.string.mcp_servers_legacy_sse), legacySse) { legacySse = it }
-                ToggleRow(stringResource(R.string.mcp_servers_use_oauth), oauth) { oauth = it }
-                if (oauth) {
+                if (transport != "stdio") ToggleRow(stringResource(R.string.mcp_servers_use_oauth), oauth) { oauth = it }
+                if (oauth && transport != "stdio") {
                     TextButton({
                         val saved = save() ?: return@TextButton
                         signingIn = true
@@ -201,7 +226,7 @@ private fun McpServerDialog(
                         }
                     }) { Text(signInLabel) }
                 }
-                ToggleRow(stringResource(R.string.mcp_servers_allow_local_http), allowLocal) { allowLocal = it }
+                if (transport != "stdio") ToggleRow(stringResource(R.string.mcp_servers_allow_local_http), allowLocal) { allowLocal = it }
                 ToggleRow(stringResource(R.string.mcp_servers_trust_annotations), trustAnnotations) { trustAnnotations = it }
                 error?.let { Text(it, Modifier.padding(top = 6.dp)) }
                 if (testing) Text(stringResource(R.string.mcp_servers_testing), Modifier.padding(top = 6.dp))

@@ -142,6 +142,11 @@
     <string name="mcp_servers_help">О функции</string>
     <string name="mcp_servers_help_text">Внешние MCP-серверы не связаны с «Подключить компьютер». Их инструменты появляются в задачах с источником MCP. По умолчанию только HTTPS; для локального HTTP нужна галочка. Токены остаются на этом телефоне.</string>
     <string name="mcp_servers_delete">Удалить</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">Локальный процесс</string>
+    <string name="mcp_servers_command">Команда (исполняемый файл и аргументы)</string>
+    <string name="mcp_servers_stdio_help">Запускается внутри Linux-песочницы. Сначала установите туда сервер.</string>
     <string name="mcp_servers_legacy_sse">Использовать старый транспорт HTTP+SSE (2024-11-05)</string>
     <string name="mcp_servers_use_oauth">Использовать вход OAuth 2.1</string>
     <string name="mcp_servers_sign_in">Войти</string>

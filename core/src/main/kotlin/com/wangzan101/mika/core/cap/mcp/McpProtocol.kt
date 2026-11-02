@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 /** 服务端工具描述的统一解析;HTTP/SSE 两种传输共用同一套风险注解读取。 */
@@ -83,4 +84,27 @@ internal fun mcpPromptResult(result: JsonObject): McpResult {
     }?.joinToString("\n").orEmpty()
     return McpResult(listOfNotNull(description.takeIf { it.isNotBlank() }, body.takeIf { it.isNotBlank() })
         .joinToString("\n"))
+}
+
+/** tools/call 的 content[]、structuredContent 和成本;三种传输共用。 */
+internal fun mcpToolResult(result: JsonObject): McpResult {
+    val isError = (result["isError"] as? JsonPrimitive)?.booleanOrNull == true
+    val content = result["content"] as? kotlinx.serialization.json.JsonArray
+    val text = content?.mapNotNull { element ->
+        val item = element as? JsonObject ?: return@mapNotNull null
+        when ((item["type"] as? JsonPrimitive)?.contentOrNull) {
+            "text" -> (item["text"] as? JsonPrimitive)?.contentOrNull
+            "resource" -> {
+                val resource = item["resource"] as? JsonObject
+                (resource?.get("text") as? JsonPrimitive)?.contentOrNull
+                    ?: (resource?.get("uri") as? JsonPrimitive)?.contentOrNull
+            }
+            "image" -> (item["mimeType"] as? JsonPrimitive)?.contentOrNull?.let { "[image: $it]" } ?: "[image]"
+            else -> null
+        }
+    }?.joinToString("\n").orEmpty()
+    val structured = result["structuredContent"]
+    val full = if (text.isNotEmpty()) text else structured?.toString().orEmpty()
+    val cost = (result["_meta"] as? JsonObject)?.get("costUnits")?.jsonPrimitive?.longOrNull ?: 0L
+    return McpResult(full, isError = isError, costUnits = cost)
 }

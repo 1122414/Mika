@@ -220,7 +220,7 @@
 
 ### 电脑连接:CLI 与 MCP
 
-两个方向。**Mika 作为 MCP 服务器**(电脑连接)已经接上,两种连法:经 USB(电脑用 adb 打开,只听回环)和经局域网(用户在设置里打开,默认关);**Mika 作为 MCP 客户端**去连外部服务器(设置 › 高级 › MCP 服务器):`core/cap/mcp/HttpMcpClient.kt` 走 Streamable HTTP(2025-03-26),`LegacySseMcpClient.kt` 走旧版 HTTP+SSE(2024-11-05);`McpOAuth.kt` 支持 OAuth 2.1 发现、动态注册、PKCE 与刷新,也可手动填 Bearer;工具按注解定风险、开局冻结,resources/prompts 合成只读工具。设置在 `app/settings/McpServerStore.kt`,令牌加密保存。低层工具会话(`core/mcp/McpServer.kt`)是另一个方向。用户文档见 [mcp.md](../mcp.md) 与 [cli.md](../cli.md)。电脑 CLI 使用普通 HTTP 任务 API,与 MCP 适配器并列,共用一份任务服务。
+两个方向。**Mika 作为 MCP 服务器**(电脑连接)已经接上,两种连法:经 USB(电脑用 adb 打开,只听回环)和经局域网(用户在设置里打开,默认关);**Mika 作为 MCP 客户端**去连外部服务器(设置 › 高级 › MCP 服务器):`core/cap/mcp/HttpMcpClient.kt` 走 Streamable HTTP(2025-03-26),`LegacySseMcpClient.kt` 走旧版 HTTP+SSE(2024-11-05),`StdioMcpClient.kt` 走沙箱里的本地进程;`McpOAuth.kt` 支持 OAuth 2.1 发现、动态注册、PKCE 与刷新,也可手动填 Bearer;工具按注解定风险、开局冻结,resources/prompts 合成只读工具。设置在 `app/settings/McpServerStore.kt`,令牌加密保存。低层工具会话(`core/mcp/McpServer.kt`)是另一个方向。用户文档见 [mcp.md](../mcp.md) 与 [cli.md](../cli.md)。电脑 CLI 使用普通 HTTP 任务 API,与 MCP 适配器并列,共用一份任务服务。
 
 **服务器**的分层都在 `:core`,可以在电脑上整套测:
 

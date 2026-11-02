@@ -143,6 +143,11 @@
     <string name="mcp_servers_help">About</string>
     <string name="mcp_servers_help_text">External MCP servers are separate from Connect a computer. Their tools appear with an MCP source in tasks. HTTPS only by default; local HTTP needs the checkbox. Tokens stay on this phone.</string>
     <string name="mcp_servers_delete">Delete</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">Local process</string>
+    <string name="mcp_servers_command">Command (executable and arguments)</string>
+    <string name="mcp_servers_stdio_help">Runs inside the Linux sandbox. Install the server there first.</string>
     <string name="mcp_servers_legacy_sse">Use legacy HTTP+SSE transport (2024-11-05)</string>
     <string name="mcp_servers_use_oauth">Use OAuth 2.1 sign-in</string>
     <string name="mcp_servers_sign_in">Sign in</string>

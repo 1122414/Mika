@@ -130,6 +130,11 @@
     <string name="mcp_servers_help">說明</string>
     <string name="mcp_servers_help_text">外部 MCP 伺服器和「連接電腦」是兩回事。它提供的工具會以 MCP 來源出現在任務裡。預設只允許 HTTPS；本機/區域網路 HTTP 要勾選。權杖只保存在本機。</string>
     <string name="mcp_servers_delete">刪除</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">本機程序</string>
+    <string name="mcp_servers_command">命令(可執行檔與參數)</string>
+    <string name="mcp_servers_stdio_help">在 Linux 沙箱裡執行,請先在沙箱裡裝好伺服器。</string>
     <string name="mcp_servers_legacy_sse">使用舊版 HTTP+SSE 傳輸(2024-11-05)</string>
     <string name="mcp_servers_use_oauth">使用 OAuth 2.1 登入</string>
     <string name="mcp_servers_sign_in">登入</string>

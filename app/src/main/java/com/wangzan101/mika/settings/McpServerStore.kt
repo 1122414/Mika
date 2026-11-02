@@ -6,6 +6,9 @@ import com.wangzan101.mika.core.cap.mcp.LegacySseMcpEndpoint
 import com.wangzan101.mika.core.cap.mcp.McpOAuth
 import com.wangzan101.mika.core.cap.mcp.McpOAuthException
 import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
+import com.wangzan101.mika.core.cap.mcp.McpStdioLauncher
+import com.wangzan101.mika.core.cap.mcp.StdioMcpEndpoint
+import com.wangzan101.mika.core.cap.mcp.parseStdioCommand
 import com.wangzan101.mika.core.cap.mcp.McpConnection
 import com.wangzan101.mika.core.cap.mcp.McpTrust
 import com.wangzan101.mika.core.net.NetProxy
@@ -47,8 +50,10 @@ data class McpServerConfig(
     val previewChars: Int = 4000,
     val maxCostUnits: Long? = null,
     val allowLocalHttp: Boolean = false,
-    /** streamable-http | http-sse(后者是 2024-11-05 旧版传输) */
+    /** streamable-http | http-sse(2024-11-05 旧版) | stdio(沙箱里的本地进程) */
     val transport: String = "streamable-http",
+    /** stdio 的命令行;不经过 shell,按 argv 直接执行。 */
+    val command: String = "",
     /** token | oauth(token 是手动 Bearer/自定义头;oauth 走 OAuth 2.1 登录) */
     val auth: String = "token",
     /** 只暴露这些工具;null 表示全部。 */
@@ -77,6 +82,8 @@ class McpServerStore(
     private val http: OkHttpClient = NetProxy.shared.client(
         OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(70, TimeUnit.SECONDS),
     ),
+    /** stdio server 只能由沙箱启动;为 null 时 stdio 配置会报不可用。 */
+    private val stdio: McpStdioLauncher? = null,
 ) {
     private val file = File(dir, "mcp-servers.json")
     private val secretsFile = File(dir, "mcp-server-secrets.bin")
@@ -135,11 +142,14 @@ class McpServerStore(
 
     fun validate(config: McpServerConfig): String? {
         if (config.name.isBlank()) return "name is required"
+        if (config.transport == "stdio") {
+            if (config.command.isBlank()) return "command is required"
+            if (config.command.length > 4000) return "command is too long"
+            if (config.command.any { it == '\n' || it == '\u0000' }) return "command must be one line"
+            return null
+        }
         val url = config.url.toHttpUrlOrNull() ?: return "invalid URL"
         if (url.username.isNotEmpty() || url.password.isNotEmpty()) return "URL must not contain user info"
-        if (config.timeoutSec !in 1..600) return "timeout must be 1..600 seconds"
-        if (config.previewChars !in 100..100_000) return "preview length must be 100..100000"
-        if (config.maxCostUnits != null && config.maxCostUnits < 0) return "cost limit must be >= 0"
         if (isBlockedHost(url.host)) return "this host is not allowed"
         if (url.scheme == "http") {
             if (!config.allowLocalHttp) return "HTTP is only allowed for local/private servers after enabling it"
@@ -150,7 +160,7 @@ class McpServerStore(
         return null
     }
 
-    suspend fun test(config: McpServerConfig): Result<McpTestResult> {
+    suspend fun test(config: McpServerConfig, workspace: String = SETTINGS_WORKSPACE): Result<McpTestResult> {
         validate(config)?.let { return Result.failure(IllegalArgumentException(it)) }
         val headers = try {
             authHeaders(config)
@@ -160,7 +170,7 @@ class McpServerStore(
             _health.update { it + (config.id to healthFailure(e)) }
             return Result.failure(e)
         }
-        val endpoint = open(config, headers).getOrElse { e ->
+        val endpoint = open(config, headers, workspace).getOrElse { e ->
             _health.update { it + (config.id to healthFailure(e)) }
             return Result.failure(e)
         }
@@ -168,11 +178,13 @@ class McpServerStore(
             val name = when (endpoint) {
                 is HttpMcpEndpoint -> endpoint.serverName
                 is LegacySseMcpEndpoint -> endpoint.serverName
+                is StdioMcpEndpoint -> endpoint.serverName
                 else -> null
             }
             val instructions = when (endpoint) {
                 is HttpMcpEndpoint -> endpoint.instructions
                 is LegacySseMcpEndpoint -> endpoint.instructions
+                is StdioMcpEndpoint -> endpoint.instructions
                 else -> null
             }
             val result = McpTestResult(name, instructions, endpoint.tools().map { it.name })
@@ -189,12 +201,15 @@ class McpServerStore(
     }
 
     /** 连接所有启用项;单个失败只记录,不抛。并行连接,避免一个慢 server 拖住任务开头。 */
-    suspend fun connections(resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null): McpConnections {
+    suspend fun connections(
+        resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null,
+        workspace: String = SETTINGS_WORKSPACE,
+    ): McpConnections {
         val attempts = coroutineScope {
             _servers.value.filter { it.enabled }.map { config ->
                 async {
                     val result = try {
-                        open(config, authHeaders(config))
+                        open(config, if (config.transport == "stdio") emptyMap() else authHeaders(config), workspace)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -231,32 +246,52 @@ class McpServerStore(
         )
     }
 
-    private suspend fun open(config: McpServerConfig, headers: Map<String, String>): Result<com.wangzan101.mika.core.cap.mcp.McpEndpoint> =
-        if (config.transport == "http-sse") {
-            LegacySseMcpEndpoint.connect(
+    private suspend fun open(
+        config: McpServerConfig,
+        headers: Map<String, String>,
+        workspace: String,
+    ): Result<com.wangzan101.mika.core.cap.mcp.McpEndpoint> = try {
+        when (config.transport) {
+            "stdio" -> {
+                val launcher = stdio ?: throw IllegalStateException("stdio MCP servers are not available on this build")
+                val argv = parseStdioCommand(config.command)
+                StdioMcpEndpoint.connect(
+                    serverId = config.id, command = argv, launcher = launcher, workspace = workspace,
+                    timeoutSec = config.timeoutSec,
+                    clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
+                ).map { it as com.wangzan101.mika.core.cap.mcp.McpEndpoint }
+            }
+            "http-sse" -> LegacySseMcpEndpoint.connect(
                 serverId = config.id, url = config.url, http = http,
                 headers = headers, timeoutSec = config.timeoutSec,
                 clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
             ).map { it as com.wangzan101.mika.core.cap.mcp.McpEndpoint }
-        } else {
-            HttpMcpEndpoint.connect(
+            else -> HttpMcpEndpoint.connect(
                 serverId = config.id, url = config.url, http = http,
                 headers = headers, timeoutSec = config.timeoutSec,
                 clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
             ).map { it as com.wangzan101.mika.core.cap.mcp.McpEndpoint }
         }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
-    private suspend fun authHeaders(config: McpServerConfig): Map<String, String> = buildMap {
-        putAll(config.headers)
-        if (config.auth == "oauth") {
-            var tokens = oauthTokens(config.id) ?: throw McpOAuthException("oauth_login_required")
-            if (!tokens.isFresh()) {
-                tokens = oauth.refresh(tokens)
-                setOAuthTokens(config.id, tokens)
+    private suspend fun authHeaders(config: McpServerConfig): Map<String, String> {
+        if (config.transport == "stdio") return emptyMap()
+        return buildMap {
+            putAll(config.headers)
+            if (config.auth == "oauth") {
+                var tokens = oauthTokens(config.id) ?: throw McpOAuthException("oauth_login_required")
+                if (!tokens.isFresh()) {
+                    tokens = oauth.refresh(tokens)
+                    setOAuthTokens(config.id, tokens)
+                }
+                put("Authorization", "Bearer ${tokens.accessToken}")
+            } else {
+                token(config.id)?.let { put("Authorization", "Bearer $it") }
             }
-            put("Authorization", "Bearer ${tokens.accessToken}")
-        } else {
-            token(config.id)?.let { put("Authorization", "Bearer $it") }
         }
     }
 
@@ -366,6 +401,11 @@ class McpServerStore(
         host == "localhost" || host == "127.0.0.1" || host == "::1" ||
             host.startsWith("10.") || host.startsWith("192.168.") ||
             Regex("^172\\.(1[6-9]|2[0-9]|3[01])\\.").containsMatchIn(host)
+
+    companion object {
+        /** 设置页测试 stdio server 时用的沙箱工作区;任务里用对话 ID。 */
+        const val SETTINGS_WORKSPACE = "mcp-settings"
+    }
 
     private fun isBlockedHost(host: String): Boolean =
         host == "169.254.169.254" || host == "metadata.google.internal" ||

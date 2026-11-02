@@ -11,6 +11,7 @@ import com.wangzan101.mika.core.workspace.SandboxError
 import com.wangzan101.mika.core.workspace.SandboxPaths
 import com.wangzan101.mika.settings.NetProxyStore
 import com.wangzan101.mika.core.cap.sandbox.SandboxPort
+import com.wangzan101.mika.core.cap.sandbox.SandboxProcess
 import com.wangzan101.mika.core.cap.sandbox.PhoneCommandHandler
 import com.wangzan101.mika.core.cap.sandbox.SandboxStatus
 import com.wangzan101.mika.core.knowledge.ScriptEntry
@@ -18,15 +19,20 @@ import com.wangzan101.mika.core.knowledge.ScriptManifest
 import com.wangzan101.mika.core.cap.sandbox.ShareRules
 import com.wangzan101.mika.core.workspace.WorkspacePathCheck
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
@@ -192,6 +198,53 @@ class AndroidSandbox internal constructor(
             killedBySystem = !timedOut && o.exitCode == EXIT_SIGKILL, durationMs = o.durationMs,
             output = text, droppedBytes = o.droppedBytes, network = network,
         )
+    }
+
+    /**
+     * 在沙箱里启动长驻 stdio 进程。和一次性命令一样先准备运行环境、建工作区、写 resolv.conf;
+     * 整个进程存活期间持有树的 shared 许可,关闭时放掉。不提供手机工具桥(stdio server 只拿它自己的 stdin/stdout)。
+     */
+    override suspend fun openProcess(workspace: String, argv: List<String>, cwd: String?): SandboxProcess {
+        val network = (status() as? SandboxStatus.Ready)?.network == true
+        val rel = cwd?.takeIf { it.isNotEmpty() }?.let { c ->
+            val n = SandboxPaths.normalize(c)?.takeIf(SandboxPaths::isWritable)
+                ?: throw SandboxError("path_outside_workspace", "cwd must be a directory inside /workspace.", recoverable = true)
+            n.removePrefix(SandboxPaths.WORKSPACE).trimStart('/')
+        }.orEmpty()
+        prepare()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val acquired = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        scope.launch {
+            tree.shared {
+                acquired.complete(Unit)
+                release.await()
+            }
+        }
+        acquired.await()
+        try {
+            val ws = withContext(Dispatchers.IO) {
+                dirs.workspace(workspace).also {
+                    dirs.ensureBindSources(it)
+                    syncClientScript()
+                    rel.takeIf { c -> c.isNotEmpty() }?.let { c -> runCatching { files.mkdirs(it, c) } }
+                    if (network) writeResolvConf()
+                }
+            }
+            val cmd = ProcRunner.argv(dirs, ws, rel, 3600, network, standIns(), argv)
+            val env = ProcRunner.env(dirs, null, null, workspace, if (network) proxy() else "")
+            val process = withContext(launcherThread + NonCancellable) {
+                ProcessBuilder(cmd).redirectErrorStream(false).apply {
+                    environment().clear()
+                    environment().putAll(env)
+                }.start()
+            }
+            return SandboxProcessHandle(process, scope, release)
+        } catch (e: Throwable) {
+            release.complete(Unit)
+            scope.cancel()
+            throw e
+        }
     }
 
     override fun hostPath(workspace: String, sandboxPath: String, forWrite: Boolean): File? {
@@ -432,5 +485,28 @@ class AndroidSandbox internal constructor(
             p.destroy()
             thread(isDaemon = true, name = "mika-sandbox-reaper") { if (!p.waitFor(DESTROY_GRACE_MS, TimeUnit.MILLISECONDS)) p.destroyForcibly() }
         }
+    }
+}
+
+/** [AndroidSandbox.openProcess] 的长驻进程:关闭时先 SIGTERM 启动器(它会清掉整棵进程树),再兜底 SIGKILL。 */
+private class SandboxProcessHandle(
+    private val process: Process,
+    private val scope: CoroutineScope,
+    private val release: CompletableDeferred<Unit>,
+) : SandboxProcess {
+    override val stdin: java.io.OutputStream get() = process.outputStream
+    override val stdout: java.io.InputStream get() = process.inputStream
+    override val stderr: java.io.InputStream get() = process.errorStream
+
+    override fun close() {
+        release.complete(Unit)
+        runCatching { process.outputStream.close() }
+        runCatching { process.destroy() }
+        thread(isDaemon = true, name = "mika-sandbox-stdio-reaper") {
+            if (!process.waitFor(DESTROY_GRACE_MS, TimeUnit.MILLISECONDS)) process.destroyForcibly()
+        }
+        scope.cancel()
+        runCatching { process.inputStream.close() }
+        runCatching { process.errorStream.close() }
     }
 }

@@ -97,7 +97,7 @@ class HttpMcpEndpoint private constructor(
             return McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
         }
         return try {
-            resultToMcpResult(result)
+            mcpToolResult(result)
         } catch (e: Exception) {
             McpResult("MCP server returned an unreadable result: ${e.message ?: e.javaClass.simpleName}", isError = true)
         }
@@ -149,28 +149,6 @@ class HttpMcpEndpoint private constructor(
         val request = builder.post(body.toRequestBody(JSON_MEDIA)).build()
         val response = client.newCall(request).await(timeoutSec)
         return RawResponse(response.code, response.header("Mcp-Session-Id"), response.body?.string().orEmpty())
-    }
-
-    private fun resultToMcpResult(result: JsonObject): McpResult {
-        val isError = (result["isError"] as? JsonPrimitive)?.booleanOrNull == true
-        val content = result["content"] as? JsonArray
-        val text = content?.mapNotNull { element ->
-            val item = element as? JsonObject ?: return@mapNotNull null
-            when ((item["type"] as? JsonPrimitive)?.contentOrNull) {
-                "text" -> (item["text"] as? JsonPrimitive)?.contentOrNull
-                "resource" -> {
-                    val resource = item["resource"] as? JsonObject
-                    (resource?.get("text") as? JsonPrimitive)?.contentOrNull
-                        ?: (resource?.get("uri") as? JsonPrimitive)?.contentOrNull
-                }
-                "image" -> (item["mimeType"] as? JsonPrimitive)?.contentOrNull?.let { "[image: $it]" } ?: "[image]"
-                else -> null
-            }
-        }?.joinToString("\n").orEmpty()
-        val structured = result["structuredContent"]
-        val full = if (text.isNotEmpty()) text else structured?.toString().orEmpty()
-        val cost = (result["_meta"] as? JsonObject)?.get("costUnits")?.jsonPrimitive?.longOrNull ?: 0L
-        return McpResult(full, isError = isError, costUnits = cost)
     }
 
     private fun sseMessages(body: String): List<JsonObject> {

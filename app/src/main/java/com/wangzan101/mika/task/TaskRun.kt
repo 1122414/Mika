@@ -695,6 +695,7 @@ class TaskRun(
                 mcpConnections = withContext(Dispatchers.IO) {
                     (service.application as MikaApp).mcpServers.connections(
                         com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), conversationId),
+                        conversationId,
                     )
                 }
                 // 连接失败只在任务卡片上提示一句,不打断任务;详情在设置页的健康状态里

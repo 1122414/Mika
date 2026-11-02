@@ -1,7 +1,16 @@
 package com.wangzan101.mika.settings
 
 import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
+import com.wangzan101.mika.core.cap.mcp.McpStdioLauncher
+import com.wangzan101.mika.core.cap.mcp.McpStdioProcess
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -12,7 +21,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
+import kotlin.concurrent.thread
 
 class McpServerStoreTest {
     @get:Rule val tmp = TemporaryFolder()
@@ -99,6 +112,76 @@ class McpServerStoreTest {
         } finally {
             server.shutdown()
         }
+    }
+
+    /** 假的 stdio server:只回答 initialize 和 tools/list,用来验证 store 的启动与接入。 */
+    private fun stdioLauncher(): McpStdioLauncher = McpStdioLauncher { _, _ ->
+        val toServer = PipedOutputStream()
+        val fromClient = PipedInputStream(toServer)
+        val fromServer = PipedOutputStream()
+        val toClient = PipedInputStream(fromServer)
+        val json = Json { ignoreUnknownKeys = true }
+        thread(isDaemon = true, name = "fake-store-stdio") {
+            runCatching {
+                val reader = fromClient.bufferedReader(Charsets.UTF_8)
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    val message = json.parseToJsonElement(line).jsonObject
+                    val id = (message["id"] as? JsonPrimitive)?.contentOrNull ?: continue
+                    val method = (message["method"] as? JsonPrimitive)?.contentOrNull ?: continue
+                    val result = when (method) {
+                        "initialize" -> buildJsonObject {
+                            put("protocolVersion", "2025-03-26")
+                            put("serverInfo", buildJsonObject { put("name", "local") })
+                        }
+                        "tools/list" -> buildJsonObject {
+                            put("tools", JsonArray(listOf(buildJsonObject {
+                                put("name", "search")
+                                put("description", "Search")
+                                put("inputSchema", buildJsonObject { put("type", "object") })
+                            })))
+                        }
+                        else -> continue
+                    }
+                    val response = buildJsonObject {
+                        put("jsonrpc", "2.0")
+                        put("id", id.toLong())
+                        put("result", result)
+                    }
+                    synchronized(fromServer) {
+                        fromServer.write((response.toString() + "\n").toByteArray())
+                        fromServer.flush()
+                    }
+                }
+            }
+        }
+        object : McpStdioProcess {
+            override val stdin = toServer
+            override val stdout = toClient
+            override val stderr = ByteArrayInputStream(ByteArray(0))
+            override fun close() {
+                runCatching { toServer.close() }
+                runCatching { fromServer.close() }
+                runCatching { fromClient.close() }
+                runCatching { toClient.close() }
+            }
+        }
+    }
+
+    @Test fun stdioConnectionsGoThroughTheSandboxLauncher() = runBlocking {
+        val s = McpServerStore(tmp.root, ReverseCipher(), OkHttpClient(), stdio = stdioLauncher())
+        s.add(McpServerConfig(name = "local", url = "", transport = "stdio", command = "fake-server")).getOrThrow()
+        val connections = s.connections(workspace = "ws")
+        assertEquals(0, connections.failures.size)
+        assertEquals(listOf("search"), connections.connections.single().endpoint.tools().map { it.name })
+        connections.close()
+    }
+
+    @Test fun stdioConfigNeedsOnlyACommand() {
+        val s = store()
+        assertTrue(s.add(McpServerConfig(name = "local", url = "", transport = "stdio", command = "python3 /root/server.py")).isSuccess)
+        assertTrue(s.add(McpServerConfig(name = "bad", url = "", transport = "stdio", command = " ")).isFailure)
+        assertTrue(s.add(McpServerConfig(name = "bad", url = "", transport = "stdio", command = "a\nb")).isFailure)
     }
 
     @Test fun oauthTokensAreEncryptedAndSurviveRestart() {

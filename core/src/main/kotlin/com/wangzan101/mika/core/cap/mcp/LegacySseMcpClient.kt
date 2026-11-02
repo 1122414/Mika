@@ -134,7 +134,6 @@ class LegacySseMcpEndpoint private constructor(
 
     companion object {
         const val PROTOCOL_VERSION = "2024-11-05"
-        private const val MAX_TOOL_PAGES = 20
         private val JSON_MEDIA = "application/json".toMediaType()
 
         suspend fun connect(
@@ -215,74 +214,13 @@ class LegacySseMcpEndpoint private constructor(
                     postRaw(text).close()
                 }
 
-                val init = request("initialize", buildJsonObject {
-                    put("protocolVersion", protocolVersion)
-                    putJsonObject("capabilities") {}
-                    putJsonObject("clientInfo") {
-                        put("name", clientName)
-                        put("version", clientVersion)
-                    }
-                })
-                val negotiated = (init["protocolVersion"] as? JsonPrimitive)?.contentOrNull ?: protocolVersion
-                val serverInfo = init["serverInfo"] as? JsonObject
-                val serverName = (serverInfo?.get("name") as? JsonPrimitive)?.contentOrNull
-                val instructions = (init["instructions"] as? JsonPrimitive)?.contentOrNull
-                notify("notifications/initialized")
-
-                val tools = mutableListOf<McpToolDescriptor>()
-                var cursor: String? = null
-                var pages = 0
-                do {
-                    val result = request("tools/list", buildJsonObject { cursor?.let { put("cursor", it) } })
-                    (result["tools"] as? JsonArray)?.forEach { element ->
-                        (element as? JsonObject)?.let { tools += mcpToolDescriptor(it) }
-                    }
-                    cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-                    pages++
-                } while (cursor != null && pages < MAX_TOOL_PAGES)
-
-                // resources/prompts 是可选能力:服务端自称支持却报错时,工具照常可用,不让整个连接失败
-                val caps = init["capabilities"] as? JsonObject
-                val resources = if (caps?.get("resources") is JsonObject) {
-                    try {
-                        val list = mutableListOf<McpResourceDescriptor>()
-                        var cursor: String? = null
-                        var pages = 0
-                        do {
-                            val result = request("resources/list", buildJsonObject { cursor?.let { put("cursor", it) } })
-                            (result["resources"] as? JsonArray)?.forEach { element ->
-                                (element as? JsonObject)?.let { list += mcpResourceDescriptor(it) }
-                            }
-                            cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-                            pages++
-                        } while (cursor != null && pages < MAX_TOOL_PAGES)
-                        list
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                } else emptyList()
-                val prompts = if (caps?.get("prompts") is JsonObject) {
-                    try {
-                        val list = mutableListOf<McpPromptDescriptor>()
-                        var cursor: String? = null
-                        var pages = 0
-                        do {
-                            val result = request("prompts/list", buildJsonObject { cursor?.let { put("cursor", it) } })
-                            (result["prompts"] as? JsonArray)?.forEach { element ->
-                                (element as? JsonObject)?.let { list += mcpPromptDescriptor(it) }
-                            }
-                            cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-                            pages++
-                        } while (cursor != null && pages < MAX_TOOL_PAGES)
-                        list
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                } else emptyList()
+                val handshake = mcpHandshake(
+                    requestedProtocol = protocolVersion,
+                    clientName = clientName,
+                    clientVersion = clientVersion,
+                    request = { method, params -> request(method, params) },
+                    notify = { method -> notify(method) },
+                )
 
                 LegacySseMcpEndpoint(
                     serverId = serverId,
@@ -290,12 +228,12 @@ class LegacySseMcpEndpoint private constructor(
                     timeoutSec = timeoutSec,
                     sseCall = sseCall,
                     scope = scope,
-                    tools = tools,
-                    resources = resources,
-                    prompts = prompts,
+                    tools = handshake.tools,
+                    resources = handshake.resources,
+                    prompts = handshake.prompts,
                     post = ::postRaw,
-                    serverName = serverName,
-                    instructions = instructions,
+                    serverName = handshake.serverName,
+                    instructions = handshake.instructions,
                 )
             } catch (e: Throwable) {
                 reader.cancel()
@@ -371,26 +309,5 @@ class LegacySseMcpEndpoint private constructor(
 private object LegacyResultReader {
     fun resultToResource(result: JsonObject): McpResult = mcpResourceResult(result)
     fun resultToPrompt(result: JsonObject): McpResult = mcpPromptResult(result)
-
-    fun resultToMcpResult(result: JsonObject): McpResult {
-        val isError = (result["isError"] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull() == true
-        val content = result["content"] as? JsonArray
-        val text = content?.mapNotNull { element ->
-            val item = element as? JsonObject ?: return@mapNotNull null
-            when ((item["type"] as? JsonPrimitive)?.contentOrNull) {
-                "text" -> (item["text"] as? JsonPrimitive)?.contentOrNull
-                "resource" -> {
-                    val resource = item["resource"] as? JsonObject
-                    (resource?.get("text") as? JsonPrimitive)?.contentOrNull
-                        ?: (resource?.get("uri") as? JsonPrimitive)?.contentOrNull
-                }
-                "image" -> (item["mimeType"] as? JsonPrimitive)?.contentOrNull?.let { "[image: $it]" } ?: "[image]"
-                else -> null
-            }
-        }?.joinToString("\n").orEmpty()
-        val structured = result["structuredContent"]
-        val full = if (text.isNotEmpty()) text else structured?.toString().orEmpty()
-        val cost = (result["_meta"] as? JsonObject)?.get("costUnits")?.jsonPrimitive?.longOrNull ?: 0L
-        return McpResult(full, isError = isError, costUnits = cost)
-    }
+    fun resultToMcpResult(result: JsonObject): McpResult = mcpToolResult(result)
 }

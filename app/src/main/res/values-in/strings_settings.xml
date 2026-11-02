@@ -130,6 +130,11 @@
     <string name="mcp_servers_help">Tentang</string>
     <string name="mcp_servers_help_text">Server MCP eksternal terpisah dari «Sambungkan komputer». Alatnya muncul dengan sumber MCP di tugas. Bawaan hanya HTTPS; HTTP lokal perlu dicentang. Token tetap di ponsel ini.</string>
     <string name="mcp_servers_delete">Hapus</string>
+    <string name="mcp_servers_transport_http">HTTP</string>
+    <string name="mcp_servers_transport_sse">SSE</string>
+    <string name="mcp_servers_transport_stdio">Proses lokal</string>
+    <string name="mcp_servers_command">Perintah (eksekusi dan argumen)</string>
+    <string name="mcp_servers_stdio_help">Berjalan di dalam sandbox Linux. Pasang server di sana terlebih dahulu.</string>
     <string name="mcp_servers_legacy_sse">Gunakan transport HTTP+SSE lama (2024-11-05)</string>
     <string name="mcp_servers_use_oauth">Gunakan login OAuth 2.1</string>
     <string name="mcp_servers_sign_in">Masuk</string>

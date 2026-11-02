@@ -105,6 +105,15 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         com.wangzan101.mika.settings.McpServerStore(
             java.io.File(filesDir, "settings"),
             com.wangzan101.mika.settings.KeystoreKeyCipher("mika-mcp-servers"),
+            stdio = com.wangzan101.mika.core.cap.mcp.McpStdioLauncher { workspace, argv ->
+                val process = AndroidSandbox(this, SandboxState.get(this)).openProcess(workspace, argv, null)
+                object : com.wangzan101.mika.core.cap.mcp.McpStdioProcess {
+                    override val stdin get() = process.stdin
+                    override val stdout get() = process.stdout
+                    override val stderr get() = process.stderr
+                    override fun close() = process.close()
+                }
+            },
         )
     }
     override val tabBudget get() = resources.tabBudget
