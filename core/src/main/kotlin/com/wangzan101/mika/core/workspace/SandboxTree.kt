@@ -11,7 +11,7 @@ import kotlin.coroutines.CoroutineContext
 /**
  * `files/sandbox/` 这棵树的主人:谁要往树里写,都先在这里拿到许可。进程里一份,由 App 给出,经构造参数交给要写的地方。
  *
- * - [exclusive]:改树的结构、或删整片的(安装/解包/换根文件系统、重置、清空工作区)。拿到时没有别人在写。
+ * - [exclusive]:改树的结构、或删整片的(安装/解包/换根文件系统、重置、清空或删掉工作区;App 里经 `SandboxDirs.exclusiveWrite`)。拿到时没有别人在写。
  * - [shared]:往已有的树里添东西的(技能同步、跑命令、网页下载、附件导入)。可以同时有很多个,
  *   但和 [exclusive] 互斥:重置删到一半时,不会有人又在里面建出目录(那样最后的 rmdir 会 ENOTEMPTY)。
  *

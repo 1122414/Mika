@@ -93,14 +93,34 @@ class SandboxUsageConcurrencyTest {
     }
 
     @Test(timeout = 10_000) fun singleClearBlocksNewWorkspaceWrites() = runBlocking {
-        verifyWritesWaitForCleanup(all = false)
+        verifyWritesWaitForCleanup { reader.clear(it.name) }
     }
 
     @Test(timeout = 10_000) fun bulkClearBlocksNewWorkspaceWrites() = runBlocking {
-        verifyWritesWaitForCleanup(all = true)
+        verifyWritesWaitForCleanup { reader.clearAll() == 0 }
     }
 
-    private suspend fun verifyWritesWaitForCleanup(all: Boolean) = coroutineScope {
+    // 删对话时删工作区走同一条独占的路
+    @Test(timeout = 10_000) fun conversationDeleteBlocksNewWorkspaceWrites() = runBlocking {
+        verifyWritesWaitForCleanup { dirs.deleteWorkspace("a"); true }
+    }
+
+    @Test(timeout = 10_000) fun conversationDeleteWaitsForACommandHoldingASharedPermit() = runBlocking {
+        val a = workspace("a")
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val command = launch { dirs.tree.shared { entered.complete(Unit); release.await() } }
+        entered.await()
+        val deleting = async(start = CoroutineStart.UNDISPATCHED) { dirs.deleteWorkspace("a") }
+        assertFalse(deleting.isCompleted)
+        assertTrue("Deletion must not start while a command still writes", attempts.isEmpty())
+        release.complete(Unit)
+        command.join()
+        deleting.await()
+        assertEquals(listOf(a.name), attempts.toList())
+    }
+
+    private suspend fun verifyWritesWaitForCleanup(clean: suspend (File) -> Boolean) = coroutineScope {
         val a = workspace("a")
         val deleting = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
@@ -109,7 +129,7 @@ class SandboxUsageConcurrencyTest {
             // Model a slow synchronous file operation on the IO dispatcher.
             runBlocking { release.await() }
         }
-        val clearing = async { if (all) reader.clearAll() == 0 else reader.clear(a.name) }
+        val clearing = async { clean(a) }
         deleting.await()
         val writer = async(start = CoroutineStart.UNDISPATCHED) { dirs.tree.shared { true } }
         try {
