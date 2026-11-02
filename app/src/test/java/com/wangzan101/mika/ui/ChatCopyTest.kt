@@ -5,6 +5,7 @@ import com.wangzan101.mika.i18n.ChineseTexts
 import com.wangzan101.mika.chat.BranchOrigin
 import com.wangzan101.mika.chat.ConversationSummary
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +18,19 @@ class ChatCopyTest {
     @Test fun sixDistinctNonBlankExamples() {
         assertEquals(6, ChatCopy.examples.size)
         assertEquals(6, ChatCopy.examples.map { it.text }.filter { it.isNotBlank() }.toSet().size)
+    }
+
+    /** 分支标题:源标题后面加后缀,总长不超过 24 字;截的是源标题,后缀留着,emoji 不截半个。 */
+    @Test fun branchTitleKeepsTheSuffixWhenTruncating() {
+        val suffix = " · 分支"
+        val long = "一二三四五六七八九十一二三四五六七八九十一二三四五"
+        val title = ChatCopy.branchTitle(long, suffix)
+        assertTrue(title.endsWith(suffix))
+        assertEquals(24, title.length)
+        assertEquals("短标题$suffix", ChatCopy.branchTitle("短标题", suffix))
+        val emoji = ChatCopy.branchTitle("😀".repeat(21), suffix)
+        assertTrue(emoji.endsWith(suffix))
+        assertFalse(emoji.dropLast(suffix.length).lastOrNull()?.isHighSurrogate() ?: false)
     }
 
     @Test fun titleIsTheFirstLineOfTheFirstMessage() {
