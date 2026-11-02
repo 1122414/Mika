@@ -153,8 +153,9 @@ class AgentDisplayTest {
                 orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
             val width = if (landscape) 1600 else 720
             val height = if (landscape) 720 else 1600
+            val previewWidth = if (landscape) 800 else 360
             val preview = pollUntil(5_000) {
-                d.frames.value?.takeIf { it.width == 360 && it.height == height * 360 / width && uprightCorners(it) }
+                d.frames.value?.takeIf { it.width == previewWidth && it.height == height * previewWidth / width && uprightCorners(it) }
             }
             assertNotNull("preview did not follow orientation $orientation: logical=${d.width}x${d.height}, " +
                 "preview=${d.frames.value?.let { "${it.width}x${it.height}" }}", preview)

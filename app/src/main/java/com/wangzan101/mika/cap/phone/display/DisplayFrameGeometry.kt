@@ -6,6 +6,10 @@ internal data class DisplayFrameGeometry(val bufferWidth: Int, val bufferHeight:
     val width: Int get() = if (sideways) bufferHeight else bufferWidth
     val height: Int get() = if (sideways) bufferWidth else bufferHeight
 
+    /** 按短边限制预览:横竖屏保持相近的像素量,避免横屏只剩一条低分辨率画面。 */
+    fun previewWidth(shortSide: Int): Int =
+        if (width > height) maxOf(1, (width.toLong() * shortSide / height).toInt()) else shortSide
+
     fun previewSize(maxWidth: Int): Pair<Int, Int> {
         val w = minOf(maxWidth, width)
         return w to maxOf(1, (height.toLong() * w / width).toInt())

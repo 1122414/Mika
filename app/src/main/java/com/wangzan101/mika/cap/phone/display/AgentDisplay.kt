@@ -40,7 +40,7 @@ class AgentDisplay(
     val height: Int get() = geometry.height
 
     private val _frames = MutableStateFlow<Bitmap?>(null)
-    /** 实时画面:限速 ≤10 帧/秒,缩到宽 ≤360。 */
+    /** 实时画面:限速 ≤10 帧/秒,缩到短边 ≤360。 */
     val frames: StateFlow<Bitmap?> = _frames.asStateFlow()
 
     private val frameLock = Any()
@@ -100,7 +100,7 @@ class AgentDisplay(
                 bmp!!.copyPixelsFromBuffer(plane.buffer.rewind())
                 hasFrame = true
                 frameGeometry = capturedGeometry
-                _frames.value = uprightDisplayFrame(bmp, capturedGeometry, PREVIEW_MAX_WIDTH, paint)
+                _frames.value = uprightDisplayFrame(bmp, capturedGeometry, capturedGeometry.previewWidth(PREVIEW_SHORT_SIDE), paint)
             }
         } finally {
             image.close()
@@ -147,7 +147,7 @@ class AgentDisplay(
     }
 
     private companion object {
-        const val PREVIEW_MAX_WIDTH = 360
+        const val PREVIEW_SHORT_SIDE = 360
         const val FRAME_INTERVAL_MS = 100L
     }
 }
