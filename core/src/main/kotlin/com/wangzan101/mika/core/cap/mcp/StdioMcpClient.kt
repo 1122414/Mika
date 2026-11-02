@@ -5,10 +5,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -109,11 +108,8 @@ class StdioMcpEndpoint private constructor(
                 put("method", method)
                 put("params", params)
             }.toString())
-            val message = try {
-                withTimeout(timeoutSec * 1000L) { deferred.await() }
-            } catch (e: TimeoutCancellationException) {
-                throw McpClientException("MCP server did not answer $method in time")
-            }
+            val message = withTimeoutOrNull(timeoutSec * 1000L) { deferred.await() }
+                ?: throw McpClientException("MCP server did not answer $method in time")
             message["error"]?.let { throw McpClientException("MCP server rejected $method: ${mcpErrorMessage(it)}") }
             return message["result"] as? JsonObject ?: throw McpClientException("MCP server returned no result for $method")
         } finally {
@@ -208,11 +204,8 @@ class StdioMcpEndpoint private constructor(
                             put("method", method)
                             put("params", params)
                         }.toString())
-                        val message = try {
-                            withTimeout(timeoutSec * 1000L) { deferred.await() }
-                        } catch (e: TimeoutCancellationException) {
-                            throw McpClientException("MCP server did not answer $method in time")
-                        }
+                        val message = withTimeoutOrNull(timeoutSec * 1000L) { deferred.await() }
+                            ?: throw McpClientException("MCP server did not answer $method in time")
                         message["error"]?.let { throw McpClientException("MCP server rejected $method: ${mcpErrorMessage(it)}") }
                         return message["result"] as? JsonObject
                             ?: throw McpClientException("MCP server returned no result for $method")

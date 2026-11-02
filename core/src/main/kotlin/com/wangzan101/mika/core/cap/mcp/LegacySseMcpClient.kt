@@ -5,10 +5,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -112,11 +111,8 @@ class LegacySseMcpEndpoint private constructor(
             post(body.toString()).use { response ->
                 if (response.code !in 200..299) throw McpClientException("MCP server returned HTTP ${response.code} for $method")
             }
-            val message = try {
-                withTimeout(timeoutSec * 1000L) { deferred.await() }
-            } catch (e: TimeoutCancellationException) {
-                throw McpClientException("MCP server did not answer $method in time")
-            }
+            val message = withTimeoutOrNull(timeoutSec * 1000L) { deferred.await() }
+                ?: throw McpClientException("MCP server did not answer $method in time")
             message["error"]?.let { throw McpClientException("MCP server rejected $method: ${mcpErrorMessage(it)}") }
             return message["result"] as? JsonObject ?: throw McpClientException("MCP server returned no result for $method")
         } finally {
@@ -165,11 +161,8 @@ class LegacySseMcpEndpoint private constructor(
             val endpointUrl = CompletableDeferred<HttpUrl>()
             val reader = scope.launch { readEvents(parsed, body, endpointUrl, pending) }
             try {
-                val postUrl = try {
-                    withTimeout(minOf(timeoutSec * 1000L, 15_000L)) { endpointUrl.await() }
-                } catch (e: TimeoutCancellationException) {
-                    throw McpClientException("legacy MCP SSE did not provide an endpoint")
-                }
+                val postUrl = withTimeoutOrNull(minOf(timeoutSec * 1000L, 15_000L)) { endpointUrl.await() }
+                    ?: throw McpClientException("legacy MCP SSE did not provide an endpoint")
                 val ids = AtomicLong(0)
                 suspend fun postRaw(text: String): Response {
                     val builder = Request.Builder().url(postUrl)
@@ -193,11 +186,8 @@ class LegacySseMcpEndpoint private constructor(
                         postRaw(text).use { r ->
                             if (r.code !in 200..299) throw McpClientException("MCP server returned HTTP ${r.code} for $method")
                         }
-                        val message = try {
-                            withTimeout(timeoutSec * 1000L) { deferred.await() }
-                        } catch (e: TimeoutCancellationException) {
-                            throw McpClientException("MCP server did not answer $method in time")
-                        }
+                        val message = withTimeoutOrNull(timeoutSec * 1000L) { deferred.await() }
+                            ?: throw McpClientException("MCP server did not answer $method in time")
                         message["error"]?.let { throw McpClientException("MCP server rejected $method: ${mcpErrorMessage(it)}") }
                         return message["result"] as? JsonObject
                             ?: throw McpClientException("MCP server returned no result for $method")

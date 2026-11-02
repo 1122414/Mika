@@ -3,7 +3,14 @@ package com.wangzan101.mika.settings
 import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
 import com.wangzan101.mika.core.cap.mcp.McpStdioLauncher
 import com.wangzan101.mika.core.cap.mcp.McpStdioProcess
+import com.wangzan101.mika.core.resource.ResourceScope
+import com.wangzan101.mika.core.workspace.SandboxTree
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -25,6 +32,8 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class McpServerStoreTest {
@@ -175,6 +184,118 @@ class McpServerStoreTest {
         assertEquals(0, connections.failures.size)
         assertEquals(listOf("search"), connections.connections.single().endpoint.tools().map { it.name })
         connections.close()
+    }
+
+    /** 不回话的 stdio server:握手一直等不到回答。 */
+    private fun silentProcess(): McpStdioProcess {
+        val toServer = PipedOutputStream()
+        val fromClient = PipedInputStream(toServer, 1 shl 16)
+        val fromServer = PipedOutputStream()
+        val toClient = PipedInputStream(fromServer)
+        return object : McpStdioProcess {
+            override val stdin = toServer
+            override val stdout = toClient
+            override val stderr = ByteArrayInputStream(ByteArray(0))
+            override fun close() {
+                runCatching { toServer.close() }
+                runCatching { fromServer.close() }
+                runCatching { fromClient.close() }
+                runCatching { toClient.close() }
+            }
+        }
+    }
+
+    /** 像沙箱那样:进程活着时拿着树的租约,关掉时交还;被独占的收回时停进程、记进 [revokes]。命令是 silent 的不回话。 */
+    private fun leasingLauncher(tree: SandboxTree, closes: AtomicInteger, revokes: AtomicInteger = AtomicInteger()): McpStdioLauncher {
+        val inner = stdioLauncher()
+        return McpStdioLauncher { ws, argv ->
+            val p = if (argv.first() == "silent") silentProcess() else inner.launch(ws, argv)
+            val lease = tree.lease { revokes.incrementAndGet(); p.close() }
+            object : McpStdioProcess by p {
+                override fun close() {
+                    closes.incrementAndGet()
+                    p.close()
+                    lease.close()
+                }
+            }
+        }
+    }
+
+    /** 任务收尾关它的 ResourceScope(TaskRun 的 finally,含取消、失败):连上的 server 关掉,沙箱的许可放掉,独占的不再被挡。 */
+    @Test fun taskScopeCloseClosesConnectionsAndFreesThePermit() = runBlocking {
+        val tree = SandboxTree()
+        val closes = AtomicInteger()
+        val s = McpServerStore(tmp.root, ReverseCipher(), OkHttpClient(), stdio = leasingLauncher(tree, closes))
+        s.add(McpServerConfig(name = "local", url = "", transport = "stdio", command = "fake-server")).getOrThrow()
+        val resources = ResourceScope()
+        val connections = s.connectionsFor(resources, workspace = "ws")
+        assertEquals(1, connections.connections.size)
+        // 任务里还开着:普通的独占要用时收回租约(停进程),不会等上整个任务
+        resources.close()
+        assertEquals(1, closes.get())
+        connections.close() // 收尾里再关一次不重复
+        assertEquals(1, closes.get())
+        withTimeout(5_000) { tree.exclusive { } }
+        // 任务早就结束:没有租约,独占的直接拿到,不调收回
+        assertEquals(1, closes.get())
+    }
+
+    /** 任务开着时换运行环境:独占的收回租约,停掉 server,不等任务结束。 */
+    @Test fun exclusiveStopsALongLivedServerInsteadOfWaiting() = runBlocking {
+        val tree = SandboxTree()
+        val closes = AtomicInteger()
+        val revokes = AtomicInteger()
+        val s = McpServerStore(tmp.root, ReverseCipher(), OkHttpClient(), stdio = leasingLauncher(tree, closes, revokes))
+        s.add(McpServerConfig(name = "local", url = "", transport = "stdio", command = "fake-server")).getOrThrow()
+        val resources = ResourceScope()
+        s.connectionsFor(resources, workspace = "ws")
+        withTimeout(5_000) { tree.exclusive { } }
+        assertEquals(1, revokes.get())
+        resources.close()
+    }
+
+    /** 任务被取消在连接中途:已经连上的也关掉、许可放掉。 */
+    @Test fun cancelDuringConnectClosesWhatConnected() = runBlocking {
+        val tree = SandboxTree()
+        val closes = AtomicInteger()
+        val s = McpServerStore(tmp.root, ReverseCipher(), OkHttpClient(), stdio = leasingLauncher(tree, closes))
+        val ok = s.add(McpServerConfig(name = "local", url = "", transport = "stdio", command = "fake-server")).getOrThrow()
+        s.add(McpServerConfig(name = "silent", url = "", transport = "stdio", command = "silent")).getOrThrow()
+        val resources = ResourceScope()
+        val job = launch(Dispatchers.IO) { s.connectionsFor(resources, workspace = "ws") }
+        withTimeout(5_000) { while (s.health.value[ok.id] == null) delay(20) } // 回话的那个先连上
+        job.cancelAndJoin()
+        resources.close()
+        assertEquals(2, closes.get()) // 连上的那个关掉,连到一半的那个也关掉
+        withTimeout(5_000) { tree.exclusive { } }
+    }
+
+    /** 一个慢 server 不拖住任务开头:到总时限就跳过它(关掉)、记成失败,连上的照常用。 */
+    @Test fun slowServerIsSkippedAfterTheBudget() = runBlocking {
+        val fast = MockWebServer().also { it.start() }
+        try {
+            scriptTools(fast, "search")
+            val tree = SandboxTree()
+            val closes = AtomicInteger()
+            val s = McpServerStore(tmp.root, ReverseCipher(), OkHttpClient(), stdio = leasingLauncher(tree, closes))
+            val cf = s.add("fast", "https://localhost/a").getOrThrow()
+            s.update(cf.copy(url = fast.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true)).getOrThrow()
+            val cs = s.add(McpServerConfig(name = "silent", url = "", transport = "stdio", command = "silent", timeoutSec = 600)).getOrThrow()
+            val started = System.nanoTime()
+            val connections = s.connections(budgetMs = 1_500)
+            val tookMs = (System.nanoTime() - started) / 1_000_000
+            assertTrue("took $tookMs ms", tookMs < 5_000)
+            assertEquals(listOf(cf.id), connections.connections.map { it.endpoint.serverId })
+            assertEquals(listOf(cs.id), connections.failures.map { it.first })
+            assertFalse(s.health.value.getValue(cs.id).ok)
+            assertTrue(s.health.value.getValue(cs.id).message.orEmpty().contains("skipped"))
+            assertTrue(s.health.value.getValue(cf.id).ok)
+            assertEquals(1, closes.get()) // 跳过的那个进程已经关掉
+            withTimeout(5_000) { tree.exclusive { } }
+            connections.close()
+        } finally {
+            fast.shutdown()
+        }
     }
 
     @Test fun stdioConfigNeedsOnlyACommand() {

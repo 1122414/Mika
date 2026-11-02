@@ -9,14 +9,18 @@ import com.wangzan101.mika.core.cap.mcp.McpOAuthTokens
 import com.wangzan101.mika.core.cap.mcp.McpStdioLauncher
 import com.wangzan101.mika.core.cap.mcp.StdioMcpEndpoint
 import com.wangzan101.mika.core.cap.mcp.parseStdioCommand
+import com.wangzan101.mika.core.cap.mcp.McpClientException
 import com.wangzan101.mika.core.cap.mcp.McpConnection
 import com.wangzan101.mika.core.cap.mcp.McpTrust
 import com.wangzan101.mika.core.net.NetProxy
 import com.wangzan101.mika.core.oauth.LoopbackCallback
+import com.wangzan101.mika.core.resource.ResourceScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +39,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /** 外部 MCP server 的一条配置;token 不在这个对象里,单独加密存。 */
@@ -74,7 +79,7 @@ data class McpTestResult(val serverName: String?, val instructions: String?, val
 
 /**
  * 外部 MCP server 的设置:配置存 `files/settings/mcp-servers.json`,token 用 [KeyCipher] 加密另存。
- * [connections] 在任务开始时连接所有启用项,失败的不影响其他任务/其他 server。
+ * [connectionsFor] 在任务开始时连接所有启用项(整段有总时限),失败、超时的不影响其他任务/其他 server。
  */
 class McpServerStore(
     private val dir: File,
@@ -200,50 +205,87 @@ class McpServerStore(
         _servers.value.filter { it.enabled }.map { config -> async { test(config) } }.awaitAll()
     }
 
-    /** 连接所有启用项;单个失败只记录,不抛。并行连接,避免一个慢 server 拖住任务开头。 */
+    /**
+     * 任务开头用:连上的归 [owner](任务的 [ResourceScope]),任务收尾关作用域时一起关掉;
+     * 取消落在连接中途或刚连上、还没交回时也不漏(stdio server 的进程和沙箱租约跟着放掉)。
+     */
+    suspend fun connectionsFor(
+        owner: ResourceScope,
+        resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null,
+        workspace: String = SETTINGS_WORKSPACE,
+        budgetMs: Long = CONNECT_BUDGET_MS,
+    ): McpConnections = owner.acquire(Dispatchers.IO, { c: McpConnections -> c.close() }) { connections(resultStore, workspace, budgetMs) }
+
+    /**
+     * 并行连接所有启用项;单个失败只记录,不抛。整段最多等 [budgetMs]:到点还没连上的这次不接,
+     * 记成失败(健康状态里写明超时),不拖住任务开头;已经连上的照常用。被取消时连上的也关掉再抛。
+     */
     suspend fun connections(
         resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null,
         workspace: String = SETTINGS_WORKSPACE,
+        budgetMs: Long = CONNECT_BUDGET_MS,
     ): McpConnections {
-        val attempts = coroutineScope {
-            _servers.value.filter { it.enabled }.map { config ->
-                async {
-                    val result = try {
-                        open(config, if (config.transport == "stdio") emptyMap() else authHeaders(config), workspace)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Result.failure(e)
-                    }
-                    val connection: Result<McpConnection> = result.map { endpoint ->
-                        McpConnection(
-                            endpoint = endpoint,
-                            resultStore = resultStore,
-                            maxCostUnits = config.maxCostUnits,
-                            previewChars = config.previewChars,
-                            trust = if (config.trust == "trust-annotations") McpTrust.TrustAnnotations else McpTrust.Restricted,
-                            allowedTools = config.allowedTools?.toSet(),
-                        )
-                    }
-                    _health.update {
-                        it + (config.id to connection.fold(
-                            onSuccess = { c -> McpHealth(true, null, c.endpoint.tools().map { t -> t.name }, System.currentTimeMillis()) },
-                            onFailure = { e -> McpHealth(false, e.message ?: e.javaClass.simpleName, emptyList(), System.currentTimeMillis()) },
-                        ))
-                    }
-                    config to connection
+        val enabled = _servers.value.filter { it.enabled }
+        val done = ConcurrentHashMap<String, Result<McpConnection>>()
+        try {
+            withTimeoutOrNull(budgetMs) {
+                coroutineScope {
+                    enabled.map { config -> async { done[config.id] = attempt(config, resultStore, workspace) } }.awaitAll()
                 }
-            }.awaitAll()
+            }
+        } catch (e: Throwable) {
+            done.values.forEach { r -> r.getOrNull()?.let { (it.endpoint as? Closeable)?.let { c -> runCatching { c.close() } } } }
+            throw e
+        }
+        val late = "did not connect within ${(budgetMs + 999) / 1000} s; skipped for this task"
+        val attempts = enabled.map { config ->
+            config to (done[config.id] ?: Result.failure<McpConnection>(McpClientException(late)).also {
+                _health.update { h -> h + (config.id to McpHealth(false, late, emptyList(), System.currentTimeMillis())) }
+            })
         }
         val connected = attempts.mapNotNull { (c, r) -> r.getOrNull()?.let { c to it } }
         val failures = attempts.mapNotNull { (c, r) -> r.exceptionOrNull()?.let { c.id to (it.message ?: it.javaClass.simpleName) } }
+        val closed = java.util.concurrent.atomic.AtomicBoolean(false)
         return McpConnections(
             connections = connected.map { it.second },
+            // 任务收尾和它的 ResourceScope 都会关;只关一次
             close = {
-                connected.forEach { (it.second.endpoint as? Closeable)?.close() }
+                if (closed.compareAndSet(false, true)) connected.forEach { (it.second.endpoint as? Closeable)?.let { c -> runCatching { c.close() } } }
             },
             failures = failures,
         )
+    }
+
+    /** 连一个 server 并记下健康状态。 */
+    private suspend fun attempt(
+        config: McpServerConfig,
+        resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore?,
+        workspace: String,
+    ): Result<McpConnection> {
+        val result = try {
+            open(config, if (config.transport == "stdio") emptyMap() else authHeaders(config), workspace)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+        val connection: Result<McpConnection> = result.map { endpoint ->
+            McpConnection(
+                endpoint = endpoint,
+                resultStore = resultStore,
+                maxCostUnits = config.maxCostUnits,
+                previewChars = config.previewChars,
+                trust = if (config.trust == "trust-annotations") McpTrust.TrustAnnotations else McpTrust.Restricted,
+                allowedTools = config.allowedTools?.toSet(),
+            )
+        }
+        _health.update {
+            it + (config.id to connection.fold(
+                onSuccess = { c -> McpHealth(true, null, c.endpoint.tools().map { t -> t.name }, System.currentTimeMillis()) },
+                onFailure = { e -> McpHealth(false, e.message ?: e.javaClass.simpleName, emptyList(), System.currentTimeMillis()) },
+            ))
+        }
+        return connection
     }
 
     private suspend fun open(
@@ -405,6 +447,11 @@ class McpServerStore(
     companion object {
         /** 设置页测试 stdio server 时用的沙箱工作区;任务里用对话 ID。 */
         const val SETTINGS_WORKSPACE = "mcp-settings"
+        /**
+         * 任务开头连接外部 server 最多等这么久(所有 server 一起算)。单个 server 自己的超时可以长到几分钟,
+         * 那是给工具调用的;开头只是握手,慢的这次先不接,不让任务一直停在「准备中」。沙箱里的 stdio server 要起 PRoot,留得宽一点。
+         */
+        const val CONNECT_BUDGET_MS = 15_000L
     }
 
     private fun isBlockedHost(host: String): Boolean =
