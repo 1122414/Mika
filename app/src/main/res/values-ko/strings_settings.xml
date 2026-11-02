@@ -116,7 +116,6 @@
     <string name="settings_step_limit">작업당 단계 상한</string>
     <string name="settings_step_limit_sub">끄면 제한 없음입니다. 상한에 도달하면 작업이 멈추고 어디서 멈췄는지 알려 줍니다.</string>
     <string name="settings_step_limit_off">제한 없음</string>
-    <string name="settings_step_limit_value">%1$d단계</string>
     <string name="settings_step_limit_custom">사용자 지정(1–500)</string>
     <string name="settings_step_limit_custom_apply">사용</string>
     <string name="settings_step_limit_invalid">1~500 사이의 정수를 입력하세요.</string>

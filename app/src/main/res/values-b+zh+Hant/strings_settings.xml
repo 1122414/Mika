@@ -116,7 +116,6 @@
     <string name="settings_step_limit">每個任務的步數上限</string>
     <string name="settings_step_limit_sub">關著表示不限制。到達上限時任務會停下，並說明停在哪一步。</string>
     <string name="settings_step_limit_off">不限制</string>
-    <string name="settings_step_limit_value">%1$d 步</string>
     <string name="settings_step_limit_custom">自訂（1–500）</string>
     <string name="settings_step_limit_custom_apply">使用</string>
     <string name="settings_step_limit_invalid">請輸入 1 到 500 的整數。</string>

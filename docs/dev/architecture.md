@@ -102,7 +102,9 @@
 | `RouteReplay` | 打开「照着上次的做法做」时,在第一次调模型前回放匹配的成功路线(见 §9) |
 | `UserExchange` | 追问、确认、接管这三种要用户参与的交互 |
 
-正常任务不设步数上限(`TaskRun` 里 `AgentLoop.UNLIMITED_STEPS`),所以进度检查、最后一轮、步数用完这几项只用于评测(`EvalHooks.maxSteps`)和子任务(默认 15 步,模型可要到 40 步,`SpawnAgent`)。
+步数上限默认不设:设置 › 干活时 › 每个任务的步数上限(`FeatureFlags.taskStepLimit`,1–500,存 0 即不限制)。`TaskRun` 开工时读一次,放进 `RunSpec.stepBudget`,再作为 `AgentLoop` 的 `maxSteps`(评测的 `EvalHooks.maxSteps` 优先;都没有时是 `AgentLoop.UNLIMITED_STEPS`);中途改设置只管之后开工的任务,任务被打断后不会接着跑,也就不会换上新值。有上限时:守卫按它分级(`OperationGuards(maxSteps)`,回到同一状态、兜圈、一直没有新状态这三种叫停的门槛按上限的一部分算,见 `GuardRules.lateStop`;不限制时这几级叫停不会到),走到一半和四分之三时提醒进度(上限不少于 10 步时),步数用完后再给最后一轮收尾(只给 `end_not_done`,记作第上限加一步),收尾也没答出就以 `FailKind.StepLimit` 结束。开始事件记下这次的上限(`RunEvent.TaskStarted.stepLimit`,不限制不写,概要里也有),运行详情页据此显示「用了几步 / 上限」(收尾那一轮不算,不超过上限);不限制时不显示这一行。
+
+设置现在管的范围(都经 `TaskRun.execute`):对话界面(含悬浮胶囊、浏览器页上问)、定时触发的任务、电脑经 CLI / MCP 交来的任务都按设置;定时的条件核查(只读的那一次检查)不受它管,一直不限制;子任务不看设置,步数由 `spawn_agent` 自己定(默认 15 步,模型可要到 40 步,`SpawnAgent`),也不算进父任务的步数。
 
 ### 结果判定
 

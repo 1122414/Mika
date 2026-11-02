@@ -211,9 +211,10 @@ fun DuringWorkScreen(
             }
             ListRow(
                 MikaIcons.Clock, stringResource(R.string.settings_step_limit),
-                stepLimit?.let { stringResource(R.string.settings_step_limit_value, it) }
+                stepLimit?.let { trPlural(R.plurals.chat_steps_n, it) }
                     ?: stringResource(R.string.settings_step_limit_off),
-                onClick = { customLimit = ""; editingLimit = true },
+                // 当前是自己填的数时,输入框里带着它
+                onClick = { customLimit = stepLimit?.takeIf { it !in STEP_LIMIT_PRESETS }?.toString().orEmpty(); editingLimit = true },
             )
             parallel?.let { ParallelRow(it, onParallelMax) }
         }
@@ -245,6 +246,9 @@ fun DuringWorkScreen(
     }
 }
 
+/** 步数上限的几个现成选项;别的数在输入框里填。 */
+private val STEP_LIMIT_PRESETS = listOf(30, 60, 120, 240)
+
 @Composable
 private fun StepLimitDialog(
     current: Int?,
@@ -261,8 +265,8 @@ private fun StepLimitDialog(
             Column {
                 Text(stringResource(R.string.settings_step_limit_sub), Modifier.padding(bottom = 8.dp))
                 RadioRow(stringResource(R.string.settings_step_limit_off), selected = current == null, onClick = { onPick(null) }, first = true)
-                listOf(30, 60, 120, 240).forEach { n ->
-                    RadioRow(stringResource(R.string.settings_step_limit_value, n), selected = current == n, onClick = { onPick(n) })
+                STEP_LIMIT_PRESETS.forEach { n ->
+                    RadioRow(trPlural(R.plurals.chat_steps_n, n), selected = current == n, onClick = { onPick(n) })
                 }
                 OutlinedTextField(
                     value = custom, onValueChange = onCustom, singleLine = true,
