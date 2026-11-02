@@ -8,9 +8,17 @@ import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
 
-/** 只在有虚拟屏时监听任务方向、窗口大小变化;不读应用内容,不改变任务焦点。 */
+/**
+ * 只在有虚拟屏时监听任务方向、窗口大小变化;不读应用内容,不改变任务焦点。
+ * 注册不上任务监听时退回每 [POLL_MS] 扫一次,只在 [active](还有 Mika 的屏)为真时扫;
+ * 屏放完后由 [close] 停下,[active] 变假时轮询也自己停。
+ */
 @SuppressLint("PrivateApi")
-internal class DisplayOrientationWatch(private val taskManager: Any, private val sync: () -> Unit) {
+internal class DisplayOrientationWatch(
+    private val taskManager: Any,
+    private val active: () -> Boolean,
+    private val sync: () -> Unit,
+) {
     private val thread = HandlerThread("mika-display-orientation").apply { start() }
     private val handler = Handler(thread.looper)
     @Volatile private var closed = false
@@ -38,9 +46,9 @@ internal class DisplayOrientationWatch(private val taskManager: Any, private val
     }.isSuccess
     private val poll = object : Runnable {
         override fun run() {
-            if (closed) return
+            if (closed || !active()) return
             scan.request()
-            handler.postDelayed(this, 500)
+            handler.postDelayed(this, POLL_MS)
         }
     }
 
@@ -54,5 +62,9 @@ internal class DisplayOrientationWatch(private val taskManager: Any, private val
         }
         handler.removeCallbacksAndMessages(null)
         thread.quitSafely()
+    }
+
+    private companion object {
+        const val POLL_MS = 500L
     }
 }

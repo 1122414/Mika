@@ -111,15 +111,9 @@ class ShellService(
         val flags = displayFlags(Build.VERSION.SDK_INT, trusted)
         val vd = displayManager.createVirtualDisplay("mika-agent", width, height, dpi, surface, flags)
         val id = vd.display.displayId
-        // STEAL_TOP_FOCUS_DISABLED 保住主屏焦点,但部分系统因此不再采纳后台 Activity 的转屏请求。
-        // 监听系统的 letterbox 尺寸,只纠正自己这块屏的方向,保留原来的焦点隔离。
-        synchronized(displays) {
-            displays[id] = vd
-            if (Build.VERSION.SDK_INT >= 34 && orientationWatch == null) runCatching {
-                DisplayOrientationWatch(taskManager, ::syncDisplayOrientations)
-            }.onSuccess { orientationWatch = it }.onFailure { Log.w(TAG, "display orientation watcher unavailable", it) }
-        }
+        synchronized(displays) { displays[id] = vd }
         setFullscreenWindowingMode(id)
+        ensureOrientationWatch()
         setImePolicy(id)
         if (DisplayAwake.needed(flags, FLAG_OWN_DISPLAY_GROUP, displayGroup(id))) awake.start(id)
         return id
@@ -168,36 +162,59 @@ class ShellService(
 
     override fun releaseDisplay(displayId: Int) {
         awake.stop(displayId)
-        synchronized(displays) {
-            displays.remove(displayId).also {
-                if (displays.isEmpty()) { orientationWatch?.close(); orientationWatch = null }
-            }
-        }?.release()
+        // 锁里只摘下来,关监听(binder)和放屏在锁外做
+        val (vd, watch) = synchronized(displays) {
+            displays.remove(displayId) to (if (displays.isEmpty()) orientationWatch.also { orientationWatch = null } else null)
+        }
+        watch?.close()
+        vd?.release()
     }
 
+    /**
+     * STEAL_TOP_FOCUS_DISABLED 保住主屏焦点,但有的系统因此不再采纳后台 Activity 的转屏请求。
+     * 有 Mika 的屏时开一个方向监听,只纠正自己这块屏的方向,保留原来的焦点隔离。
+     * 监听在锁外建(注册要走 binder);两次建屏同时进来时只留一个,多出来的关掉。
+     */
+    private fun ensureOrientationWatch() {
+        if (Build.VERSION.SDK_INT < 34 || synchronized(displays) { orientationWatch != null }) return
+        val watch = runCatching {
+            DisplayOrientationWatch(taskManager, active = { synchronized(displays) { displays.isNotEmpty() } }, sync = ::syncDisplayOrientations)
+        }.onFailure { Log.w(TAG, "display orientation watcher unavailable", it) }.getOrNull() ?: return
+        val spare = synchronized(displays) {
+            if (orientationWatch == null && displays.isNotEmpty()) { orientationWatch = watch; null } else watch
+        }
+        spare?.close()
+    }
+
+    /**
+     * 按各屏最上面任务的应用窗口比例纠正屏方向。锁里只拍一份屏的快照;
+     * 查任务、读字段、freezeDisplayRotation 和退回的 `wm` 命令都在锁外,不挡建屏、放屏和启动。
+     */
     @SuppressLint("PrivateApi")
     private fun syncDisplayOrientations() {
+        val ours = synchronized(displays) { displays.toMap() }
+        if (ours.isEmpty()) return
         val top = allTasks().groupBy { TASK_INFO.getField("displayId").getInt(it) }
-        synchronized(displays) {
-            for ((id, vd) in displays) {
-                val task = top[id]?.firstOrNull() ?: continue
-                val compat = runCatching { TASK_INFO.getField("appCompatTaskInfo").get(task) }.getOrNull() ?: task
-                val cls = compat.javaClass
-                // Android 14 只有应用窗口的宽高,15 起另有明确的 letterbox 标志。
-                if (runCatching { cls.getField("topActivityBoundsLetterboxed").getBoolean(compat) }.getOrDefault(true).not()) continue
-                val width = runCatching { cls.getField("topActivityLetterboxWidth").getInt(compat) }.getOrDefault(0)
-                val height = runCatching { cls.getField("topActivityLetterboxHeight").getInt(compat) }.getOrDefault(0)
-                val display = vd.display
-                val mode = display.mode
-                val rotation = DisplayOrientation.rotation(mode.physicalWidth, mode.physicalHeight, display.rotation, width, height) ?: continue
-                val ok = runCatching {
-                    val wm = Class.forName("android.view.WindowManagerGlobal").getMethod("getWindowManagerService").invoke(null)!!
-                    val method = wm.javaClass.methods.first { it.name == "freezeDisplayRotation" }
-                    if (method.parameterTypes.size == 3) method.invoke(wm, id, rotation, "mika") else method.invoke(wm, id, rotation)
-                }.isSuccess
-                if (!ok) exec("wm", "user-rotation", "-d", "$id", "lock", "$rotation")
-            }
-        }
+        for ((id, vd) in ours) runCatching {
+            val task = top[id]?.firstOrNull() ?: return@runCatching
+            val compat = runCatching { TASK_INFO.getField("appCompatTaskInfo").get(task) }.getOrNull() ?: task
+            val cls = compat.javaClass
+            // Android 14 只有应用窗口的宽高,15 起另有明确的 letterbox 标志。
+            if (runCatching { cls.getField("topActivityBoundsLetterboxed").getBoolean(compat) }.getOrDefault(true).not()) return@runCatching
+            val width = runCatching { cls.getField("topActivityLetterboxWidth").getInt(compat) }.getOrDefault(0)
+            val height = runCatching { cls.getField("topActivityLetterboxHeight").getInt(compat) }.getOrDefault(0)
+            val display = vd.display
+            val mode = display.mode
+            val rotation = DisplayOrientation.rotation(mode.physicalWidth, mode.physicalHeight, display.rotation, width, height) ?: return@runCatching
+            // 快照之后这块屏可能已经放掉了
+            if (!ownDisplay(id)) return@runCatching
+            val ok = runCatching {
+                val wm = Class.forName("android.view.WindowManagerGlobal").getMethod("getWindowManagerService").invoke(null)!!
+                val method = wm.javaClass.methods.first { it.name == "freezeDisplayRotation" }
+                if (method.parameterTypes.size == 3) method.invoke(wm, id, rotation, "mika") else method.invoke(wm, id, rotation)
+            }.isSuccess
+            if (!ok) exec("wm", "user-rotation", "-d", "$id", "lock", "$rotation")
+        }.onFailure { Log.w(TAG, "orientation sync failed on display $id", it) }
     }
 
     /**
@@ -1340,11 +1357,11 @@ class ShellService(
             AppAudioKey.parse(key)?.let { (pkg, user) -> audioMuted(pkg, user, false) } ?: synchronized(muted) { muted.remove(key) }
         }
         awake.stopAll()
-        synchronized(displays) {
-            orientationWatch?.close()
-            orientationWatch = null
-            displays.values.toList().also { displays.clear() }
-        }.forEach { it.release() }
+        val (all, watch) = synchronized(displays) {
+            displays.values.toList().also { displays.clear() } to orientationWatch.also { orientationWatch = null }
+        }
+        watch?.close()
+        all.forEach { it.release() }
     }
 
     override fun destroy() {
