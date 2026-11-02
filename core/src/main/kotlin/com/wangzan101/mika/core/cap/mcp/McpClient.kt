@@ -59,6 +59,8 @@ data class McpConnection(
     val maxCostUnits: Long? = null,
     val previewChars: Int = 4000,
     val trust: McpTrust = McpTrust.Restricted,
+    /** 只暴露这些工具;null 表示全部,空集表示一个都不给。 */
+    val allowedTools: Set<String>? = null,
 ) {
     init { require(previewChars > 0 && (maxCostUnits == null || maxCostUnits >= 0)) }
 }
@@ -74,7 +76,9 @@ fun mcpApprovalRisk(a: McpAnnotations, trust: McpTrust = McpTrust.TrustAnnotatio
 internal class McpCapability(connection: McpConnection, override val id: String) : Capability {
     private val endpoint = connection.endpoint
     private val budget = McpBudget(connection.maxCostUnits)
-    private val tools = endpoint.tools().toList().map { McpClientTool(id, endpoint, it, budget, connection.resultStore, connection.previewChars, connection.trust) }
+    private val tools = endpoint.tools()
+        .filter { connection.allowedTools == null || it.name in connection.allowedTools }
+        .map { McpClientTool(id, endpoint, it, budget, connection.resultStore, connection.previewChars, connection.trust) }
     override fun status(): CapabilityStatus = CapabilityStatus.Available
     override fun tools(): List<AgentTool> = tools
     override fun sections(env: PromptEnv): List<String> = emptyList()

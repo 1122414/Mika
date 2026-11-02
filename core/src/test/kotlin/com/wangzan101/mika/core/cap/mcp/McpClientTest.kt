@@ -55,6 +55,20 @@ class McpClientTest {
         assertFalse(subset.definitions().any { it.name.startsWith("mcp_") })
     }
 
+    @Test fun allowedToolsLimitsExposedTools() {
+        val endpoint = FakeEndpoint().apply {
+            offered = listOf(
+                McpToolDescriptor("search", "Search", buildJsonObject { put("type", "object") }),
+                McpToolDescriptor("write", "Write", buildJsonObject { put("type", "object") }),
+            )
+        }
+        fun mcpNames(connection: McpConnection) =
+            toolDispatcher(FakeScreen(), mcpServers = listOf(connection)).definitions().map { it.name }.filter { it.startsWith("mcp_") }
+        assertEquals(listOf("mcp_demo__search", "mcp_demo__write"), mcpNames(McpConnection(endpoint)))
+        assertEquals(listOf("mcp_demo__write"), mcpNames(McpConnection(endpoint, allowedTools = setOf("write"))))
+        assertEquals(emptyList<String>(), mcpNames(McpConnection(endpoint, allowedTools = emptySet())))
+    }
+
     @Test fun largeResultUsesReferenceAndUntrustedObservation() = runBlocking {
         val endpoint = FakeEndpoint().apply { result = McpResult("x".repeat(40)) }
         var saved: String? = null

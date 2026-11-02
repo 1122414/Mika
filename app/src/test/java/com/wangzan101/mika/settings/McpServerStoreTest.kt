@@ -98,6 +98,76 @@ class McpServerStoreTest {
         }
     }
 
+    private fun scriptTools(server: MockWebServer, vararg tools: String) {
+        server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(
+            """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26","serverInfo":{"name":"demo"}}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(202))
+        server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(
+            """{"jsonrpc":"2.0","id":2,"result":{"tools":[""" +
+                tools.joinToString(",") { """{"name":"$it","description":"","inputSchema":{"type":"object"}}""" } + "]}}"
+        ))
+    }
+
+    @Test fun connectionsConnectAllEnabledServersAndRecordHealth() = runBlocking {
+        val a = MockWebServer().also { it.start() }
+        val b = MockWebServer().also { it.start() }
+        try {
+            scriptTools(a, "search")
+            scriptTools(b, "send")
+            val s = store()
+            val ca = s.add("a", "https://localhost/a").getOrThrow()
+            val cb = s.add("b", "https://localhost/b").getOrThrow()
+            s.update(ca.copy(url = a.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true)).getOrThrow()
+            s.update(cb.copy(url = b.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true, allowedTools = listOf("send"))).getOrThrow()
+
+            val connections = s.connections()
+            assertEquals(0, connections.failures.size)
+            assertEquals(2, connections.connections.size)
+            assertEquals(null, connections.connections.single { it.endpoint.serverId == ca.id }.allowedTools)
+            assertEquals(setOf("send"), connections.connections.single { it.endpoint.serverId == cb.id }.allowedTools)
+            assertEquals(listOf("search"), s.health.value.getValue(ca.id).tools)
+            assertTrue(s.health.value.getValue(cb.id).ok)
+            connections.close()
+        } finally {
+            a.shutdown()
+            b.shutdown()
+        }
+    }
+
+    @Test fun failedConnectionIsReportedAndDoesNotThrow() = runBlocking {
+        val server = MockWebServer().also { it.start() }
+        try {
+            server.enqueue(MockResponse().setResponseCode(500))
+            val s = store()
+            val added = s.add("dead", "https://localhost/mcp").getOrThrow()
+            s.update(added.copy(url = server.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true)).getOrThrow()
+            val connections = s.connections()
+            assertEquals(0, connections.connections.size)
+            assertEquals(listOf(added.id), connections.failures.map { it.first })
+            assertFalse(s.health.value.getValue(added.id).ok)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun testAllRefreshesHealthOfEnabledServers() = runBlocking {
+        val server = MockWebServer().also { it.start() }
+        try {
+            scriptTools(server, "a")
+            val s = store()
+            val added = s.add("demo", "https://localhost/mcp").getOrThrow()
+            s.update(added.copy(url = server.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true)).getOrThrow()
+            val results = s.testAll()
+            assertEquals(1, results.size)
+            assertTrue(results.single().isSuccess)
+            assertTrue(s.health.value.getValue(added.id).ok)
+            assertEquals(listOf("a"), s.health.value.getValue(added.id).tools)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun testConnectionReturnsServerInfo() = runBlocking {
         val server = MockWebServer().also { it.start() }
         try {

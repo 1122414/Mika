@@ -11,6 +11,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -39,9 +40,13 @@ data class McpServerConfig(
     val previewChars: Int = 4000,
     val maxCostUnits: Long? = null,
     val allowLocalHttp: Boolean = false,
+    /** 只暴露这些工具;null 表示全部。 */
+    val allowedTools: List<String>? = null,
     /** 非密的自定义请求头;Authorization 另存。 */
     val headers: Map<String, String> = emptyMap(),
 )
+
+data class McpHealth(val ok: Boolean, val message: String?, val tools: List<String>, val atMs: Long)
 
 data class McpConnections(
     val connections: List<McpConnection>,
@@ -67,6 +72,9 @@ class McpServerStore(
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
     private val _servers = MutableStateFlow(loadServers())
     val servers: StateFlow<List<McpServerConfig>> = _servers.asStateFlow()
+    private val _health = MutableStateFlow<Map<String, McpHealth>>(emptyMap())
+    /** 最近一次连接/测试的结果;只在进程内,不落盘。 */
+    val health: StateFlow<Map<String, McpHealth>> = _health.asStateFlow()
 
     @Synchronized fun add(name: String, url: String, token: String? = null): Result<McpServerConfig> =
         add(McpServerConfig(name = name.trim(), url = url.trim()), token)
@@ -133,35 +141,55 @@ class McpServerStore(
             serverId = config.id, url = config.url, http = http,
             headers = authHeaders(config), timeoutSec = config.timeoutSec,
             clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
-        ).getOrElse { return Result.failure(it) }
+        ).getOrElse { e ->
+            _health.update { it + (config.id to McpHealth(false, e.javaClass.simpleName + ": " + e.message.orEmpty(), emptyList(), System.currentTimeMillis())) }
+            return Result.failure(e)
+        }
         return try {
-            Result.success(McpTestResult(endpoint.serverName, endpoint.instructions, endpoint.tools().map { it.name }))
+            val result = McpTestResult(endpoint.serverName, endpoint.instructions, endpoint.tools().map { it.name })
+            _health.update { it + (config.id to McpHealth(true, null, result.tools, System.currentTimeMillis())) }
+            Result.success(result)
         } finally {
             endpoint.close()
         }
     }
 
-    /** 连接所有启用项;单个失败只记录,不抛。 */
+    /** 刷新所有启用 server 的状态(并行)。 */
+    suspend fun testAll() = coroutineScope {
+        _servers.value.filter { it.enabled }.map { config -> async { test(config) } }.awaitAll()
+    }
+
+    /** 连接所有启用项;单个失败只记录,不抛。并行连接,避免一个慢 server 拖住任务开头。 */
     suspend fun connections(resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null): McpConnections {
-        val connected = mutableListOf<Pair<McpServerConfig, McpConnection>>()
-        val failures = mutableListOf<Pair<String, String>>()
-        for (config in _servers.value.filter { it.enabled }) {
-            HttpMcpEndpoint.connect(
-                serverId = config.id, url = config.url, http = http,
-                headers = authHeaders(config), timeoutSec = config.timeoutSec,
-                clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
-            ).onSuccess { endpoint ->
-                connected += config to McpConnection(
-                    endpoint = endpoint,
-                    resultStore = resultStore,
-                    maxCostUnits = config.maxCostUnits,
-                    previewChars = config.previewChars,
-                    trust = if (config.trust == "trust-annotations") McpTrust.TrustAnnotations else McpTrust.Restricted,
-                )
-            }.onFailure {
-                failures += config.id to (it.message ?: it.javaClass.simpleName)
-            }
+        val attempts = coroutineScope {
+            _servers.value.filter { it.enabled }.map { config ->
+                async {
+                    val result = HttpMcpEndpoint.connect(
+                        serverId = config.id, url = config.url, http = http,
+                        headers = authHeaders(config), timeoutSec = config.timeoutSec,
+                        clientName = "Mika", clientVersion = BuildConfig.VERSION_NAME,
+                    ).map { endpoint ->
+                        McpConnection(
+                            endpoint = endpoint,
+                            resultStore = resultStore,
+                            maxCostUnits = config.maxCostUnits,
+                            previewChars = config.previewChars,
+                            trust = if (config.trust == "trust-annotations") McpTrust.TrustAnnotations else McpTrust.Restricted,
+                            allowedTools = config.allowedTools?.toSet(),
+                        )
+                    }
+                    _health.update {
+                        it + (config.id to result.fold(
+                            onSuccess = { c -> McpHealth(true, null, c.endpoint.tools().map { t -> t.name }, System.currentTimeMillis()) },
+                            onFailure = { e -> McpHealth(false, e.message ?: e.javaClass.simpleName, emptyList(), System.currentTimeMillis()) },
+                        ))
+                    }
+                    config to result
+                }
+            }.awaitAll()
         }
+        val connected = attempts.mapNotNull { (c, r) -> r.getOrNull()?.let { c to it } }
+        val failures = attempts.mapNotNull { (c, r) -> r.exceptionOrNull()?.let { c.id to (it.message ?: it.javaClass.simpleName) } }
         return McpConnections(
             connections = connected.map { it.second },
             close = {

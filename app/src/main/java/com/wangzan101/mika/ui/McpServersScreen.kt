@@ -1,6 +1,8 @@
 package com.wangzan101.mika.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -37,8 +39,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
     val servers by store.servers.collectAsState()
+    val health by store.health.collectAsState()
     var editing by remember { mutableStateOf<McpServerConfig?>(null) }
     var adding by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     PageScaffold(stringResource(R.string.mcp_servers_title), onBack) {
@@ -49,8 +53,15 @@ fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
         } else {
             GroupCard {
                 servers.forEachIndexed { i, server ->
+                    val state = health[server.id]
                     ListRow(
-                        MikaIcons.Link, server.name, server.url, first = i == 0,
+                        MikaIcons.Link, server.name,
+                        subtitle = (state?.let {
+                            if (it.ok) stringResource(R.string.mcp_servers_status_ok, it.tools.size)
+                            else stringResource(R.string.mcp_servers_status_fail, it.message.orEmpty())
+                        } ?: server.url),
+                        detail = state?.let { server.url },
+                        first = i == 0,
                         onClick = { editing = server },
                     ) {
                         MikaSwitch(server.enabled, { on -> store.setEnabled(server.id, on) })
@@ -58,7 +69,21 @@ fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
                 }
             }
         }
-        MikaButton(stringResource(R.string.mcp_servers_add), { adding = true }, Modifier.padding(top = 12.dp), size = ButtonSize.Small)
+        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MikaButton(stringResource(R.string.mcp_servers_add), { adding = true }, size = ButtonSize.Small)
+            MikaButton(
+                stringResource(if (refreshing) R.string.mcp_servers_testing else R.string.mcp_servers_refresh_all),
+                {
+                    refreshing = true
+                    scope.launch {
+                        store.testAll()
+                        refreshing = false
+                    }
+                },
+                size = ButtonSize.Small,
+                enabled = !refreshing && servers.isNotEmpty(),
+            )
+        }
         GroupLabel(stringResource(R.string.mcp_servers_help))
         Text(
             stringResource(R.string.mcp_servers_help_text),
@@ -88,6 +113,7 @@ private fun McpServerDialog(
     var token by remember { mutableStateOf("") }
     var allowLocal by remember { mutableStateOf(initial?.allowLocalHttp == true) }
     var trustAnnotations by remember { mutableStateOf(initial?.trust == "trust-annotations") }
+    var allowlist by remember { mutableStateOf(initial?.allowedTools?.joinToString(", ").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     var savedId by remember { mutableStateOf(initial?.id) }
@@ -99,6 +125,7 @@ private fun McpServerDialog(
         url = url.trim(),
         allowLocalHttp = allowLocal,
         trust = if (trustAnnotations) "trust-annotations" else "restricted",
+        allowedTools = allowlist.split(',').map { it.trim() }.filter { it.isNotEmpty() }.takeIf { it.isNotEmpty() },
     )
 
     fun save(): McpServerConfig? {
@@ -123,6 +150,12 @@ private fun McpServerDialog(
                 OutlinedTextField(
                     token, { token = it }, label = { Text(stringResource(R.string.mcp_servers_token)) },
                     singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                OutlinedTextField(
+                    allowlist, { allowlist = it },
+                    label = { Text(stringResource(R.string.mcp_servers_allowlist)) },
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
                 ToggleRow(stringResource(R.string.mcp_servers_allow_local_http), allowLocal) { allowLocal = it }

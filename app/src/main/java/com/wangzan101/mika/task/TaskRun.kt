@@ -697,6 +697,14 @@ class TaskRun(
                         com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), conversationId),
                     )
                 }
+                // 连接失败只在任务卡片上提示一句,不打断任务;详情在设置页的健康状态里
+                mcpConnections?.failures?.takeIf { it.isNotEmpty() }?.let { failures ->
+                    val store = (service.application as MikaApp).mcpServers
+                    val names = store.servers.value.associate { it.id to it.name }
+                    (_state.value as? TaskState.Running)?.let {
+                        publish(it.copy(note = tr(R.string.mcp_servers_run_failed, failures.joinToString(", ") { f -> names[f.first] ?: f.first })))
+                    }
+                }
             }
             val runApproval = approvalControl.start(remote = provenance.origin == RunOrigin.Mcp).also { approval = it }
             val childRunner = if (provenance.origin == RunOrigin.Ui && web != null) ChildAgentRunner(

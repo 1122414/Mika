@@ -130,4 +130,9 @@
     <string name="mcp_servers_help">說明</string>
     <string name="mcp_servers_help_text">外部 MCP 伺服器和「連接電腦」是兩回事。它提供的工具會以 MCP 來源出現在任務裡。預設只允許 HTTPS；本機/區域網路 HTTP 要勾選。權杖只保存在本機。</string>
     <string name="mcp_servers_delete">刪除</string>
+    <string name="mcp_servers_run_failed">MCP 伺服器連線失敗:%1$s</string>
+    <string name="mcp_servers_status_ok">可用 · %1$d 個工具</string>
+    <string name="mcp_servers_status_fail">連線失敗:%1$s</string>
+    <string name="mcp_servers_refresh_all">測試全部</string>
+    <string name="mcp_servers_allowlist">允許的工具(英文逗號分隔,留空為全部)</string>
 </resources>

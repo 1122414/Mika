@@ -138,4 +138,9 @@
     <string name="mcp_servers_help">Sobre</string>
     <string name="mcp_servers_help_text">Servidores MCP externos são separados de «Conectar um computador». As ferramentas aparecem como MCP nas tarefas. Apenas HTTPS por padrão; HTTP local exige a caixa. Os tokens ficam neste telefone.</string>
     <string name="mcp_servers_delete">Remover</string>
+    <string name="mcp_servers_run_failed">Servidores MCP indisponíveis: %1$s</string>
+    <string name="mcp_servers_status_ok">Disponível · %1$d ferramentas</string>
+    <string name="mcp_servers_status_fail">Falha na conexão: %1$s</string>
+    <string name="mcp_servers_refresh_all">Testar tudo</string>
+    <string name="mcp_servers_allowlist">Ferramentas permitidas (separadas por vírgulas, vazio = todas)</string>
 </resources>
