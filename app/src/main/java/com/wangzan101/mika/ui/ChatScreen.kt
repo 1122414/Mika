@@ -392,8 +392,8 @@ fun ChatScreen(
         menu?.let { m ->
             val pending = withdrawableSteer(ui.exchanges, m.key)
             val canEdit = input.isBlank() && ui.quote == null && ui.attachments.isEmpty() && !ui.importing
-            val branchTurn = if (ui.conversationId != null) branchableTurn(ui.exchanges, m.key, active = vm.currentRunning()) else null
-            val retryTurn = if (ui.conversationId != null) retryableTurn(ui.exchanges, m.key, active = vm.currentRunning()) else null
+            val branchTurn = vm.branchTurn(m.key)
+            val retryTurn = vm.retryTurn(m.key)
             MessageMenu(
                 m, progress = { lift.value },
                 onCopy = { closeMenu { copyMessage(context, m.text) } },

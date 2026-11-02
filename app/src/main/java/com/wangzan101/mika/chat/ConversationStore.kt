@@ -219,20 +219,15 @@ class ConversationStore(private val dir: File) {
         origin: BranchOrigin? = null,
     ): Boolean = copyBranch(sourceId, targetId, beforeTurn, includeTurn = false, title, origin)
 
+    /** [branch] 和 [branchBefore] 共用:复制 [sourceId] 的前 [turn] 轮([includeTurn] 时连这一轮),再写标题、网页来源、分支来源。 */
     private fun copyBranch(sourceId: String, targetId: String, turn: Int, includeTurn: Boolean, title: String?, origin: BranchOrigin?): Boolean {
         val source = file(sourceId)
         if (!source.isFile) return false
         val records = read(source) ?: return false
-        val count = if (includeTurn) {
-            if (turn !in records.indices) return false
-            turn + 1
-        } else {
-            if (turn !in records.indices) return false
-            turn
-        }
+        if (turn !in records.indices) return false
         if (file(targetId).exists()) return false
         deleted -= safe(targetId)
-        write(targetId, records.take(count))
+        write(targetId, records.take(if (includeTurn) turn + 1 else turn))
         title?.let { writeTitle(targetId, it) }
         pageOrigin(sourceId)?.let { setPageOrigin(targetId, it) }
         origin?.let { writeBranchOrigin(targetId, it) }

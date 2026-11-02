@@ -1016,8 +1016,20 @@ class ChatViewModel(
         markCurrent(CurrentChat.Fresh)
     }
 
-    /** 屏上这个对话此刻有没有任务在跑或排队:分支入口据此不显示。 */
+    /** 屏上这个对话此刻有没有任务在跑或排队。 */
     fun currentRunning(): Boolean = _ui.value.conversationId?.let { it in activeConversations.value } == true
+
+    /** 屏上这个对话此刻分不了支:还没存过、有任务在跑或排队、已删或正在删、输入框正忙。 */
+    private fun branchBlocked(): Boolean {
+        val id = _ui.value.conversationId ?: return true
+        return id in activeConversations.value || id in deleted.value || id in deleting || busy()
+    }
+
+    /** 长按的消息 [key] 能「从这里分支」时返回轮次;菜单据此显示,[branchFrom] 用的是同一个判断。 */
+    fun branchTurn(key: String): Int? = branchableTurn(_ui.value.exchanges, key, branchBlocked())
+
+    /** 长按的消息 [key] 能「从这里重新问」时返回轮次;菜单据此显示,[branchBefore] 用的是同一个判断。 */
+    fun retryTurn(key: String): Int? = retryableTurn(_ui.value.exchanges, key, branchBlocked())
 
     /** 清掉上次分支复制工作区的提示。 */
     fun clearBranchCopy() {
@@ -1026,54 +1038,45 @@ class ChatViewModel(
 
     /**
      * 从当前对话的第 [throughTurn] 轮(0 起,含这一轮)分支:复制轮次和标题/网页来源,再复制工作区 inbox/,成功后切到新对话。
-     * 返回新对话编号;当前对话有任务在跑或排队、正在删、轮次越界、这一轮还没结束或复制失败时为 null。
+     * 返回新对话编号;[canBranchAt] 不成立(有任务在跑或排队、正在删、输入框正忙、轮次越界、这一轮还没结束)或复制失败时为 null。
      * 工作区复制的结果(超过上限等)放在 [branchCopy] 里,不当作失败。
      */
-    suspend fun branchFrom(throughTurn: Int): String? {
-        refreshParallel()
-        _branchCopy.value = null
-        val ui = _ui.value
-        val sourceId = ui.conversationId ?: return null
-        if (sourceId in activeConversations.value || sourceId in deleted.value || sourceId in deleting) return null
-        if (busy()) return null
-        if (throughTurn !in ui.exchanges.indices) return null
-        if (!ui.exchanges[throughTurn].status.branchable) return null
-        val targetId = store.newConversation()
-        val base = withContext(io) { store.title(sourceId) }?.takeIf { it.isNotBlank() }
-            ?: ChatCopy.title(ui.exchanges).ifBlank { tr(R.string.chat_new) }
-        val origin = BranchOrigin(sourceId, throughTurn, afterTurn = true, at = clock())
-        val created = withContext(io) { store.branch(sourceId, targetId, throughTurn, branchTitle(base), origin) }
-        if (!created) return null
-        _branchCopy.value = try { branchWorkspace?.copyInbox(sourceId, targetId) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
-        openConversation(targetId)
-        return targetId
-    }
+    suspend fun branchFrom(throughTurn: Int): String? =
+        branchInto(throughTurn, afterTurn = true, allowed = ::canBranchAt)
 
     /**
      * 从当前对话的第 [turn] 条用户消息「重新问」:复制这一轮之前的轮次,返回新对话编号和要预填的文字,不自动发送。
      * 原消息的附件/屏幕不会带进输入框,用 [BranchRetry.needsReattach] 告诉界面提示重新添加。
-     * 守卫同 [branchFrom]。
+     * [canRetryAt] 不成立(同 [branchFrom],另加这一轮用户的话是空的)或复制失败时为 null。
      */
     suspend fun branchBefore(turn: Int): BranchRetry? {
+        val raw = _ui.value.exchanges.getOrNull(turn)?.goal
+        val targetId = branchInto(turn, afterTurn = false, allowed = ::canRetryAt) ?: return null
+        return BranchRetry(targetId, retryText(raw.orEmpty()), needsReattach(raw.orEmpty()))
+    }
+
+    /**
+     * [branchFrom] 和 [branchBefore] 共用:[allowed] 成立时新建对话,复制到第 [turn] 轮([afterTurn] 时含这一轮,否则只到它之前)、
+     * 标题加后缀、写分支来源,再复制工作区 inbox/,然后切到新对话。返回新对话编号;不允许或复制失败为 null,不切走。
+     */
+    private suspend fun branchInto(turn: Int, afterTurn: Boolean, allowed: (List<Exchange>, Int, Boolean) -> Boolean): String? {
         refreshParallel()
         _branchCopy.value = null
         val ui = _ui.value
         val sourceId = ui.conversationId ?: return null
-        if (sourceId in activeConversations.value || sourceId in deleted.value || sourceId in deleting) return null
-        if (busy()) return null
-        if (turn !in ui.exchanges.indices) return null
-        if (!ui.exchanges[turn].status.branchable) return null
-        val raw = ui.exchanges[turn].goal
-        if (raw.isBlank()) return null
+        if (!allowed(ui.exchanges, turn, branchBlocked())) return null
         val targetId = store.newConversation()
         val base = withContext(io) { store.title(sourceId) }?.takeIf { it.isNotBlank() }
             ?: ChatCopy.title(ui.exchanges).ifBlank { tr(R.string.chat_new) }
-        val origin = BranchOrigin(sourceId, turn, afterTurn = false, at = clock())
-        val created = withContext(io) { store.branchBefore(sourceId, targetId, turn, branchTitle(base), origin) }
+        val origin = BranchOrigin(sourceId, turn, afterTurn, at = clock())
+        val created = withContext(io) {
+            if (afterTurn) store.branch(sourceId, targetId, turn, branchTitle(base), origin)
+            else store.branchBefore(sourceId, targetId, turn, branchTitle(base), origin)
+        }
         if (!created) return null
         _branchCopy.value = try { branchWorkspace?.copyInbox(sourceId, targetId) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
         openConversation(targetId)
-        return BranchRetry(targetId, retryText(raw), needsReattach(raw))
+        return targetId
     }
 
     /** 删掉 [id] 会连带什么:侧栏的确认弹窗据此写明会停掉任务、删掉定时任务。 */

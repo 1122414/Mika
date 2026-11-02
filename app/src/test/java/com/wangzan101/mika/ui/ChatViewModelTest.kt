@@ -2129,6 +2129,38 @@ class ChatViewModelTest {
         assertTrue(vm.ui.value.exchanges.isEmpty())
     }
 
+    /** 菜单显示的入口和点了之后的判断一致:这一轮没结束时两个入口都不显示,动作也不做;在跑、正忙时同样。 */
+    @Test fun branchMenuMatchesWhatTheActionAllows() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        val activeNow = MutableStateFlow<List<String>>(emptyList())
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, activeConversations = activeNow).also { runCurrent() }
+        assertNull(vm.branchTurn("r0"))
+        assertNull(vm.retryTurn("u0"))
+        vm.openConversation(source)
+
+        assertEquals(0, vm.branchTurn("r0"))
+        assertEquals(0, vm.retryTurn("u0"))
+        assertNull(vm.branchTurn("u0"))
+        assertNull(vm.retryTurn("r0"))
+
+        activeNow.value = listOf(source)
+        runCurrent()
+        assertNull(vm.branchTurn("r0"))
+        assertNull(vm.retryTurn("u0"))
+
+        activeNow.value = emptyList()
+        runCurrent()
+        // 发出新一句:第 1 轮还没结束,输入框正忙,两个入口都不显示,动作也不做
+        assertTrue(vm.send("新一句", ok))
+        assertNull(vm.branchTurn("r1"))
+        assertNull(vm.retryTurn("u1"))
+        assertNull(vm.retryTurn("u0"))
+        assertNull(vm.branchBefore(1))
+        assertNull(vm.branchFrom(1))
+    }
+
     /** 任务在跑、轮次越界、输入框正忙:都不重新问。 */
     @Test fun branchBeforeRefusesRunningBusyAndBadTurns() = runTest {
         val store = ConversationStore(tmp.newFolder())
