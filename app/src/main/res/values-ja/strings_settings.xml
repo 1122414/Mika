@@ -113,4 +113,10 @@
     <string name="appearance_dark">常にダーク</string>
     <string name="settings_self_config">Mika に自分の設定を変更させる</string>
     <string name="settings_self_config_sub">オンにすると、タスクがこれらの設定(ペース、ミュート、カプセル、外観、画面オン)を読み取り・変更するツールを 1 つ使えるようになります。モデル、API キー、コンテナのネットワーク、データを削除するものは含まれません</string>
+    <string name="settings_step_limit">タスクごとのステップ上限</string>
+    <string name="settings_step_limit_sub">オフは無制限です。上限に達するとタスクは止まり、どこで止まったかを表示します。</string>
+    <string name="settings_step_limit_off">上限なし</string>
+    <string name="settings_step_limit_custom">カスタム（1〜500）</string>
+    <string name="settings_step_limit_custom_apply">使用</string>
+    <string name="settings_step_limit_invalid">1〜500 の整数を入力してください。</string>
 </resources>

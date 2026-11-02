@@ -10,8 +10,11 @@ import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.settings.ThemeMode
 import com.wangzan101.mika.ui.components.MikaSwitch
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -194,7 +197,10 @@ fun DuringWorkScreen(
     parallel: ParallelSetting?, onParallelMax: (Int) -> Unit, onBack: () -> Unit,
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
     selfConfig: Boolean = false, onSelfConfig: (Boolean) -> Unit = {},
+    stepLimit: Int? = null, onStepLimit: (Int?) -> Unit = {},
 ) {
+    var editingLimit by remember { mutableStateOf(false) }
+    var customLimit by remember { mutableStateOf("") }
     PageScaffold(stringResource(R.string.settings_during_work), onBack) {
         GroupCard {
             ListRow(MikaIcons.Sun, stringResource(R.string.settings_keep_on), stringResource(R.string.settings_keep_on_sub), first = true, onClick = { onKeepScreenOn(!keepScreenOn) }) {
@@ -203,8 +209,22 @@ fun DuringWorkScreen(
             ListRow(MikaIcons.Mute, stringResource(R.string.settings_mute), stringResource(R.string.settings_mute_sub), onClick = { onMuteTarget(!muteTarget) }) {
                 MikaSwitch(muteTarget, onMuteTarget, Modifier.testTag("work-mute-target"))
             }
+            ListRow(
+                MikaIcons.Clock, stringResource(R.string.settings_step_limit),
+                stepLimit?.let { trPlural(R.plurals.chat_steps_n, it) }
+                    ?: stringResource(R.string.settings_step_limit_off),
+                // 当前是自己填的数时,输入框里带着它
+                onClick = { customLimit = stepLimit?.takeIf { it !in STEP_LIMIT_PRESETS }?.toString().orEmpty(); editingLimit = true },
+            )
             parallel?.let { ParallelRow(it, onParallelMax) }
         }
+        if (editingLimit) StepLimitDialog(
+            current = stepLimit,
+            custom = customLimit,
+            onCustom = { customLimit = it.filter(Char::isDigit).take(3) },
+            onPick = { onStepLimit(it); editingLimit = false },
+            onDismiss = { editingLimit = false },
+        )
         // 允许 Mika 改自己的设置:默认关,打开后任务里才有 settings_list、settings_set
         GroupCard {
             ListRow(
@@ -224,6 +244,48 @@ fun DuringWorkScreen(
         }
         FooterNote(stringResource(R.string.settings_pace_foot))
     }
+}
+
+/** 步数上限的几个现成选项;别的数在输入框里填。 */
+private val STEP_LIMIT_PRESETS = listOf(30, 60, 120, 240)
+
+@Composable
+private fun StepLimitDialog(
+    current: Int?,
+    custom: String,
+    onCustom: (String) -> Unit,
+    onPick: (Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val customValue = custom.toIntOrNull()?.takeIf { it in 1..FeatureFlags.MAX_TASK_STEP_LIMIT }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_step_limit)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.settings_step_limit_sub), Modifier.padding(bottom = 8.dp))
+                RadioRow(stringResource(R.string.settings_step_limit_off), selected = current == null, onClick = { onPick(null) }, first = true)
+                STEP_LIMIT_PRESETS.forEach { n ->
+                    RadioRow(trPlural(R.plurals.chat_steps_n, n), selected = current == n, onClick = { onPick(n) })
+                }
+                OutlinedTextField(
+                    value = custom, onValueChange = onCustom, singleLine = true,
+                    label = { Text(stringResource(R.string.settings_step_limit_custom)) },
+                    isError = custom.isNotEmpty() && customValue == null,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                if (custom.isNotEmpty() && customValue == null) {
+                    Text(stringResource(R.string.settings_step_limit_invalid), Modifier.padding(top = 4.dp))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { customValue?.let(onPick) }, enabled = customValue != null) {
+                Text(stringResource(R.string.settings_step_limit_custom_apply))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
