@@ -133,6 +133,14 @@
     <string name="chat_quote">Kutip</string>
     <string name="chat_select_text">Pilih teks</string>
     <string name="chat_copied">Disalin</string>
+    <string name="chat_branch">Cabang dari sini</string>
+    <string name="chat_branch_done">Cabang dibuat</string>
+    <string name="chat_branch_failed">Tidak bisa membuat cabang</string>
+    <string name="chat_branch_title_suffix">" · cabang"</string>
+    <string name="chat_branch_origin">Dicabang dari obrolan lain</string>
+    <string name="chat_branch_attachments_skipped">Tidak semua lampiran tersalin</string>
+    <string name="chat_branch_retry">Tanya ulang dari sini</string>
+    <string name="chat_branch_attachments_readd">Tambahkan ulang lampiran yang ingin disertakan</string>
     <string name="chat_select_hint">Tekan lama teks untuk memilihnya</string>
     <string name="chat_quote_remove">Hapus kutipan</string>
     <string name="chat_quoting_mika">Mengutip Mika: %1$s</string>
