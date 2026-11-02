@@ -2,6 +2,8 @@ package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.verify.AnswerSource
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /** 不经模型、一下做好几步时的进度,任务卡片和通知据此写明在干什么。 */
 sealed interface RunProgress {
@@ -17,6 +19,7 @@ sealed interface RunProgress {
 }
 
 sealed interface TaskState {
+    @Serializable sealed interface Terminal : TaskState
     /** 还没开始运行。 */
     data object Idle : TaskState
     /**
@@ -52,17 +55,17 @@ sealed interface TaskState {
      * [sources] 是代码从证据账本里找到的、支撑回答的那几次读取(模型不写依据)。
      * 学东西(经验路线、个人技能、App 知识)看判过的结局,不看这里的核对,见 [LearnGate]。
      */
-    data class Succeeded(
+    @Serializable @SerialName("done") data class Succeeded(
         val answer: String, val verified: Boolean = true, val note: String? = null,
         val sources: List<AnswerSource> = emptyList(), val unconfirmed: List<String> = emptyList(),
         val reviewed: Boolean = true,
-    ) : TaskState {
+    ) : Terminal {
         /** 核对过却没能核实(界面标出、评测记成 unverified)。 */
         val doubtful: Boolean get() = reviewed && !verified
     }
     /** [kind] 由产生失败的代码自己给出,不从 [reason] 文字里猜。 */
-    data class Failed(val reason: String, val kind: FailKind) : TaskState
-    data object Cancelled : TaskState
+    @Serializable @SerialName("failed") data class Failed(val reason: String, val kind: FailKind) : Terminal
+    @Serializable @SerialName("cancelled") data object Cancelled : Terminal
 }
 
 /**
@@ -93,5 +96,7 @@ enum class FailKind {
     StepLimit,
     /** 运行环境不满足或出错(手机操作助手、无障碍、没配模型、虚拟屏断开等)。 */
     Environment,
+    /** 已受理，随后执行它的进程或服务中断。 */
+    Interrupted,
 }
 

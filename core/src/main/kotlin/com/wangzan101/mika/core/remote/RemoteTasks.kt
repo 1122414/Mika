@@ -1,6 +1,7 @@
 package com.wangzan101.mika.core.remote
 
 import com.wangzan101.mika.core.agent.TaskState
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -18,7 +19,7 @@ data class RemoteTask(
 )
 
 /** 只报告电脑追加的消息;joined 表示进入当前任务上下文,不是执行成功。 */
-data class RemoteSteer(val messageId: String, val state: String)
+@Serializable data class RemoteSteer(val messageId: String, val state: String)
 
 sealed interface StartOutcome {
     data class Started(val task: RemoteTask) : StartOutcome
@@ -30,7 +31,7 @@ sealed interface StartOutcome {
  * 只认电脑交来的任务(按 [RemoteTask.id]),手机上发起的任务看不到也动不了。
  */
 interface RemoteTasks {
-    fun start(goal: String, conversation: String?): StartOutcome
+    fun start(goal: String, conversation: String?, requestId: String? = null): StartOutcome
     fun get(id: String): RemoteTask?
     /** 新的在前。 */
     fun list(limit: Int): List<RemoteTask>
