@@ -143,4 +143,6 @@
     <string name="pip_reopen">화면 표시</string>
     <string name="pip_closed_needs_you">확인 필요</string>
     <string name="pip_closed_hint">이 작업에서는 닫았어요. 오른쪽 아래의 “화면 표시”를 누르거나 사이드 메뉴에서 “백그라운드 화면”을 여세요.</string>
+    <string name="chat_conversation_tokens">이 대화: %1$s</string>
+    <string name="chat_conversation_tokens_partial">이 대화: %1$s 이상</string>
 </resources>

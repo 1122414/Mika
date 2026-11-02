@@ -158,4 +158,6 @@
     <string name="pip_reopen">Показать экран</string>
     <string name="pip_closed_needs_you">Нужны вы</string>
     <string name="pip_closed_hint">Закрыто для этой задачи. Нажмите «Показать экран» справа внизу или откройте «Фоновые экраны» в боковом меню.</string>
+    <string name="chat_conversation_tokens">Этот чат: %1$s</string>
+    <string name="chat_conversation_tokens_partial">Этот чат: не меньше %1$s</string>
 </resources>
