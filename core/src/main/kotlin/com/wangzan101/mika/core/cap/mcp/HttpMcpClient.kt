@@ -49,6 +49,7 @@ class HttpMcpEndpoint private constructor(
     private val headers: Map<String, String>,
     private val protocolVersion: String,
     private val sessionId: String?,
+    private val ids: AtomicLong,
     private val tools: List<McpToolDescriptor>,
     private val resources: List<McpResourceDescriptor>,
     private val prompts: List<McpPromptDescriptor>,
@@ -57,7 +58,6 @@ class HttpMcpEndpoint private constructor(
     val instructions: String?,
 ) : McpEndpoint, Closeable {
     private val json = Json { ignoreUnknownKeys = true }
-    private val ids = AtomicLong(1)
     // MCP 端点不应该靠重定向跳转;禁止重定向,避免把请求(含认证头)带去别的主机
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
@@ -203,9 +203,11 @@ class HttpMcpEndpoint private constructor(
         ): Result<HttpMcpEndpoint> = runCatching {
             val parsed = url.toHttpUrlOrNull() ?: throw McpClientException("invalid MCP server URL")
             require(timeoutSec in 1..600) { "timeoutSec must be 1..600" }
+            val ids = AtomicLong(0)
+            val initId = ids.incrementAndGet()
             val initBody = buildJsonObject {
                 put("jsonrpc", "2.0")
-                put("id", 1)
+                put("id", initId)
                 put("method", "initialize")
                 putJsonObject("params") {
                     put("protocolVersion", protocolVersion)
@@ -218,7 +220,7 @@ class HttpMcpEndpoint private constructor(
             }
             val init = postRaw(parsed, initBody.toString(), headers, timeoutSec, http)
             if (init.code !in 200..299) throw McpClientException("MCP initialize returned HTTP ${init.code}")
-            val initMsg = parseMessages(init.body).firstOrNull { it.matchesId(1) }
+            val initMsg = parseMessages(init.body).firstOrNull { it.matchesId(initId) }
                 ?: throw McpClientException("MCP initialize returned no response")
             val initError = initMsg["error"]
             if (initError != null) {
@@ -244,8 +246,8 @@ class HttpMcpEndpoint private constructor(
             val tools = mutableListOf<McpToolDescriptor>()
             var cursor: String? = null
             var pages = 0
-            var requestId = 2L
             do {
+                val requestId = ids.incrementAndGet()
                 val listBody = buildJsonObject {
                     put("jsonrpc", "2.0")
                     put("id", requestId)
@@ -267,14 +269,13 @@ class HttpMcpEndpoint private constructor(
                 }
                 cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
                 pages++
-                requestId++
             } while (cursor != null && pages < MAX_TOOL_PAGES)
 
             // resources/prompts 是可选能力:服务端自称支持却报错时,工具照常可用,不让整个连接失败
             val caps = initResult["capabilities"] as? JsonObject
             val resources = if (caps?.get("resources") is JsonObject) {
                 try {
-                    listResources(parsed, headers, timeoutSec, http, session, negotiated)
+                    listResources(parsed, headers, timeoutSec, http, session, negotiated, ids)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -283,7 +284,7 @@ class HttpMcpEndpoint private constructor(
             } else emptyList()
             val prompts = if (caps?.get("prompts") is JsonObject) {
                 try {
-                    listPrompts(parsed, headers, timeoutSec, http, session, negotiated)
+                    listPrompts(parsed, headers, timeoutSec, http, session, negotiated, ids)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -298,6 +299,7 @@ class HttpMcpEndpoint private constructor(
                 headers = headers,
                 protocolVersion = negotiated,
                 sessionId = session,
+                ids = ids,
                 tools = tools,
                 resources = resources,
                 prompts = prompts,
@@ -317,12 +319,13 @@ class HttpMcpEndpoint private constructor(
             http: OkHttpClient,
             session: String?,
             protocolVersion: String,
+            ids: AtomicLong,
         ): List<McpResourceDescriptor> {
             val resources = mutableListOf<McpResourceDescriptor>()
             var cursor: String? = null
             var pages = 0
-            var requestId = 2L
             do {
+                val requestId = ids.incrementAndGet()
                 val body = buildJsonObject {
                     put("jsonrpc", "2.0")
                     put("id", requestId)
@@ -343,7 +346,6 @@ class HttpMcpEndpoint private constructor(
                 }
                 cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
                 pages++
-                requestId++
             } while (cursor != null && pages < MAX_TOOL_PAGES)
             return resources
         }
@@ -355,12 +357,13 @@ class HttpMcpEndpoint private constructor(
             http: OkHttpClient,
             session: String?,
             protocolVersion: String,
+            ids: AtomicLong,
         ): List<McpPromptDescriptor> {
             val prompts = mutableListOf<McpPromptDescriptor>()
             var cursor: String? = null
             var pages = 0
-            var requestId = 2L
             do {
+                val requestId = ids.incrementAndGet()
                 val body = buildJsonObject {
                     put("jsonrpc", "2.0")
                     put("id", requestId)
@@ -381,7 +384,6 @@ class HttpMcpEndpoint private constructor(
                 }
                 cursor = (result["nextCursor"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
                 pages++
-                requestId++
             } while (cursor != null && pages < MAX_TOOL_PAGES)
             return prompts
         }
