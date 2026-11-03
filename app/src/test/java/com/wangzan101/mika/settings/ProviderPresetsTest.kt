@@ -59,6 +59,13 @@ class ProviderPresetsTest {
         }
     }
 
+    /** DeepSeek 的 V4 两个模型上下文都是 1M:窗口按旧默认 64k 时压缩频繁改写前缀,前缀缓存整段失效。 */
+    @Test fun deepSeekPresetUsesTheFullWindow() {
+        val deepseek = preset("DeepSeek")
+        assertEquals(1_000_000, deepseek.capabilities.contextTokens)
+        assertFalse(deepseek.capabilities.vision)
+    }
+
     /** Coding Plan 的 Key 和标准 API 不通用;地址要落在官方分开的 OpenAI 兼容端点上。 */
     @Test fun codingPlanUsesItsOwnDocumentedEndpoint() {
         val standard = preset("智谱")

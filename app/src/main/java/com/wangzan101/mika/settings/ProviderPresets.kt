@@ -41,7 +41,9 @@ object ProviderPresets {
     }
 
     val all: List<ProviderPreset> = listOf(
-        ProviderPreset("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com", caps(), familyTokens = listOf("deepseek")),
+        // V4 起两个模型(deepseek-flash / deepseek-v4-pro)上下文都是 1M:窗口还按旧默认 64k 时,
+        // 压缩会频繁改写请求前缀,服务商的前缀缓存整段失效,同一任务的花费能差好几倍
+        ProviderPreset("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com", caps(context = 1_000_000), familyTokens = listOf("deepseek")),
         // 这家的 OpenAI 兼容接口上,不少模型(如 qwen3.5 系列)只有显式缓存:不标就从不复用
         ProviderPreset("通义千问", ProviderConfig.Kind.OpenAiCompat, "https://dashscope.aliyuncs.com/compatible-mode/v1", caps(caching = PromptCaching.Explicit), familyTokens = listOf("qwen")),
         ProviderPreset("Kimi", ProviderConfig.Kind.OpenAiCompat, "https://api.moonshot.cn/v1", caps(), familyTokens = listOf("kimi", "moonshot")),
