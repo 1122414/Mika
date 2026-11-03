@@ -181,4 +181,41 @@ class TriggerEngineTest {
         assertEquals(5_000L, store.get("interval")!!.nextAtMs)
         assertEquals(5_000L, store.get("disabled")!!.nextAtMs)
     }
+
+    @Test fun upcomingChainsCalendarRecurrencesInTheTriggersZone() {
+        val created = Instant.parse("2026-11-01T01:00:00Z").toEpochMilli()
+        val def = TriggerDefinition(
+            "daily", "t", "do",
+            nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), created),
+            calendarTime = "09:00", calendarZone = "Asia/Shanghai",
+        )
+        val after = Instant.parse("2026-11-02T02:00:00Z").toEpochMilli()
+        val times = upcoming(def, after, 3)
+        assertEquals(3, times.size)
+        assertEquals(nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), after), times[0])
+        assertEquals(nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), times[0]), times[1])
+        assertEquals(nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), times[1]), times[2])
+    }
+
+    @Test fun reschedulingIncludesEditedFirstTimeAndUsesItForCalendarRecurrences() {
+        val edited = Instant.parse("2026-11-04T02:30:00Z").toEpochMilli()
+        val def = TriggerDefinition(
+            "daily", "t", "do", 0,
+            calendarTime = "09:00", calendarZone = "Asia/Shanghai", enabled = false,
+        ).rescheduledTo(edited)
+        assertEquals("10:30", def.calendarTime)
+        assertTrue(def.enabled)
+        val times = upcoming(def, edited, 3)
+        assertEquals(edited, times[0])
+        assertEquals(nextCalendarAt("10:30", "Asia/Shanghai", emptyList(), edited), times[1])
+        assertEquals(nextCalendarAt("10:30", "Asia/Shanghai", emptyList(), times[1]), times[2])
+    }
+
+    @Test fun upcomingSkipsMissedIntervalsAndLimitsOneShots() {
+        val interval = TriggerDefinition("i", "t", "do", 1_000, intervalMs = 1_000)
+        assertEquals(listOf(5_000L, 6_000L, 7_000L), upcoming(interval, 4_500, 3))
+        assertEquals(listOf(5_000L, 6_000L, 7_000L), upcoming(interval.copy(nextAtMs = 5_000), 5_000, 3))
+        val once = TriggerDefinition("once", "t", "do", 9_000)
+        assertEquals(listOf(9_000L), upcoming(once, 8_000, 3))
+    }
 }

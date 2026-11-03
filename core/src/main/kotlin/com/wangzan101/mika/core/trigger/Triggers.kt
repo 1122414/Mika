@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Serializable
 data class TriggerDefinition(
@@ -158,6 +159,39 @@ fun nextCalendarAt(time: String, zone: String, days: List<Int>, afterMs: Long): 
         date = date.plusDays(1)
     }
     error("calendar schedule has no matching day")
+}
+
+private val CALENDAR_CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/** 修改下次时间时,日历计划也改用新钟点重复;保存与预览必须共用这份转换。 */
+fun TriggerDefinition.rescheduledTo(nextAtMs: Long): TriggerDefinition {
+    val local = calendarZone?.let { zone ->
+        CALENDAR_CLOCK.format(Instant.ofEpochMilli(nextAtMs).atZone(ZoneId.of(zone)))
+    }
+    return copy(nextAtMs = nextAtMs, enabled = true, calendarTime = if (calendarTime != null) local else null)
+}
+
+/** 编辑/创建时预览:首个不早于 [afterMs] 的触发也计入,再按计划自身的时区与重复规则递进。 */
+fun upcoming(def: TriggerDefinition, afterMs: Long, count: Int): List<Long> {
+    if (count <= 0) return emptyList()
+    val out = ArrayList<Long>(count)
+    when {
+        def.calendarTime != null -> {
+            var at = if (def.nextAtMs >= afterMs) def.nextAtMs
+            else nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, afterMs)
+            repeat(count) {
+                out += at
+                at = nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, at)
+            }
+        }
+        def.intervalMs != null && def.intervalMs > 0 -> {
+            var t = def.nextAtMs
+            if (t < afterMs) t += (afterMs - t) / def.intervalMs * def.intervalMs + def.intervalMs
+            repeat(count) { out += t; t += def.intervalMs }
+        }
+        else -> out += def.nextAtMs
+    }
+    return out
 }
 
 /** 排期由宿主实现；核心负责先记账再派发，异常重启时不会重复执行已认领的时段。 */

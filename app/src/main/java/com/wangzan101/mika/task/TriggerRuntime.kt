@@ -23,10 +23,9 @@ import com.wangzan101.mika.core.trigger.TriggerEngine
 import com.wangzan101.mika.core.trigger.ConditionOutcome
 import com.wangzan101.mika.core.trigger.TriggerSnapshot
 import com.wangzan101.mika.core.trigger.TriggerWindowState
+import com.wangzan101.mika.core.trigger.rescheduledTo
 import java.io.File
-import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -148,11 +147,7 @@ object TriggerRuntime {
     @Synchronized fun reschedule(context: Context, id: String, nextAtMs: Long) {
         val store = store(context)
         store.get(id)?.let { trigger ->
-            val local = trigger.calendarZone?.let { zone ->
-                DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(nextAtMs).atZone(ZoneId.of(zone)))
-            }
-            store.upsert(trigger.copy(nextAtMs = nextAtMs, enabled = true,
-                calendarTime = if (trigger.calendarTime != null) local else null))
+            store.upsert(trigger.rescheduledTo(nextAtMs))
         }
         engine(context, store).rearm(System.currentTimeMillis())
     }

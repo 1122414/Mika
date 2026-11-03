@@ -21,6 +21,7 @@
     <string name="plans_edit_time">تغيير الوقت</string>
     <string name="plans_edit_title">تغيير موعد التشغيل التالي</string>
     <string name="plans_edit_label">التوقيت المحلي: yyyy-MM-dd HH:mm</string>
+    <string name="plans_preview">مواعيد التشغيل التالية بعد هذا التغيير:</string>
     <string name="plans_need_future">أدخل وقتًا مستقبليًا صالحًا</string>
     <string name="plans_delete_title">هل تريد حذف هذه المهمة المجدولة؟</string>
     <string name="plans_done">مكتملة</string>
