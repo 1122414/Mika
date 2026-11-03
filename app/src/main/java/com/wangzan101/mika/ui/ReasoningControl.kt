@@ -55,7 +55,7 @@ internal fun ReasoningControl(ui: ModelSetupUi, role: ModelRole, modifier: Modif
     ) { open = true }
     if (open) MikaDialog(
         onDismissRequest = { open = false },
-        title = { Text(stringResource(R.string.model_reasoning_title, ModelsCopy.roleLabel(role))) },
+        title = { Text(stringResource(R.string.model_reasoning_title, ModelsCopy.roleName(role))) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.model_reasoning_note))
