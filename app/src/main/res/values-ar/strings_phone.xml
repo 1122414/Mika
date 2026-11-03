@@ -36,6 +36,7 @@
     <string name="phone_a11y_skipped">تم التخطي</string>
     <string name="phone_app_info">تعذّر تفعيله؟ اسمح بالإعدادات المقيّدة أولًا ضمن App info</string>
     <string name="phone_auto_read">عند ظهور الرمز، انتظر بضع ثوانٍ — سيقرأه Mika ويكمل الاقتران. لا حاجة إلى مغادرة تلك الصفحة.</string>
+    <string name="phone_auto_read_fallback">لم يحدث شيء بعد بضع ثوانٍ؟ اسحب لأسفل لفتح مركز الإشعارات وأدخل الرمز في «%1$s». ستبقى نافذة الاقتران مفتوحة.</string>
     <string name="phone_turned_on_next">فعّلته، التالي</string>
     <string name="phone_revisit_back">العودة إلى الموضع السابق</string>
     <string name="phone_revisit_note">انقر على أي خطوة أعلاه للعودة وإعادتها.</string>
