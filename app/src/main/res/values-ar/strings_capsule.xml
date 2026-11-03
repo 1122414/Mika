@@ -56,4 +56,6 @@
         <item quantity="other">%1$d خطوة في المرة الواحدة</item>
     </plurals>
     <string name="and_more">" والمزيد"</string>
+    <string name="capsule_hide">إيقاف الكبسولة العائمة</string>
+    <string name="capsule_hidden_hint">تم إيقاف الكبسولة العائمة. يمكنك إعادة تشغيلها من «%1$s › %2$s»</string>
 </resources>
