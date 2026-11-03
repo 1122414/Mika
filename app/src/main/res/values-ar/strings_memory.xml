@@ -78,4 +78,14 @@
     <string name="skills_archived">مؤرشفة</string>
     <string name="skills_archive">أرشفة</string>
     <string name="skills_changed_lines">الأسطر المتغيرة:</string>
+    <string name="skills_get">الحصول على المهارات</string>
+    <string name="skills_share">مشاركة المهارة</string>
+    <string name="skills_import">استيراد مهارة</string>
+    <string name="skills_import_sub">الصق النص الكامل لمهارة شاركها شخص آخر</string>
+    <string name="skills_import_hint">ستنتقل أولًا إلى «للمراجعة»، ولن تُستخدم حتى تقرأها وتقبلها.</string>
+    <string name="skills_import_confirm">استيراد</string>
+    <string name="skill_imported">تم الاستيراد. راجعها في قسم «للمراجعة» قبل قبولها.</string>
+    <string name="skills_imported">مستوردة</string>
+    <string name="skill_builtin_name">توجد مهارة مدمجة بهذا الاسم بالفعل. غيّر الاسم وحاول مجددًا.</string>
+    <string name="skill_draft_pending">توجد مسودة بهذا الاسم بانتظار المراجعة بالفعل. تعامل معها أولًا.</string>
 </resources>
