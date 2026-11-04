@@ -1,6 +1,7 @@
 package com.wangzan101.mika.task
 
 import com.wangzan101.mika.core.run.RunId
+import com.wangzan101.mika.core.run.ChannelPeer
 import com.wangzan101.mika.core.run.RunPhase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -115,6 +116,20 @@ class TaskRegistryTest {
         assertEquals(RunPhase.Ended, registry.store.get(RunId(a.key))?.phase)
         registry.onEnded(a)
         assertEquals(RunPhase.Preparing, registry.store.get(RunId(b.key))?.phase)
+    }
+
+    @Test fun channelMessageIsExecutedOnlyOnceAndKeepsItsReplyAddress() {
+        val peer = ChannelPeer("wechat", "owner", "thread")
+        val first = registry.tryStart("thread", "任务", queueInConversation = true,
+            channelPeer = peer, channelMessageId = "message-1")
+        val duplicate = registry.tryStart("thread", "任务", queueInConversation = true,
+            channelPeer = peer, channelMessageId = "message-1")
+        assertTrue(first is StartResult.Started)
+        assertSame(StartResult.DuplicateChannelMessage, duplicate)
+        val key = (first as StartResult.Started).run.key
+        assertEquals(peer, registry.store.get(RunId(key))?.channelPeer)
+        assertEquals("message-1", registry.store.get(RunId(key))?.channelMessageId)
+        assertEquals(1, registry.runs().size)
     }
 
     @Test fun messagesAtFinishingBoundaryAreKeptInOrder() {

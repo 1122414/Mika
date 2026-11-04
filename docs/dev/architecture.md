@@ -74,7 +74,7 @@
 
 结果、提问、通知经 `Outbox`(`core/run/Outbox.kt`)送出:先记下要发的,再发。状态 Pending → Attempting → Delivered / Failed / Uncertain;同一个送达编号只送一次;发到一半结果不明的标为 Uncertain,不自动重发。记录在 `outbox-v3.json`(`app/task/FileOutboxStore.kt`)。
 
-目前唯一的渠道是 `LocalChannel`(`app/task/LocalChannel.kt`):本机界面加系统通知。渠道接口 `Channel`、`ChannelGateway`(主人身份、提问编号对应、付款确认只能在能确认的渠道上做,`Channel.confirms`)在 `core/run/` 里已定义,还没有别的渠道接入。
+本机渠道是 `LocalChannel`(`app/task/LocalChannel.kt`):本机界面加系统通知。`WechatChannel`(`app/wechat/`)是第二渠道:单账号、本人私聊文本,凭证加密保存在本机,独立前台服务长轮询,不建中继服务器,也不另建任务状态机。入站消息先写待处理账本再推进同步游标,`TaskCenter` 按渠道消息编号持久化去重后才确认;进程重启会先补交未登记消息。任务记录保存来源 `ChannelPeer`,提问、结果与 `RunRecovery` 都按来源路由。渠道接口 `Channel`、`ChannelGateway`(主人身份、提问编号对应、付款确认只能在能确认的渠道上做,`Channel.confirms`)在 `core/run/`;微信 `confirms=false`,付款确认与手机接管仍走手机。
 
 ### 进程重启后
 

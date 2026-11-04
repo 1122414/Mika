@@ -36,6 +36,7 @@ import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.agent.Turn
 import com.wangzan101.mika.core.trigger.ConditionOutcome
 import com.wangzan101.mika.core.run.ChannelPeer
+import com.wangzan101.mika.core.run.Channel
 import com.wangzan101.mika.core.run.Delivery
 import com.wangzan101.mika.core.run.DeliveryState
 import com.wangzan101.mika.core.run.RunId
@@ -138,8 +139,21 @@ class TaskService : Service() {
         if (center.deferOrStart(threadId, text)) start(this, text, threadId)
     }
 
-    internal fun interaction(threadId: String) = ChannelInteraction(outbox, localChannel,
-        ChannelPeer(LocalChannel.ID, "phone-owner", threadId))
+    private fun channelFor(peer: ChannelPeer): Channel = when (peer.channelId) {
+        LocalChannel.ID -> localChannel
+        else -> checkNotNull((application as com.wangzan101.mika.MikaApp).wechat.channelFor(peer.channelId)) {
+            "unknown channel ${peer.channelId}"
+        }
+    }
+
+    private fun acknowledgeChannel(peer: ChannelPeer?, messageId: String?) {
+        if (peer != null && messageId != null) channelFor(peer).acknowledge(messageId)
+    }
+
+    internal fun interaction(threadId: String, source: ChannelPeer? = null): ChannelInteraction {
+        val peer = source ?: ChannelPeer(LocalChannel.ID, "phone-owner", threadId)
+        return ChannelInteraction(outbox, channelFor(peer), peer)
+    }
 
     /** 任务结束后留在后台的那一页(见 [com.wangzan101.mika.cap.web.PageKeeper]):留着时服务不退,前台通知换成它的。 */
     private val keeper get() = (application as com.wangzan101.mika.MikaApp).pageKeeper
@@ -197,6 +211,13 @@ class TaskService : Service() {
                         mcpExternalId = id)
                 }
             }
+            ACTION_START_CHANNEL -> {
+                val peer = ChannelPeer(intent.getStringExtra(EXTRA_CHANNEL_ID).orEmpty(),
+                    intent.getStringExtra(EXTRA_PEER_ID).orEmpty(), intent.getStringExtra(EXTRA_CONVERSATION).orEmpty())
+                begin(intent.getStringExtra(EXTRA_GOAL).orEmpty(), peer.threadId,
+                    provenance = RunProvenance(RunOrigin.Channel, Attendance.Reachable),
+                    channelPeer = peer, channelMessageId = intent.getStringExtra(EXTRA_CHANNEL_MESSAGE_ID))
+            }
             ACTION_CANCEL_MCP -> intent.getStringExtra(EXTRA_MCP_ID)?.let { id -> center.runs().firstOrNull { it.mcpExternalId == id } }
                 ?.let { r -> if (center.cancelIfQueued(r)) cancelQueued(r) else r.cancel() }
             ACTION_CANCEL -> if (run != null && center.cancelIfQueued(run)) cancelQueued(run) else run?.cancel()
@@ -223,7 +244,8 @@ class TaskService : Service() {
 
     private fun begin(newGoal: String, requestedConversation: String?,
         provenance: RunProvenance = RunProvenance(), triggerKey: String? = null,
-        triggerActionGoal: String? = null, triggerThreadId: String? = null, mcpExternalId: String? = null, messageId: String? = null) {
+        triggerActionGoal: String? = null, triggerThreadId: String? = null, mcpExternalId: String? = null, messageId: String? = null,
+        channelPeer: ChannelPeer? = null, channelMessageId: String? = null) {
         parallel = FeatureFlags.get(this).speedFlags().parallelTasks
         // 同一对话里正在执行或排队的任务收到新原话时，交给它的 Inbox。
         requestedConversation?.let(center::byConversation)?.let { existing ->
@@ -249,8 +271,10 @@ class TaskService : Service() {
         val store = ConversationStore.shared(this)
         val conversationId = requestedConversation ?: store.newConversation()
         // 定时和电脑交来的任务不丢:这个对话还有任务时排在它后面
-        val queueHere = provenance.origin == RunOrigin.Trigger || provenance.origin == RunOrigin.Mcp
-        when (val r = center.tryStart(conversationId, newGoal, queueInConversation = queueHere)) {
+        val queueHere = provenance.origin == RunOrigin.Trigger || provenance.origin == RunOrigin.Mcp || provenance.origin == RunOrigin.Channel
+        when (val r = center.tryStart(conversationId, newGoal, queueInConversation = queueHere,
+            channelPeer = channelPeer, channelMessageId = channelMessageId)) {
+            StartResult.DuplicateChannelMessage -> acknowledgeChannel(channelPeer, channelMessageId)
             StartResult.AlreadyRunningInConversation -> keepForeground()
             is StartResult.Queued -> {
                 nameConversation(store, conversationId, newGoal, provenance)
@@ -262,6 +286,9 @@ class TaskService : Service() {
                     center.store.save(it.copy(triggerWindowKey = triggerKey))
                 }
                 r.run.mcpExternalId = mcpExternalId
+                r.run.channelPeer = channelPeer
+                r.run.channelMessageId = channelMessageId
+                acknowledgeChannel(channelPeer, channelMessageId)
                 taskState._busy.value = true
                 taskState._conversationId.value = conversationId
                 // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
@@ -285,6 +312,9 @@ class TaskService : Service() {
                     center.store.save(it.copy(triggerWindowKey = triggerKey))
                 }
                 run.mcpExternalId = mcpExternalId
+                run.channelPeer = channelPeer
+                run.channelMessageId = channelMessageId
+                acknowledgeChannel(channelPeer, channelMessageId)
                 // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
                 publishRuns()
                 run.show()
@@ -301,7 +331,7 @@ class TaskService : Service() {
 
     /** 用户(或电脑)在新对话里交来的第一句话:后台请模型起一个标题记下(只起一次,起不出来就不记)。 */
     private fun nameConversation(store: ConversationStore, id: String, first: String, provenance: RunProvenance) {
-        if (provenance.origin != RunOrigin.Ui && provenance.origin != RunOrigin.Mcp) return
+        if (provenance.origin != RunOrigin.Ui && provenance.origin != RunOrigin.Mcp && provenance.origin != RunOrigin.Channel) return
         scope.launch(Dispatchers.IO) {
             runCatching {
                 val env = TaskEnvironment.of(this@TaskService)
@@ -733,8 +763,8 @@ class TaskService : Service() {
 
     private suspend fun notifyResult(run: TaskRun, end: TaskState, deliveryId: String): DeliveryState {
         val (title, text) = describe(end)
-        val peer = ChannelPeer(LocalChannel.ID, "phone-owner", run.conversationId)
-        val delivered = outbox.deliver(localChannel, peer, Delivery.Result(deliveryId, run.conversationId, text, title = title))
+        val peer = run.channelPeer ?: ChannelPeer(LocalChannel.ID, "phone-owner", run.conversationId)
+        val delivered = outbox.deliver(channelFor(peer), peer, Delivery.Result(deliveryId, run.conversationId, text, title = title))
         if (delivered.state != DeliveryState.Delivered) Log.w(TAG, "result delivery ${delivered.state}: $deliveryId")
         return delivered.state
     }
@@ -818,6 +848,7 @@ class TaskService : Service() {
         const val ACTION_START = "com.wangzan101.mika.task.START"
         const val ACTION_START_TRIGGER = "com.wangzan101.mika.task.START_TRIGGER"
         const val ACTION_START_MCP = "com.wangzan101.mika.task.START_MCP"
+        const val ACTION_START_CHANNEL = "com.wangzan101.mika.task.START_CHANNEL"
         const val ACTION_CANCEL_MCP = "com.wangzan101.mika.task.CANCEL_MCP"
         const val ACTION_CANCEL = "com.wangzan101.mika.task.CANCEL"
         const val ACTION_RESUME = "com.wangzan101.mika.task.RESUME"
@@ -842,6 +873,9 @@ class TaskService : Service() {
         private const val EXTRA_TRIGGER_THREAD = "trigger_thread"
         private const val EXTRA_MCP_ID = "mcp_id"
         private const val EXTRA_ATTENDANCE = "attendance"
+        private const val EXTRA_CHANNEL_ID = "channel_id"
+        private const val EXTRA_PEER_ID = "peer_id"
+        private const val EXTRA_CHANNEL_MESSAGE_ID = "channel_message_id"
         private const val EXTRA_ANSWER = "answer"
         /** 通知按钮所属任务的编号([TaskRun.key])。 */
         const val EXTRA_RUN = "com.wangzan101.mika.task.RUN"
@@ -896,6 +930,14 @@ class TaskService : Service() {
                 .putExtra(EXTRA_GOAL, runGoal).putExtra(EXTRA_CONVERSATION, threadId)
                 .putExtra(EXTRA_TRIGGER_KEY, windowKey).putExtra(EXTRA_TRIGGER_THREAD, threadId)
                 .apply { if (checking) putExtra(EXTRA_TRIGGER_ACTION, goal) })
+        }
+
+        /** 渠道交来的任务保留回复地址；消息编号由登记处持久化去重。 */
+        fun startChannel(context: Context, peer: ChannelPeer, messageId: String, goal: String) {
+            context.startForegroundService(Intent(context, TaskService::class.java).setAction(ACTION_START_CHANNEL)
+                .putExtra(EXTRA_GOAL, goal).putExtra(EXTRA_CONVERSATION, peer.threadId)
+                .putExtra(EXTRA_CHANNEL_ID, peer.channelId).putExtra(EXTRA_PEER_ID, peer.peerId)
+                .putExtra(EXTRA_CHANNEL_MESSAGE_ID, messageId))
         }
 
         /** 电脑交来的任务([RemoteTaskHub]):记在 [conversation] 这个对话里,来源记成 MCP。 */
