@@ -110,7 +110,8 @@ class MiniHttpServer(
                     return
                 }
                 val response = try { handler(request) } catch (e: Exception) { onError(e); HttpResponse.empty(500) }
-                val close = request.header("connection").equals("close", ignoreCase = true)
+                val close = request.header("connection")?.split(',')
+                    ?.any { it.trim().equals("close", ignoreCase = true) } == true
                 write(output, response, close)
                 if (close) return
             }
