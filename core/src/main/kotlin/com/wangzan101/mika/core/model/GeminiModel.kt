@@ -257,8 +257,13 @@ private class GeminiStream(
     fun accept(data: String): Boolean {
         val root = try { json.parseToJsonElement(data).jsonObject }
         catch (e: Exception) { throw ModelError.BadResponse("流式响应不是合法 JSON", e) }
-        usageOf(root["usageMetadata"])?.let { usage = it }
-        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return false
+        var usageInEvent = false
+        usageOf(root["usageMetadata"])?.let { usage = it; usageInEvent = true }
+        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject
+        if (candidate == null) {
+            // finishReason 后可能另有一帧只带用量;收到它才算完整的终态,不能提前关流把它丢掉
+            return finishReason != null && usageInEvent
+        }
         (candidate["finishReason"] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotEmpty)?.let { finishReason = it }
         val reply = parseChunk(data)
         var chunkCalls = 0
@@ -273,8 +278,8 @@ private class GeminiStream(
                 else -> Unit
             }
         }
-        // 带 finishReason 的那一帧就是收尾:之后的静默不再是「等 EOF」的理由
-        return finishReason != null
+        // 当前帧收到用量且已见 finishReason 时可立即收尾;否则继续等可能的 usage-only 帧或 EOF
+        return finishReason != null && usageInEvent
     }
 
     fun finish(): ModelReply {

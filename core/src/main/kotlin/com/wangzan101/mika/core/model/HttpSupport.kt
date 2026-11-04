@@ -126,7 +126,7 @@ internal object HttpSupport {
                             }
                         }
                         if (cont.isActive) {
-                            val terminal = dispatch()
+                            dispatch()
                             val eventStream = it.header("Content-Type")?.contains("event-stream", ignoreCase = true) == true
                             if (events == 0 && !eventStream) throw ModelError.BadResponse("返回的不是流式内容(Content-Type: ${it.header("Content-Type").orEmpty()})")
                             cont.resume(RawResponse(it.code, it.header("retry-after"), ""))
