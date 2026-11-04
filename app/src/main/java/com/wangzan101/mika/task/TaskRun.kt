@@ -24,6 +24,7 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.IBinder
 import android.os.RemoteException
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Display
@@ -160,6 +161,9 @@ class TaskRun(
     internal var mcpExternalId: String? = null
     internal var channelPeer: ChannelPeer? = null
     internal var channelMessageId: String? = null
+    /** 主循环已经给出结局的时间；与结果实际发出之间的耗时用于定位渠道回传延迟。 */
+    @Volatile internal var resultReadyAtMs = 0L
+        private set
     internal val conditionCheck get() = triggerActionGoal != null
     @Volatile private var children: ChildAgentRunner? = null
     /** 这次任务连上的外部 MCP server;结束时关闭会话。 */
@@ -930,8 +934,11 @@ class TaskRun(
                     service.refreshNotifications(this@TaskRun)
                 }
             }
-            return withContext(tally) { agent.run(runSpec, inbox) }.also { usedGroups = agent.usedGroups.toList() }.let(::withRetestHint)
+            val end = withContext(tally) { agent.run(runSpec, inbox) }
+            resultReadyAtMs = SystemClock.elapsedRealtime()
+            return end.also { usedGroups = agent.usedGroups.toList() }.let(::withRetestHint)
         } finally {
+            if (resultReadyAtMs == 0L) resultReadyAtMs = SystemClock.elapsedRealtime()
             handoffUnconsumed()
             side.cancel()
             _frames.value = null

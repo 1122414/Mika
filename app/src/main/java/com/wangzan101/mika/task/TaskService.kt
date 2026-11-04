@@ -17,6 +17,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.RemoteException
+import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import com.wangzan101.mika.core.action.ConfirmChoice
@@ -53,6 +54,7 @@ import com.wangzan101.mika.ui.ScreenCopy
 import com.wangzan101.mika.ui.StatusCopy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -148,6 +150,18 @@ class TaskService : Service() {
 
     private fun acknowledgeChannel(peer: ChannelPeer?, messageId: String?) {
         if (peer != null && messageId != null) channelFor(peer).acknowledge(messageId)
+    }
+
+    /**
+     * 每个新登记的任务只确认一次，不转发运行阶段。立即进入可靠送达账本并占住发送顺序，
+     * 网络发送在后台进行；重复消息不会建任务，因此也不会再确认。
+     */
+    private fun acceptChannel(run: TaskRun) {
+        val peer = run.channelPeer ?: return
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            outbox.deliver(channelFor(peer), peer,
+                Delivery.Notice("accepted:${run.key}", peer.threadId, tr(R.string.channel_task_accepted)))
+        }
     }
 
     internal fun interaction(threadId: String, source: ChannelPeer? = null): ChannelInteraction {
@@ -288,6 +302,7 @@ class TaskService : Service() {
                 r.run.mcpExternalId = mcpExternalId
                 r.run.channelPeer = channelPeer
                 r.run.channelMessageId = channelMessageId
+                acceptChannel(r.run)
                 acknowledgeChannel(channelPeer, channelMessageId)
                 taskState._busy.value = true
                 taskState._conversationId.value = conversationId
@@ -314,6 +329,7 @@ class TaskService : Service() {
                 run.mcpExternalId = mcpExternalId
                 run.channelPeer = channelPeer
                 run.channelMessageId = channelMessageId
+                acceptChannel(run)
                 acknowledgeChannel(channelPeer, channelMessageId)
                 // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
                 publishRuns()
@@ -764,8 +780,11 @@ class TaskService : Service() {
     private suspend fun notifyResult(run: TaskRun, end: TaskState, deliveryId: String): DeliveryState {
         val (title, text) = describe(end)
         val peer = run.channelPeer ?: ChannelPeer(LocalChannel.ID, "phone-owner", run.conversationId)
+        val started = SystemClock.elapsedRealtime()
         val delivered = outbox.deliver(channelFor(peer), peer, Delivery.Result(deliveryId, run.conversationId, text, title = title))
-        if (delivered.state != DeliveryState.Delivered) Log.w(TAG, "result delivery ${delivered.state}: $deliveryId")
+        val finished = SystemClock.elapsedRealtime()
+        val sinceReady = if (run.resultReadyAtMs > 0) finished - run.resultReadyAtMs else -1
+        Log.i(TAG, "result ${delivered.state}: delivery ${finished - started} ms, since ready $sinceReady ms")
         return delivered.state
     }
 

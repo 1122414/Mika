@@ -1,5 +1,6 @@
 package com.wangzan101.mika.wechat
 
+import android.util.Log
 import com.wangzan101.mika.core.run.Channel
 import com.wangzan101.mika.core.run.ChannelInput
 import com.wangzan101.mika.core.run.ChannelInputSink
@@ -15,7 +16,11 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 /** 微信只适配收发；主人校验、提问路由和任务执行都在通用渠道层。 */
-class WechatChannel(private val store: WechatStore, private val api: WechatApi) : Channel {
+class WechatChannel(
+    private val store: WechatStore,
+    private val api: WechatApi,
+    private val log: (String) -> Unit = { Log.i(TAG, it) },
+) : Channel {
     override val id = ID
     override val confirms = false
     @Volatile private var sink: ChannelInputSink? = null
@@ -32,16 +37,16 @@ class WechatChannel(private val store: WechatStore, private val api: WechatApi) 
 
     override suspend fun send(peer: ChannelPeer, delivery: Delivery): SendOutcome {
         if (peer.channelId != id || !isAlive(peer)) return SendOutcome.Failed
-        if (delivery is Delivery.Progress) return SendOutcome.Delivered
         val account = store.account() ?: return SendOutcome.Failed
         val text = when (delivery) {
             is Delivery.Ask -> delivery.text
             is Delivery.Result -> delivery.text
             is Delivery.Notice -> delivery.text
-            is Delivery.Progress -> return SendOutcome.Delivered
+            is Delivery.Progress -> delivery.text
         }
         return withContext(Dispatchers.IO) {
-            try {
+            val started = System.nanoTime()
+            val outcome = try {
                 api.sendText(account, peer.peerId, delivery.id, text, store.contextToken(peer.peerId))
                 SendOutcome.Delivered
             } catch (e: CancellationException) {
@@ -51,6 +56,8 @@ class WechatChannel(private val store: WechatStore, private val api: WechatApi) 
             } catch (_: IOException) {
                 SendOutcome.Uncertain
             }
+            log("${delivery::class.simpleName} send $outcome in ${(System.nanoTime() - started) / 1_000_000} ms")
+            outcome
         }
     }
 
@@ -77,5 +84,8 @@ class WechatChannel(private val store: WechatStore, private val api: WechatApi) 
         return updates
     }
 
-    companion object { const val ID = "wechat" }
+    companion object {
+        const val ID = "wechat"
+        private const val TAG = "MikaWechat"
+    }
 }

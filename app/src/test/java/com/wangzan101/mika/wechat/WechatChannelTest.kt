@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -32,7 +33,7 @@ class WechatChannelTest {
             val store = WechatStore(tmp.newFolder(), cipher)
             store.saveAccount(WechatAccount("token", server.url("/").toString(), "bot", "owner"))
             store.setEnabled(true)
-            val channel = WechatChannel(store, WechatApi(OkHttpClient(), "0.1.35"))
+            val channel = WechatChannel(store, WechatApi(OkHttpClient(), "0.1.35"), log = {})
             val received = mutableListOf<ChannelInput>()
             channel.start(ChannelInputSink { received += it })
             server.enqueue(response("""{"get_updates_buf":"next","msgs":[
@@ -54,13 +55,31 @@ class WechatChannelTest {
         }
     }
 
+    @Test fun acceptanceNoticeIsSentAsARealMessage() = runTest {
+        MockWebServer().use { server ->
+            server.start(InetAddress.getByName("127.0.0.1"), 0)
+            val store = WechatStore(tmp.newFolder(), cipher)
+            store.saveAccount(WechatAccount("token", server.url("/").toString(), "bot", "owner"))
+            store.setEnabled(true)
+            val channel = WechatChannel(store, WechatApi(OkHttpClient(), "0.1.35"), log = {})
+            val peer = store.peer("owner")
+            server.enqueue(response("""{"ret":0}"""))
+
+            assertEquals(SendOutcome.Delivered,
+                channel.send(peer, Delivery.Notice("accepted:1", peer.threadId, "收到，任务已登记。")))
+            val body = server.takeRequest().body.readUtf8()
+            assertTrue(body.contains("accepted:1"))
+            assertTrue(body.contains("收到，任务已登记。"))
+        }
+    }
+
     @Test fun sendDistinguishesRejectionFromUncertainNetworkResult() = runTest {
         MockWebServer().use { server ->
             server.start(InetAddress.getByName("127.0.0.1"), 0)
             val store = WechatStore(tmp.newFolder(), cipher)
             store.saveAccount(WechatAccount("token", server.url("/").toString(), "bot", "owner"))
             store.setEnabled(true)
-            val channel = WechatChannel(store, WechatApi(OkHttpClient(), "0.1.35"))
+            val channel = WechatChannel(store, WechatApi(OkHttpClient(), "0.1.35"), log = {})
             val peer = store.peer("owner")
             val delivery = Delivery.Result("result:1", peer.threadId, "完成")
             server.enqueue(response("""{"ret":-1,"errmsg":"rejected"}"""))

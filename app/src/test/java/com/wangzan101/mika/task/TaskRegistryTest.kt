@@ -132,6 +132,21 @@ class TaskRegistryTest {
         assertEquals(1, registry.runs().size)
     }
 
+    @Test fun consecutiveChannelMessagesQueueInOrderWithoutMergingOrRepeatingRedeliveries() {
+        val peer = ChannelPeer("wechat", "owner", "thread")
+        val first = registry.tryStart("thread", "相同的话", queueInConversation = true,
+            channelPeer = peer, channelMessageId = "message-1")
+        val second = registry.tryStart("thread", "相同的话", queueInConversation = true,
+            channelPeer = peer, channelMessageId = "message-2")
+        val redelivered = registry.tryStart("thread", "相同的话", queueInConversation = true,
+            channelPeer = peer, channelMessageId = "message-2")
+
+        assertTrue(first is StartResult.Started)
+        assertTrue(second is StartResult.Queued)
+        assertSame(StartResult.DuplicateChannelMessage, redelivered)
+        assertEquals(listOf("相同的话", "相同的话"), registry.runs().map { it.goal })
+    }
+
     @Test fun messagesAtFinishingBoundaryAreKeptInOrder() {
         val run = (registry.tryStart("thread", "原来的") as StartResult.Started).run
         assertFalse(registry.deferOrStart("thread", "first"))
