@@ -68,6 +68,7 @@ import com.wangzan101.mika.core.agent.RunProgress
 import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.agent.Turn
 import com.wangzan101.mika.core.run.RunId
+import com.wangzan101.mika.core.run.ChannelPeer
 import com.wangzan101.mika.core.run.RunSpec
 import com.wangzan101.mika.core.run.RunProvenance
 import com.wangzan101.mika.core.run.RunOrigin
@@ -157,6 +158,8 @@ class TaskRun(
     internal var triggerActionGoal: String? = null
     internal var triggerThreadId: String? = null
     internal var mcpExternalId: String? = null
+    internal var channelPeer: ChannelPeer? = null
+    internal var channelMessageId: String? = null
     internal val conditionCheck get() = triggerActionGoal != null
     @Volatile private var children: ChildAgentRunner? = null
     /** 这次任务连上的外部 MCP server;结束时关闭会话。 */
@@ -314,6 +317,13 @@ class TaskRun(
         }
         else tooLate()
     }
+
+    /** 渠道已经核对过提问编号；仍由同一个收件箱回答，避免绕过运行生命周期。 */
+    suspend fun answerFromChannel(text: String, askId: String): Boolean =
+        inbox.send(RunInput.Answer(text, askId)) == InputReceipt.Accepted
+
+    /** 新指令取代尚未回答的普通提问；旧任务按取消收尾，排队的新指令随后执行。 */
+    fun cancelAsk(askId: String): Boolean = loop?.cancelInput(askId) == true
 
     /**
      * 同一对话在任务进行中的新原话，交给下一次模型步；准备阶段也会先排在 Inbox。
@@ -817,7 +827,7 @@ class TaskRun(
                 routes = if (speed.replay) RouteMatcher(light ?: model, routeStore, knowledge) else null,
                 skills = catalog,
                 memory = memory,
-                interaction = service.interaction(conversationId),
+                interaction = service.interaction(conversationId, channelPeer),
                 profileSnapshot = profileSnapshot,
                 streamReplies = true,
                 userScreens = userScreens,
