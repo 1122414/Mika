@@ -112,7 +112,7 @@ class HoldGesture(private val slopPx: Float) {
 class OverlayHost internal constructor(private val service: ScreenAccessibility) {
     private val windows = mutableListOf<OverlayWindow>()
     private val injectedGestures = InjectedGestures { isolate ->
-        windows.toList().forEach { it.isolateInjectedGestures(isolate) }
+        forEachGestureWindow(windows.toList()) { it.isolateInjectedGestures(isolate) }
     }
 
     /**

@@ -134,4 +134,40 @@ class InjectedGesturesTest {
             assertEquals(listOf(true, false), changes)
         } finally { Dispatchers.resetMain() }
     }
+
+    @Test fun restorationFailureDoesNotReplaceTheOriginalFailure() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val gestures = InjectedGestures { isolated ->
+                error(if (isolated) "Window isolation failed" else "Window restoration failed")
+            }
+            val failure = runCatching { gestures.passThrough { error("Must not inject") } }.exceptionOrNull()
+            assertEquals("Window isolation failed", failure?.message)
+            assertEquals("Window restoration failed", failure?.suppressed?.single()?.message)
+            assertFalse(gestures.isolated)
+        } finally { Dispatchers.resetMain() }
+    }
+
+    @Test fun oneWindowFailureDoesNotLeaveLaterWindowsIsolated() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val states = mutableMapOf(0 to false, 1 to false, 2 to false)
+            val attempts = mutableListOf<Pair<Int, Boolean>>()
+            val gestures = InjectedGestures { isolated ->
+                forEachGestureWindow(states.keys.toList()) { window ->
+                    attempts += window to isolated
+                    states[window] = isolated
+                    if (window == 1 && !isolated) error("One window could not be restored")
+                }
+            }
+            val failure = runCatching { gestures.passThrough { 42 } }.exceptionOrNull()
+            assertEquals("One window could not be restored", failure?.message)
+            assertFalse(gestures.isolated)
+            assertEquals(setOf(false), states.values.toSet())
+            assertEquals(
+                listOf(0 to true, 1 to true, 2 to true, 0 to false, 1 to false, 2 to false),
+                attempts,
+            )
+        } finally { Dispatchers.resetMain() }
+    }
 }
