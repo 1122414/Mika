@@ -75,7 +75,7 @@ class MiniHttpServer(
         running.set(false)
         runCatching { server?.close() }
         server = null
-        open.toList().forEach { runCatching { it.close() } }
+        open.forEach { runCatching { it.close() } }
         open.clear()
     }
 
