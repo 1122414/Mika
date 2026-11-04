@@ -254,11 +254,11 @@ private class GeminiStream(
     private var usage: Usage? = null
     private var finishReason: String? = null
 
-    fun accept(data: String) {
+    fun accept(data: String): Boolean {
         val root = try { json.parseToJsonElement(data).jsonObject }
         catch (e: Exception) { throw ModelError.BadResponse("流式响应不是合法 JSON", e) }
         usageOf(root["usageMetadata"])?.let { usage = it }
-        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return
+        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return false
         (candidate["finishReason"] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotEmpty)?.let { finishReason = it }
         val reply = parseChunk(data)
         var chunkCalls = 0
@@ -273,6 +273,8 @@ private class GeminiStream(
                 else -> Unit
             }
         }
+        // 带 finishReason 的那一帧就是收尾:之后的静默不再是「等 EOF」的理由
+        return finishReason != null
     }
 
     fun finish(): ModelReply {

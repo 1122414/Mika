@@ -232,8 +232,8 @@ private class ResponsesStream(
     private var final: JsonObject? = null
     private var incomplete = false
 
-    fun accept(data: String) {
-        if (data == "[DONE]") return
+    fun accept(data: String): Boolean {
+        if (data == "[DONE]") return false
         val root = try { json.parseToJsonElement(data) as? JsonObject } catch (e: Exception) { null }
             ?: throw ModelError.BadResponse("流式响应不是合法 JSON")
         when (root.str("type")) {
@@ -250,6 +250,7 @@ private class ResponsesStream(
             "response.failed" -> throw failure((root["response"] as? JsonObject)?.get("error") as? JsonObject)
             "error" -> throw failure(root["error"] as? JsonObject ?: root)
         }
+        return final != null
     }
 
     private fun failure(e: JsonObject?): ModelError {
