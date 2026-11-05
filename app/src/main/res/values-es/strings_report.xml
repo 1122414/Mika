@@ -29,4 +29,5 @@
     <string name="playback_no_mark">No se registró un marcador para esta operación.</string>
     <string name="playback_error_unknown">Error: no se registró un motivo específico.</string>
     <string name="playback_result">Resultado de la acción</string>
+    <string name="playback_element_click">El círculo indica la posición estimada del elemento, no un toque real.</string>
 </resources>

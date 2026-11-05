@@ -17,7 +17,13 @@ class TaskPlaybackActionsTest {
 
     private fun report(events: List<RunEvent>, images: Map<Int, String>): TaskReport {
         val h = store.open("查询帖子")
-        images.forEach { (id, content) -> h.media(id, content.toByteArray()) }
+        images.forEach { (id, content) ->
+            h.media(id, content.toByteArray())
+            // 此处测试已保存记录的回放，不以瞬间灌入截图触发有界写盘队列的丢帧策略。
+            val deadline = System.nanoTime() + 2_000_000_000L
+            while (store.screen(h.runId, id) == null && System.nanoTime() < deadline) Thread.sleep(1)
+            assertNotNull("fixture frame $id was not persisted", store.screen(h.runId, id))
+        }
         events.forEach(h::event)
         h.event(RunEvent.TaskEnded(99, "succeeded", "推荐这篇帖子：城市散步地图与路线推荐"))
         h.close()
@@ -74,6 +80,39 @@ class TaskPlaybackActionsTest {
         assertTrue(r.frames.all { it.mark == null && !it.resultOnly })
         assertEquals(0, TaskReportViewModel.framePosition(r.frames, null))
         assertEquals(0, TaskReportViewModel.framePosition(emptyList(), 7))
+    }
+
+    @Test fun oldElementMarkersRemainVisibleAndDistinguishEstimatedCoordinates() {
+        fun action(step: Int, call: String, args: String) = RunEvent.ActionTarget(
+            1, step, "phone_tap", args, null,
+            com.wangzan101.mika.core.replay.Anchors(null, emptyList()),
+            com.wangzan101.mika.core.replay.Anchors(null, emptyList()), true, callId = call)
+        val r = report(listOf(
+            action(14, "other", """{"x":746,"y":97}"""),
+            action(14, "open", """{"ref":"@e423","snapshotId":"p11"}"""),
+            action(15, "open", """{"x":746,"y":97}"""),
+            RunEvent.TaskPlayback(2, 14, "phone_tap", "open", 33, 34, PlaybackMark("tap", 746, 97)),
+            action(16, "point", """{"x":250,"y":750}"""),
+            RunEvent.TaskPlayback(3, 16, "phone_tap", "point", 35, 36, PlaybackMark("tap", 250, 750)),
+            action(17, "visual", """{"ref":"@v12","snapshotId":"p12"}"""),
+            RunEvent.TaskPlayback(4, 17, "phone_tap", "visual", 37, 38, PlaybackMark("tap", 300, 400)),
+        ), (33..38).associateWith { "frame $it" })
+        assertTrue(r.playback[0].elementClick)
+        assertEquals(PlaybackMark("tap", 746, 97, approximate = true), r.frames[0].mark)
+        assertEquals(listOf(33, 34, 35, 36, 37, 38), r.frames.map { it.frame.screenshotId })
+        assertFalse(r.playback[1].elementClick)
+        assertEquals(PlaybackMark("tap", 250, 750), r.frames[2].mark)
+        assertFalse(r.playback[2].elementClick)
+        assertEquals(PlaybackMark("tap", 300, 400), r.frames[4].mark)
+    }
+
+    @Test fun imageSwipesUseDominantDirectionAndIgnoreShortDrags() {
+        assertEquals(1, replaySwipeDirection(-80f, 4f, 48f))
+        assertEquals(1, replaySwipeDirection(4f, -80f, 48f))
+        assertEquals(-1, replaySwipeDirection(80f, 4f, 48f))
+        assertEquals(-1, replaySwipeDirection(4f, 80f, 48f))
+        assertEquals(0, replaySwipeDirection(20f, -20f, 48f))
+        assertEquals(1, replaySwipeDirection(50f, -80f, 48f))
     }
 
     @Test fun errorsMatchExactStepToolAndCallRatherThanAdjacentBatchAction() {

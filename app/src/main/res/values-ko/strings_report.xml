@@ -29,4 +29,5 @@
     <string name="playback_no_mark">이 작업의 위치 표시가 기록되지 않았습니다.</string>
     <string name="playback_error_unknown">오류: 구체적인 원인이 기록되지 않았습니다.</string>
     <string name="playback_result">작업 결과</string>
+    <string name="playback_element_click">원은 추정된 요소 위치이며 실제 터치 지점이 아닙니다.</string>
 </resources>

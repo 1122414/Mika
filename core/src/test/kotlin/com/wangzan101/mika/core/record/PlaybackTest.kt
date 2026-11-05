@@ -82,10 +82,10 @@ class PlaybackTest {
         assertEquals(1, events.filterIsInstance<RunEvent.TaskPlayback>().size)
     }
 
-    @Test fun elementMarkerUsesScreenSizeRatherThanScreenshotPixels() = runTest {
+    @Test fun elementMarkerIsPreservedAsAnEstimateNotAnActualTouch() = runTest {
         val tools = toolDispatcher(FakeScreen(), recordFrames = true)
         tools.execute(Part.ToolCall("observe", "phone_observe", "{}"))
         val result = tools.execute(Part.ToolCall("tap", "phone_tap", """{"ref":"@e1","snapshotId":"snap1"}"""))
-        assertEquals(PlaybackMark("tap", 500, 50), result.playback!!.mark)
+        assertEquals(PlaybackMark("tap", 500, 50, approximate = true), result.playback!!.mark)
     }
 }

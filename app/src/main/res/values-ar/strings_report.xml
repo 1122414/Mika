@@ -29,4 +29,5 @@
     <string name="playback_no_mark">لم يتم تسجيل علامة موضع لهذه العملية.</string>
     <string name="playback_error_unknown">خطأ: لم يتم تسجيل سبب محدد.</string>
     <string name="playback_result">نتيجة العملية</string>
+    <string name="playback_element_click">تشير الدائرة إلى موضع العنصر التقديري، وليس نقطة لمس فعلية.</string>
 </resources>

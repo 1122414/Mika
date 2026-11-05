@@ -6,11 +6,15 @@ import com.wangzan101.mika.core.record.PlaybackMark
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.record.RunStore
 import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 data class PlaybackStep(
     val step: Int, val tool: String?, val beforeId: Int?, val afterId: Int?,
     val mark: PlaybackMark? = null, val succeeded: Boolean = true, val legacy: Boolean = false,
-    val callId: String? = null, val failure: String? = null,
+    val callId: String? = null, val failure: String? = null, val elementClick: Boolean = false,
 ) {
     /** 没有采集的帧不是丢失文件，也不生成空白播放项。 */
     val frames: List<PlaybackFrame> get() = if (legacy) listOfNotNull(beforeId?.let { PlaybackFrame(it, null) })
@@ -55,16 +59,25 @@ class TaskReportViewModel(private val store: RunStore, val runId: String) {
         internal fun playbackSteps(events: List<RunEvent>): List<PlaybackStep> {
             val recorded = events.filterIsInstance<RunEvent.TaskPlayback>()
             val results = events.filterIsInstance<RunEvent.ToolResult>()
+            val targets = events.filterIsInstance<RunEvent.ActionTarget>()
             if (recorded.isNotEmpty()) return recorded.map { e ->
                 val result = results.lastOrNull { it.step == e.step && it.tool == e.tool && it.callId == e.callId }
+                val target = targets.lastOrNull { it.step == e.step && it.tool == e.tool && it.callId == e.callId }
+                val elementClick = e.tool in setOf("phone_tap", "web_tap") && target?.let { isElementClick(it.argsJson) } == true
                 val failure = if (e.succeeded) null else result?.let { RunTimelineViewModel.failureLabel(it.resultJson) }
                     ?: tr(R.string.playback_error_unknown)
                 PlaybackStep(e.step, e.tool, e.beforeId, e.afterId,
-                    e.mark?.takeIf { e.succeeded && it.valid() && e.beforeId != null }, e.succeeded, callId = e.callId, failure = failure)
+                    e.mark?.takeIf { e.succeeded && it.valid() && e.beforeId != null }?.let { if (elementClick) it.copy(approximate = true) else it }, e.succeeded, callId = e.callId, failure = failure, elementClick = elementClick)
             }
             // 旧记录没有实际动作坐标，不从模型计划推测。
             return events.filterIsInstance<RunEvent.Media>().distinctBy { it.mediaId }
                 .map { PlaybackStep(it.step, null, it.mediaId, null, legacy = true) }
+        }
+
+        private fun isElementClick(args: String): Boolean {
+            val o = runCatching { Json.parseToJsonElement(args) as? JsonObject }.getOrNull() ?: return false
+            val ref = (o["ref"] as? JsonPrimitive)?.contentOrNull
+            return ref?.let { !Regex("^@v[1-9]\\d*$").matches(it) } ?: ("element" in o)
         }
 
         /** 关键页和阶段按证据截图定位，不能用打开它之前的动作画面代替。 */

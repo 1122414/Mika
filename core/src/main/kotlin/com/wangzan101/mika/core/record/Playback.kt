@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlin.math.roundToInt
 
-/** 截图上的标记，坐标沿用工具的 0–999；示意滚动不声称是实际触点。 */
+/** 截图上的标记，坐标沿用工具的 0–999；元素位置与滚动方向示意不声称是实际触点。 */
 @Serializable
 data class PlaybackMark(val kind: String, val x: Int, val y: Int, val endX: Int? = null, val endY: Int? = null, val approximate: Boolean = false) {
     fun valid(): Boolean = x in 0..999 && y in 0..999 && when (kind) {
@@ -26,7 +26,7 @@ data class PlaybackMark(val kind: String, val x: Int, val y: Int, val endX: Int?
                 Verb.Tap -> {
                     val x = n("x") ?: element?.let { screen?.let { s -> normalize(it.centerX, s.width) } }
                     val y = n("y") ?: element?.let { screen?.let { s -> normalize(it.centerY, s.height) } }
-                    if (x != null && y != null) PlaybackMark("tap", x, y) else null
+                    if (x != null && y != null) PlaybackMark("tap", x, y, approximate = n("x") == null || n("y") == null) else null
                 }
                 Verb.Swipe -> {
                     val x = n("startX"); val y = n("startY"); val ex = n("endX"); val ey = n("endY")

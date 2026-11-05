@@ -29,4 +29,5 @@
     <string name="playback_no_mark">この操作の位置マーカーは記録されていません。</string>
     <string name="playback_error_unknown">エラー：具体的な原因は記録されていません。</string>
     <string name="playback_result">操作結果</string>
+    <string name="playback_element_click">円は推定した要素の位置で、実際のタッチ位置ではありません。</string>
 </resources>

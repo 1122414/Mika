@@ -29,4 +29,5 @@
     <string name="playback_no_mark">Penanda posisi untuk tindakan ini tidak direkam.</string>
     <string name="playback_error_unknown">Kesalahan: alasan spesifik tidak direkam.</string>
     <string name="playback_result">Hasil tindakan</string>
+    <string name="playback_element_click">Lingkaran menunjukkan perkiraan posisi elemen, bukan titik sentuh sebenarnya.</string>
 </resources>

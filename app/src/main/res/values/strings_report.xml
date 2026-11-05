@@ -29,4 +29,5 @@
     <string name="playback_no_mark">No action marker was recorded for this operation.</string>
     <string name="playback_error_unknown">Error: no specific reason was recorded.</string>
     <string name="playback_result">Operation result</string>
+    <string name="playback_element_click">Circle shows the estimated element location, not an actual touch point.</string>
 </resources>

@@ -4,6 +4,10 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.abs
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -226,7 +230,9 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialScreenshotId: Int?, onBac
                     }
                 }
                 val picture: @Composable (Modifier) -> Unit = { modifier ->
-                    Box(modifier.testTag("playback-viewport").clickable { playing = false; fullscreen = true }, contentAlignment = Alignment.Center) {
+                    Box(modifier.testTag("playback-viewport").playbackGestures(
+                        onTap = { playing = false; fullscreen = true }, onDrag = { playing = false }, onSwipe = { seek(current + it) }
+                    ), contentAlignment = Alignment.Center) {
                         AnimatedPlaybackImage(vm, frame, Modifier.fillMaxSize()) { ready = current }
                     }
                 }
@@ -239,6 +245,7 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialScreenshotId: Int?, onBac
                         Text(stringResource(when {
                             finalResult -> R.string.report_final_page
                             frame.resultOnly -> R.string.playback_result
+                            step.elementClick || (frame.mark?.kind == "tap" && frame.mark.approximate) -> R.string.playback_element_click
                             step.legacy -> R.string.playback_legacy
                             frame.mark?.approximate == true -> R.string.playback_approximate
                             frame.mark != null -> R.string.playback_marks
@@ -253,12 +260,36 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialScreenshotId: Int?, onBac
                 if (fullscreen) Dialog(onDismissRequest = { fullscreen = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
                     Column(Modifier.fillMaxSize().background(c.bg).systemBarsPadding().padding(12.dp)) {
                         TextButton({ fullscreen = false }, Modifier.align(Alignment.End)) { Text(stringResource(R.string.report_close)) }
-                        AnimatedPlaybackImage(vm, frame, Modifier.weight(1f).fillMaxWidth()) {}
+                        AnimatedPlaybackImage(vm, frame, Modifier.weight(1f).fillMaxWidth().testTag("playback-fullscreen").playbackGestures(
+                            onTap = {}, onDrag = { playing = false }, onSwipe = { seek(current + it) }
+                        )) {}
                     }
                 }
             }
         }
     }
+}
+
+/** 拖动超过阈值后按主方向翻一帧；短拖动、取消和边界不误触放大或跳多帧。 */
+internal fun replaySwipeDirection(dx: Float, dy: Float, threshold: Float): Int {
+    val distance = if (abs(dx) >= abs(dy)) dx else dy
+    return when { abs(distance) < threshold -> 0; distance < 0 -> 1; else -> -1 }
+}
+
+@Composable
+private fun Modifier.playbackGestures(onTap: () -> Unit, onDrag: () -> Unit, onSwipe: (Int) -> Unit): Modifier {
+    val threshold = with(LocalDensity.current) { 48.dp.toPx() }
+    val drag by rememberUpdatedState(onDrag)
+    val swipe by rememberUpdatedState(onSwipe)
+    return pointerInput(threshold) {
+        var total = Offset.Zero
+        detectDragGestures(
+            onDragStart = { total = Offset.Zero; drag() },
+            onDrag = { change, amount -> change.consume(); total += amount },
+            onDragCancel = { total = Offset.Zero },
+            onDragEnd = { replaySwipeDirection(total.x, total.y, threshold).takeIf { it != 0 }?.let(swipe); total = Offset.Zero },
+        )
+    }.clickable(onClick = onTap)
 }
 
 private data class LoadedPlayback(val frame: ReplayFrame, val bitmap: ImageBitmap?)

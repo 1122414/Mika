@@ -99,4 +99,23 @@ class TaskReportScreenTest {
         compose.onNodeWithTag("playback-mark-swipe").assertExists()
     }
 
+    @Test fun imageSwipeNavigatesAndPausesWithoutOpeningFullscreen() {
+        val vm = vm()
+        compose.setContent { TaskPlaybackScreen(vm, null, {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-frame-1").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("playback-viewport").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-frame-2").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("playback-fullscreen").assertDoesNotExist()
+        compose.onNodeWithTag("playback-viewport").performTouchInput { swipeDown() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-frame-1").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("播放回放").performClick()
+        compose.onNodeWithTag("playback-viewport").performTouchInput { swipeUp() }
+        compose.onNodeWithText("播放回放").assertExists()
+        compose.onNodeWithTag("playback-viewport").performClick()
+        compose.onNodeWithTag("playback-fullscreen").assertExists()
+        compose.onNodeWithTag("playback-fullscreen").performTouchInput { swipeLeft() }
+        compose.onNodeWithText("关闭").performClick()
+        compose.onNodeWithTag("playback-fullscreen").assertDoesNotExist()
+    }
+
 }

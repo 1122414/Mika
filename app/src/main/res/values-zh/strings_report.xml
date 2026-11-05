@@ -29,4 +29,5 @@
     <string name="playback_no_mark">本次操作未保存位置标记。</string>
     <string name="playback_error_unknown">出错：未记录具体原因。</string>
     <string name="playback_result">操作结果</string>
+    <string name="playback_element_click">红圈为元素位置示意，不代表实际触点。</string>
 </resources>
