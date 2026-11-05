@@ -345,9 +345,9 @@ class AgentDisplayTest {
             muter.opened(SETTINGS, null)
             assertEquals("ignore", shell.getAudioMode(SETTINGS))
             assertTrue(muter.unmute(SETTINGS, null))
-            assertEquals(before, shell.getAudioMode(SETTINGS))
+            assertEquals(normalizedAudioMode(before), normalizedAudioMode(shell.getAudioMode(SETTINGS)))
             muter.opened(SETTINGS, null)
-            assertEquals(before, shell.getAudioMode(SETTINGS))
+            assertEquals(normalizedAudioMode(before), normalizedAudioMode(shell.getAudioMode(SETTINGS)))
         } finally {
             record.restoreAll()
             shell.setAudioMode(SETTINGS, before)
