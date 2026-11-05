@@ -23,8 +23,9 @@
     <string name="report_save_failed">Tidak dapat menyimpan. Periksa rekaman dan lokasi tujuan.</string>
     <string name="report_close">Tutup</string>
     <string name="report_final_page">Halaman terakhir yang direkam</string>
-    <string name="playback_details">Langkah</string>
     <string name="playback_stage_start">Mulai</string>
     <string name="playback_stage_input">Input dan pencarian</string>
     <string name="playback_skipped">Melewati %1$d gambar yang tidak tersedia.</string>
+    <string name="playback_no_mark">Penanda posisi untuk tindakan ini tidak direkam.</string>
+    <string name="playback_error_unknown">Kesalahan: alasan spesifik tidak direkam.</string>
 </resources>

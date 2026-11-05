@@ -23,8 +23,9 @@
     <string name="report_save_failed">保存できませんでした。記録と保存先を確認してください。</string>
     <string name="report_close">閉じる</string>
     <string name="report_final_page">最後に記録した画面</string>
-    <string name="playback_details">手順</string>
     <string name="playback_stage_start">開始</string>
     <string name="playback_stage_input">入力と検索</string>
     <string name="playback_skipped">利用できない画像 %1$d 枚をスキップしました。</string>
+    <string name="playback_no_mark">この操作の位置マーカーは記録されていません。</string>
+    <string name="playback_error_unknown">エラー：具体的な原因は記録されていません。</string>
 </resources>

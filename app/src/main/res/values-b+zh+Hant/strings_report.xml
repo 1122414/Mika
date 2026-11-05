@@ -23,8 +23,9 @@
     <string name="report_save_failed">儲存失敗，請檢查記錄及儲存位置後重試。</string>
     <string name="report_close">關閉</string>
     <string name="report_final_page">結束時頁面</string>
-    <string name="playback_details">步驟明細</string>
     <string name="playback_stage_start">開始任務</string>
     <string name="playback_stage_input">輸入與搜尋</string>
     <string name="playback_skipped">已略過 %1$d 張無法使用的截圖。</string>
+    <string name="playback_no_mark">本次操作未儲存位置標記。</string>
+    <string name="playback_error_unknown">出錯：未記錄具體原因。</string>
 </resources>

@@ -10,7 +10,7 @@ import java.io.File
 data class PlaybackStep(
     val step: Int, val tool: String?, val beforeId: Int?, val afterId: Int?,
     val mark: PlaybackMark? = null, val succeeded: Boolean = true, val legacy: Boolean = false,
-    val callId: String? = null,
+    val callId: String? = null, val failure: String? = null,
 ) {
     /** 没有采集的帧不是丢失文件，也不生成空白播放项。 */
     val frames: List<PlaybackFrame> get() = if (legacy) listOfNotNull(beforeId?.let { PlaybackFrame(it, null) })
@@ -18,7 +18,7 @@ data class PlaybackStep(
 }
 
 data class PlaybackFrame(val screenshotId: Int, val after: Boolean?)
-data class ReplayFrame(val stepIndex: Int, val frame: PlaybackFrame, val mark: PlaybackMark?)
+data class ReplayFrame(val stepIndex: Int, val frame: PlaybackFrame, val mark: PlaybackMark?, val resultOnly: Boolean = false)
 data class ReportPage(val title: String, val stepIndex: Int, val screenshotId: Int)
 data class PlaybackStage(val stepIndex: Int, val title: String)
 data class TaskReport(
@@ -38,9 +38,10 @@ class TaskReportViewModel(private val store: RunStore, val runId: String) {
         val all = steps.flatMapIndexed { index, step -> step.frames.map {
             ReplayFrame(index, it, step.mark.takeIf { _ -> it.after == false })
         } }
-        val frames = all.filter { screen(it.frame.screenshotId)?.length()?.let { n -> n > 0 } == true }
-        val pages = keyPages(events, answer, steps, frames)
-        return TaskReport(timeline.header, answer, steps, frames, pages, stages(steps, frames, pages), all.size - frames.size)
+        val available = all.filter { screen(it.frame.screenshotId)?.length()?.let { n -> n > 0 } == true }
+        val pages = keyPages(events, answer, steps, available)
+        val frames = actionFrames(steps, available)
+        return TaskReport(timeline.header, answer, steps, frames, pages, stages(steps, frames, pages), all.size - available.size)
     }
 
     fun screen(id: Int): File? = store.screen(runId, id)
@@ -51,13 +52,30 @@ class TaskReportViewModel(private val store: RunStore, val runId: String) {
 
         internal fun playbackSteps(events: List<RunEvent>): List<PlaybackStep> {
             val recorded = events.filterIsInstance<RunEvent.TaskPlayback>()
+            val results = events.filterIsInstance<RunEvent.ToolResult>()
             if (recorded.isNotEmpty()) return recorded.map { e ->
+                val result = results.lastOrNull { it.step == e.step && it.tool == e.tool && it.callId == e.callId }
+                val failure = if (e.succeeded) null else result?.let { RunTimelineViewModel.failureLabel(it.resultJson) }
+                    ?: tr(R.string.playback_error_unknown)
                 PlaybackStep(e.step, e.tool, e.beforeId, e.afterId,
-                    e.mark?.takeIf { e.succeeded && it.valid() && e.beforeId != null }, e.succeeded, callId = e.callId)
+                    e.mark?.takeIf { e.succeeded && it.valid() && e.beforeId != null }, e.succeeded, callId = e.callId, failure = failure)
             }
             // 旧记录没有实际动作坐标，不从模型计划推测。
             return events.filterIsInstance<RunEvent.Media>().distinctBy { it.mediaId }
                 .map { PlaybackStep(it.step, null, it.mediaId, null, legacy = true) }
+        }
+
+        /** 一个动作一个播放项，结果截图不再冒充另一次无标记的点击/滑动。 */
+        internal fun actionFrames(steps: List<PlaybackStep>, available: List<ReplayFrame>): List<ReplayFrame> {
+            val byAction = available.groupBy { it.stepIndex }
+            val actions = steps.indices.mapNotNull { index ->
+                val candidates = byAction[index].orEmpty()
+                candidates.firstOrNull { it.mark != null }
+                    ?: candidates.lastOrNull { it.frame.after == true } ?: candidates.firstOrNull()
+            }
+            val final = available.lastOrNull { it.stepIndex == steps.lastIndex && it.frame.after == true }
+            return if (final != null && actions.lastOrNull()?.frame?.screenshotId != final.frame.screenshotId)
+                actions + final.copy(mark = null, resultOnly = true) else actions
         }
 
         /** 只选正文引用过的页面文字，并通过观测编号→实际调用关联截图，不能按轮次猜批次子动作。 */

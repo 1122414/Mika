@@ -23,8 +23,9 @@
     <string name="report_save_failed">تعذر الحفظ. تحقق من السجل وموقع الحفظ ثم أعد المحاولة.</string>
     <string name="report_close">إغلاق</string>
     <string name="report_final_page">آخر صفحة مسجلة</string>
-    <string name="playback_details">الخطوات</string>
     <string name="playback_stage_start">البداية</string>
     <string name="playback_stage_input">الإدخال والبحث</string>
     <string name="playback_skipped">تم تخطي %1$d من الصور غير المتاحة.</string>
+    <string name="playback_no_mark">لم يتم تسجيل علامة موضع لهذه العملية.</string>
+    <string name="playback_error_unknown">خطأ: لم يتم تسجيل سبب محدد.</string>
 </resources>

@@ -150,7 +150,6 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
     val speeds = listOf(.5f, 1f, 2f)
     var playing by remember(vm) { mutableStateOf(false) }
     var ready by remember(vm) { mutableIntStateOf(-1) }
-    var details by remember { mutableStateOf(false) }
     var fullscreen by remember { mutableStateOf(false) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
@@ -163,8 +162,8 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
     val frames = report?.frames.orEmpty()
     LaunchedEffect(frames, initialStep) {
         if (position < 0 && frames.isNotEmpty()) {
-            // 报告的关键页入口指向该动作记录的结果画面；普通回放从首张实际画面开始。
-            position = if (initialStep < 0) 0 else frames.indexOfLast { it.stepIndex == initialStep }.coerceAtLeast(0)
+            // 关键页定位实际动作；标记始终显示在它所属的原图上。
+            position = if (initialStep < 0) 0 else frames.indexOfFirst { it.stepIndex == initialStep }.coerceAtLeast(0)
         }
     }
     val current = position.coerceIn(0, frames.lastIndex.coerceAtLeast(0))
@@ -191,11 +190,8 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
                 val controls: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.surface).padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(stepLabel(step), Modifier.weight(1f), style = MikaType.BodyStrong, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (frame.resultOnly) stringResource(R.string.report_final_page) else stepLabel(step), Modifier.weight(1f), style = MikaType.BodyStrong, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${current + 1} / ${frames.size}", style = MikaType.Hint, color = c.ink2)
-                            TextButton(onClick = { playing = false; details = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                                Text(stringResource(R.string.playback_details), style = MikaType.Hint)
-                            }
                         }
                         val progressLabel = stringResource(R.string.playback_progress)
                         Slider(current.toFloat(), { seek(it.toInt()) }, valueRange = 0f..frames.lastIndex.coerceAtLeast(1).toFloat(), enabled = frames.size > 1,
@@ -215,7 +211,7 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
                                 Text(listOf("0.5×", "1×", "2×")[speedIndex], style = MikaType.Caption)
                             }
                         }
-                        if (!step.succeeded) Text(stringResource(R.string.result_error), style = MikaType.Hint, color = c.bad)
+                        if (!frame.resultOnly) step.failure?.let { Text(it, style = MikaType.Hint, color = c.bad) }
                         if (r.stages.isNotEmpty()) LazyRow(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), state = stageScroll, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             itemsIndexed(r.stages) { i, s ->
                                 Text("${i + 1} · ${s.title}", Modifier.widthIn(max = 180.dp).clip(RoundedCornerShape(9.dp))
@@ -236,23 +232,17 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
                         Column(Modifier.width(300.dp)) { controls() }
                     } else Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         picture(Modifier.weight(1f).fillMaxWidth())
-                        Text(stringResource(if (step.legacy) R.string.playback_legacy else if (frame.mark?.approximate == true) R.string.playback_approximate else R.string.playback_marks),
+                        Text(stringResource(when {
+                            frame.resultOnly -> R.string.report_final_page
+                            step.legacy -> R.string.playback_legacy
+                            frame.mark?.approximate == true -> R.string.playback_approximate
+                            frame.mark != null -> R.string.playback_marks
+                            step.tool in listOf("phone_tap", "phone_swipe", "phone_scroll") -> R.string.playback_no_mark
+                            else -> R.string.playback_image
+                        }),
                             Modifier.align(Alignment.CenterHorizontally), style = MikaType.Hint, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         controls()
                         if (r.missingFrames > 0) Text(stringResource(R.string.playback_skipped, r.missingFrames), style = MikaType.Hint, color = c.ink2)
-                    }
-                }
-                if (details) Dialog(onDismissRequest = { details = false }) {
-                    Column(Modifier.fillMaxWidth().heightIn(max = 480.dp).clip(RoundedCornerShape(20.dp)).background(c.surface).padding(16.dp)) {
-                        Text(stringResource(R.string.playback_details), style = MikaType.Title, color = c.ink)
-                        LazyColumn(Modifier.weight(1f, fill = false)) {
-                            itemsIndexed(r.playback) { i, s ->
-                                val available = frames.any { it.stepIndex == i }
-                                Text("${i + 1} · ${stepLabel(s)}", Modifier.fillMaxWidth().clickable(enabled = available) { seekStep(i); details = false }.padding(vertical = 14.dp),
-                                    style = MikaType.Body, color = if (!available) c.ink3 else if (i == frame.stepIndex) c.accent else c.ink)
-                            }
-                        }
-                        TextButton({ details = false }, Modifier.align(Alignment.End)) { Text(stringResource(R.string.report_close)) }
                     }
                 }
                 if (fullscreen) Dialog(onDismissRequest = { fullscreen = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {

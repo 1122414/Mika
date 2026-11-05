@@ -64,7 +64,6 @@ class TaskReportScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-tap").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("下一步").performClick()
         compose.onNodeWithTag("playback-mark-tap").assertDoesNotExist()
-        compose.onNodeWithText("下一步").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-swipe").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("下一步").performClick()
         compose.onNodeWithTag("playback-mark-swipe").assertDoesNotExist()
@@ -75,8 +74,8 @@ class TaskReportScreenTest {
         assertTrue(image.top >= viewport.top && image.bottom <= viewport.bottom + 1)
         assertTrue(image.left >= viewport.left && image.right <= viewport.right + 1)
         compose.onNodeWithText("播放回放").assertIsDisplayed()
-        compose.onNodeWithText("步骤明细").performClick()
-        compose.onNodeWithText("关闭").performClick()
+        compose.onAllNodesWithText("结束时页面").assertCountEquals(2)
+        compose.onNodeWithText("步骤明细").assertDoesNotExist()
         compose.onNodeWithText("1×").performClick()
         compose.onNodeWithText("2×").assertExists()
     }

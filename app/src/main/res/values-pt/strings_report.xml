@@ -23,8 +23,9 @@
     <string name="report_save_failed">Não foi possível salvar. Verifique o registro e o destino.</string>
     <string name="report_close">Fechar</string>
     <string name="report_final_page">Última página registrada</string>
-    <string name="playback_details">Etapas</string>
     <string name="playback_stage_start">Início</string>
     <string name="playback_stage_input">Entrada e busca</string>
     <string name="playback_skipped">%1$d imagens indisponíveis ignoradas.</string>
+    <string name="playback_no_mark">Nenhum marcador foi registrado para esta operação.</string>
+    <string name="playback_error_unknown">Erro: nenhum motivo específico foi registrado.</string>
 </resources>

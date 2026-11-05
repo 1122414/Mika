@@ -21,8 +21,8 @@ android {
         applicationId = if (forkPreview) "com.wangzan101.mika.preview" else "com.wangzan101.mika"
         minSdk = 30
         targetSdk = 35
-        versionCode = if (forkPreview) 40 else 38
-        versionName = if (forkPreview) "0.1.37-report-preview.2" else "0.1.37"
+        versionCode = if (forkPreview) 41 else 38
+        versionName = if (forkPreview) "0.1.37-report-preview.3" else "0.1.37"
         if (forkPreview) resValue("string", "app_name", "Mika Preview")
         buildConfigField("boolean", "FORK_PREVIEW", forkPreview.toString())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

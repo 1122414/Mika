@@ -23,8 +23,9 @@
     <string name="report_save_failed">Could not save. Check the record and destination, then retry.</string>
     <string name="report_close">Close</string>
     <string name="report_final_page">Final recorded page</string>
-    <string name="playback_details">Steps</string>
     <string name="playback_stage_start">Start</string>
     <string name="playback_stage_input">Input and search</string>
     <string name="playback_skipped">Unavailable frames skipped: %1$d.</string>
+    <string name="playback_no_mark">No action marker was recorded for this operation.</string>
+    <string name="playback_error_unknown">Error: no specific reason was recorded.</string>
 </resources>

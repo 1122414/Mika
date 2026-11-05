@@ -23,8 +23,9 @@
     <string name="report_save_failed">저장하지 못했습니다. 기록과 저장 위치를 확인하세요.</string>
     <string name="report_close">닫기</string>
     <string name="report_final_page">마지막 기록 화면</string>
-    <string name="playback_details">단계 목록</string>
     <string name="playback_stage_start">시작</string>
     <string name="playback_stage_input">입력 및 검색</string>
     <string name="playback_skipped">사용할 수 없는 이미지 %1$d개를 건너뛰었습니다.</string>
+    <string name="playback_no_mark">이 작업의 위치 표시가 기록되지 않았습니다.</string>
+    <string name="playback_error_unknown">오류: 구체적인 원인이 기록되지 않았습니다.</string>
 </resources>

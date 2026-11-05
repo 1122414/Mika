@@ -23,8 +23,9 @@
     <string name="report_save_failed">Не удалось сохранить. Проверьте запись и место сохранения.</string>
     <string name="report_close">Закрыть</string>
     <string name="report_final_page">Последняя записанная страница</string>
-    <string name="playback_details">Шаги</string>
     <string name="playback_stage_start">Начало</string>
     <string name="playback_stage_input">Ввод и поиск</string>
     <string name="playback_skipped">Пропущено недоступных кадров: %1$d.</string>
+    <string name="playback_no_mark">Маркер положения для этого действия не записан.</string>
+    <string name="playback_error_unknown">Ошибка: конкретная причина не записана.</string>
 </resources>
