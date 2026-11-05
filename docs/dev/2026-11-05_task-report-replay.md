@@ -23,4 +23,36 @@
 
 ## 实际验证与发布
 
-待完成后补充命令、结果与发布链接。
+| ID | 验收任务 / 命令 | 原行为 | 预期 | 实际证据 / 状态 |
+| --- | --- | --- | --- | --- |
+| R01 | `:core:test`，含 `PlaybackTest` 与原有动作/截图测试 | 源码确认：没有动作前后帧关联事件 | 实际动作单独记录，坐标与截图缩放一致，保护页不截 | 2,922 项，失败 0、跳过 3；新记录定向检查 51 项通过 |
+| R02 | `:app:testDebugUnitTest`，含 `TaskReportViewModelTest` | 源码确认：完整回答在聊天中，只有时间线与来源页 | 完整报告不截断，旧记录不伪造坐标，缺帧不冒充，批次不按轮次合并 | 1,482 项通过；默认及 `-PforkPreview` 配置均执行 |
+| R02 | `:app:compileDebugAndroidTestKotlin` | 未测量旧界面设备行为 | 卡片→报告→对应截图，前帧标记/后帧清除，切步与倍速 | 新增 `TaskReportScreenTest` 编译通过；本机无 AVD，设备执行未完成，交由用户手机验证 |
+| R03 | `:core:cliTest`；`python3 tools/i18n/translations.py check` | 原有契约 | 核心事件扩展不破坏 CLI 与翻译资源 | 1 项 JVM CLI 契约和 48 项 Python 测试通过；1,987 项资源、10 种语言检查通过 |
+| R03 | `-PforkPreview :app:assemblePerf`；`apksigner verify`；`aapt dump badging` | 原构建使用正式应用包名 | 独立包名、相同签名的全架构和 arm64 包 | 已生成并验证 `com.wangzan101.mika.preview`、版本 `0.1.37-report-preview.1`、versionCode 39；本机测试签名，不是上游官方证书 |
+| R04 | 上游 `2c4563bc` 与本分支分别执行 `:app:lintPerf` | 实测：原版 32 条 Error | 新改动不引入额外 Error | 修正新增页面两处被诊断的状态加载写法后，按 ID / 消息 / 文件逐条比较：32 对 32，新增 0；全项目 Lint 仍失败，不宣称全绿 |
+
+核心的 3 个跳过项为既有的 `RescoreEvalRun`、`RescoreRecordedRuns`、`UsbHelperHangupTest`，需要外部记录或 USB 设备。
+
+### Lint 基线中保留的问题
+
+以下为额外静态检查的诊断，不代表已做整个项目的缺陷审计；此次未扩展修复范围。
+
+| ID / 优先级 | 问题与证据 | 修复前行为 / 风险 | 建议方案与预期 | 修复风险 / 状态 |
+| --- | --- | --- | --- | --- |
+| L01 / P2 | 8 条 NewApi，位于 AndroidAdb、HelperProcess、ShellContext | 静态诊断：API 31 方法与 minSdk 30；Android 11 相关路径有兼容性风险，未复现 | 单独核查运行时版本保护与回退 | 变更可能影响手机助手连接；上游原有，未修复 |
+| L02 / P2 | WebDevtools 的 1 条 RestrictedApi | 静态诊断：WebView 受限 API 使用，升级兼容性待核查 | 单独确认公开 API 替代或厂商支持范围 | 可能影响浏览器请求行为；上游原有，未修复 |
+| L03 / P2 | 21 条 ProduceStateDoesNotAssignValue，含原有聊天、来源、时间线等页面 | 诊断是否涉及分析器兼容性尚待核查；未据此认定运行时全部失效 | 核对状态赋值与分析器版本，分别验证页面更新 | 批量修改会触及多处加载行为；上游原有，未修复；本次新增页已用明确状态赋值规避 |
+| L04 / P2 | SettingsScreen 的 1 条 StateFlowValueCalledInComposition | 可能不能触发预期重组，未复现 | 核对订阅方式并补设置状态测试 | 可能改变刷新时机；上游原有，未修复 |
+| L05 / P3 | FileViewerScreen 的 1 条 ByteOrderMark | 文件中间的 BOM 诊断，是否有意保留待核查 | 核查字符用途后再决定处理 | 可能改变文本处理；上游原有，未修复 |
+
+### 手机上验收
+
+1. 安装 Mika Preview，重新配置模型与手机控制权限；与原 Mika 的数据隔离。
+2. 执行一个包含点击和滑动的短任务，例如查询车票。任务结束后检查卡片的摘要和展开。
+3. 点击「任务报告」，核对完整回答、表格、结局和关键截图；点击截图进入对应操作。
+4. 切换操作前后，观察红圈或箭头仅在前帧出现；测试播放/暂停、1×/2×、进度条与上下步。
+5. 切到后台再返回，应暂停；返回报告再返回对话，应保留原对话。
+6. 测试失败/取消任务和无截图任务，确认不会显示成功或伪造画面。
+
+预发布目标：fork `1122414/Mika`，标签 `v0.1.37-report-preview.1`。不向上游推送，不将测试版设为 Latest。

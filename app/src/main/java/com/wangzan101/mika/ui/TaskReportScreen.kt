@@ -72,8 +72,9 @@ internal fun TaskReportEntries(onReport: () -> Unit, onReplay: () -> Unit) {
 fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int) -> Unit, onTimeline: () -> Unit) {
     BackHandler(onBack = onBack)
     var loaded by remember(vm) { mutableStateOf(false) }
-    val report by produceState<TaskReport?>(null, vm) {
-        value = withContext(Dispatchers.IO) { vm.load() }
+    var report by remember(vm) { mutableStateOf<TaskReport?>(null) }
+    LaunchedEffect(vm) {
+        report = withContext(Dispatchers.IO) { vm.load() }
         loaded = true
     }
     val c = MikaTheme.colors
@@ -114,7 +115,7 @@ fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int
                             PlaybackImage(vm, step.afterId ?: step.beforeId, null, Modifier.width(46.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(stepLabel(step), style = MikaType.BodyStrong, color = c.ink)
-                                Text(stringResource(R.string.report_view_step, step.step), style = MikaType.Hint, color = c.ink2)
+                                Text(stringResource(R.string.report_view_step, index + 1), style = MikaType.Hint, color = c.ink2)
                             }
                             Icon(MikaIcons.Chevron, null, Modifier.size(16.dp), tint = c.ink3)
                         }
@@ -138,8 +139,9 @@ private fun stepLabel(step: PlaybackStep): String {
 fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     var loaded by remember(vm) { mutableStateOf(false) }
-    val report by produceState<TaskReport?>(null, vm) {
-        value = withContext(Dispatchers.IO) { vm.load() }
+    var report by remember(vm) { mutableStateOf<TaskReport?>(null) }
+    LaunchedEffect(vm) {
+        report = withContext(Dispatchers.IO) { vm.load() }
         loaded = true
     }
     val c = MikaTheme.colors

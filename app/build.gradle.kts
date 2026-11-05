@@ -10,16 +10,21 @@ val gitHash: String = runCatching {
     providers.exec { commandLine("git", "rev-parse", "--short=7", "HEAD") }.standardOutput.asText.get().trim()
 }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
 
+// fork 手机上的并排验收包；默认构建仍使用原包名与版本。
+val forkPreview = providers.gradleProperty("forkPreview").isPresent
+
 android {
     namespace = "com.wangzan101.mika"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.wangzan101.mika"
+        applicationId = if (forkPreview) "com.wangzan101.mika.preview" else "com.wangzan101.mika"
         minSdk = 30
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.1.37"
+        versionCode = if (forkPreview) 39 else 38
+        versionName = if (forkPreview) "0.1.37-report-preview.1" else "0.1.37"
+        if (forkPreview) resValue("string", "app_name", "Mika Preview")
+        buildConfigField("boolean", "FORK_PREVIEW", forkPreview.toString())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // 关于页版本号后的 Beta 标记;出正式版时改成 false
