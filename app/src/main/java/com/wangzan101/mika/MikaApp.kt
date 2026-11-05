@@ -94,6 +94,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 com.wangzan101.mika.settings.KeystoreKeyCipher("mika-wechat-account")))
     }
 
+    /** 本机授权的主屏唤醒/解锁；电脑连接和无人值守定时任务共用同一条确定性流程。 */
+    val deviceAccess by lazy { com.wangzan101.mika.device.AndroidDeviceAccess(this) { phone.hub.shell.value } }
+
     /**
      * 电脑连接(MCP):开关、访问令牌(和服务商的 Key 一样加密存)、监听。局域网那种默认关着;
      * USB 那种由电脑经 adb 打开,只到这次关机为止(开机编号和 shell 里 `settings get global boot_count` 读到的一样)。
@@ -105,7 +108,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             com.wangzan101.mika.settings.McpUsbSettings(settingsDir,
                 bootId = { android.provider.Settings.Global.getString(contentResolver, android.provider.Settings.Global.BOOT_COUNT) ?: "null" },
                 infoFile = { getExternalFilesDir(null)?.let { java.io.File(it, com.wangzan101.mika.core.mcp.McpUsb.INFO_FILE) } }),
-            remoteTasks, com.wangzan101.mika.device.AndroidDeviceAccess(this) { phone.hub.shell.value },
+            remoteTasks, deviceAccess,
             com.wangzan101.mika.settings.RelaySettings(settingsDir, com.wangzan101.mika.settings.KeystoreKeyCipher("mika-remote-relay")))
     }
     val childRuns by lazy { FileChildRunStore(java.io.File(filesDir, "children-v3.json")) }

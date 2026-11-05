@@ -1386,6 +1386,7 @@ class ShellService(
 
     override fun wakeDevice(): Boolean = deviceUnlock.wake()
     override fun dismissDeviceKeyguard(): Boolean = deviceUnlock.dismiss()
+    override fun revealDeviceCredential(): Boolean = deviceUnlock.reveal()
     override fun enterDeviceCredential(kind: Int, credential: ByteArray): Boolean = deviceUnlock.enter(kind, credential)
 
     private fun commandResult(code: Int, output: String) = Bundle().apply { putInt("exitCode", code); putString("output", output) }

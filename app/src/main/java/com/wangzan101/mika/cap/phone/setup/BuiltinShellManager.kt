@@ -60,11 +60,15 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
     val scanningPorts: StateFlow<Boolean> = _scanningPorts.asStateFlow()
 
     private val platform: AndroidPlatform by lazy {
-        AndroidPlatform(app, hub, { lastConnectCandidates = it }, { _scanningPorts.value = it })
+        AndroidPlatform(app, hub, { lastConnectCandidates = it }, { _scanningPorts.value = it }, { lastHelperLaunchStage = it })
     }
 
     /** 最近一次找连接端口时各来源给了几个候选(诊断信息用);这次进程里还没连过为 null。 */
     @Volatile var lastConnectCandidates: ConnectCandidates? = null
+        private set
+
+    /** 最近一次启动助手走到的确定阶段;不包含口令、地址、命令行或异常原文。 */
+    @Volatile var lastHelperLaunchStage: String? = null
         private set
 
     /** 要起助手时替用户打开无线调试:只由 App 自己写系统设置(要起助手时没有别的连接可用)。 */
@@ -141,6 +145,7 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
         private val hub: HelperHub,
         private val candidates: (ConnectCandidates) -> Unit,
         private val scanning: (Boolean) -> Unit,
+        private val launchStage: (String) -> Unit,
     ) : BuiltinShellPlatform {
         /** 用户填的端口,下一次连接取走。 */
         val manualPort = AtomicReference<Int?>(null)
@@ -183,16 +188,22 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
         }
 
         override suspend fun launchHelper() {
+            launchStage("preparing")
             val tls = AndroidAdb.tls(AndroidAdb.identity(app))
             // 助手每次交接前都核对 Mika 的签名
             val command = HelperHandoff.command(app.applicationInfo.sourceDir, app.packageName, Process.myUid(), ownCertPin(app))
+            launchStage("adb_connecting")
             val connection = connect(tls)
+            launchStage("adb_connected")
             // 流开着 sh 就一直等;交接到了(或超时)再关,交接结果仍由引擎从 HelperHub 判断
             val before = hub.shell.value
             connection.use {
                 val stream = it.exec(command)
+                launchStage("exec_opened")
                 stream.write(HelperHandoff.stdinLine(hub.issueLaunchNonce()))
-                withTimeoutOrNull(HANDOFF_WAIT_MS) { hub.shell.first { s -> s != null && s !== before } }
+                launchStage("launch_nonce_written")
+                val handedOff = withTimeoutOrNull(HANDOFF_WAIT_MS) { hub.shell.first { s -> s != null && s !== before } }
+                launchStage(if (handedOff != null) "handoff_received" else "handoff_timeout")
             }
         }
 
