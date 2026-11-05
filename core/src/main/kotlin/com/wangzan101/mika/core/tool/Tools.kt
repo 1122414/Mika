@@ -44,6 +44,7 @@ class ToolExecution(
     val observations: List<Observation> = emptyList(),
     val place: Place? = null,
     val waitMs: Long = 0,
+    val playback: com.wangzan101.mika.core.record.PlaybackCapture? = null,
 ) {
     val image: ByteArray? get() = images.firstOrNull()
 
@@ -52,8 +53,9 @@ class ToolExecution(
         content: JsonObject = this.content, changed: Boolean? = this.changed, frame: ByteArray? = this.frame, images: List<ByteArray> = this.images,
         record: JsonObject = this.record, screenElements: JsonArray? = this.screenElements, imageIds: List<Int?> = this.imageIds,
         observations: List<Observation> = this.observations, place: Place? = this.place, waitMs: Long = this.waitMs,
+        playback: com.wangzan101.mika.core.record.PlaybackCapture? = this.playback,
     ) = ToolExecution(content, changed = changed, outcome = outcome, frame = frame, images = images, record = record,
-        screenElements = screenElements, imageIds = imageIds, observations = observations, place = place, waitMs = waitMs)
+        screenElements = screenElements, imageIds = imageIds, observations = observations, place = place, waitMs = waitMs, playback = playback)
 
     /** 另读到了 [more]。 */
     fun observing(vararg more: Observation?): ToolExecution = more.filterNotNull().let { if (it.isEmpty()) this else with(observations = observations + it) }
