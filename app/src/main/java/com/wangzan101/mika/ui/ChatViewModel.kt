@@ -85,6 +85,8 @@ interface TaskActions {
     fun answerIn(conversationId: String, text: String) = answer(text)
     fun approveIn(conversationId: String, key: Int) = approve(key)
     fun declineIn(conversationId: String, key: Int) = decline(key)
+    /** 恢复这个对话任务当前 App 的声音;没有任务就不动。 */
+    fun unmuteIn(conversationId: String) {}
 }
 
 enum class StepState { Ok, Run, Wait, Dim }
@@ -975,6 +977,12 @@ class ChatViewModel(
     fun reopenPip() {
         pipClosed = false
         _ui.update { it.copy(pip = gated(it.pip)) }
+    }
+
+    /** 浮层的一次性「恢复声音」:只发真实音频动作,不在界面伪造一个静音开关状态。 */
+    fun unmutePip() {
+        val id = _ui.value.conversationId ?: return
+        actions.unmuteIn(id)
     }
 
     /** 切到某个对话;任务在跑时不切。 */
