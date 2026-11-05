@@ -200,4 +200,22 @@ class PhoneSetupCopyTest {
         assertEquals("允许 Mika 执行 root 命令", PhoneSetupCopy.ROOT_COMMANDS)
         assertEquals("用 root 启动手机助手", PhoneSetupCopy.ROOT_START)
     }
+
+    /** USB 启动不承诺拔线后一定能用:成功页、设置页和重跑卡片都给出通用恢复办法。 */
+    @Test
+    fun usbCopyDoesNotPromiseUnplugSurvival() {
+        listOf(
+            PhoneSetupCopy.successNote(HelperRestart.UsbCommand),
+            PhoneSetupCopy.usageNote(HelperRestart.UsbCommand),
+            PhoneSetupCopy.usbCard(HelperRestart.UsbCommand).second,
+        ).forEach { text ->
+            assertTrue(text, text.contains("多数手机"))
+            assertTrue(text, text.contains("拔掉数据线"))
+            assertTrue(text, text.contains("再运行一次"))
+            assertFalse(text, text.contains("拔掉数据线也会继续运行"))
+        }
+        // 无线调试路径的提示不受 USB 恢复说明影响
+        assertFalse(PhoneSetupCopy.successNote(HelperRestart.Wireless).contains("拔掉数据线"))
+        assertFalse(PhoneSetupCopy.usageNote(HelperRestart.Wireless).contains("拔掉数据线"))
+    }
 }
