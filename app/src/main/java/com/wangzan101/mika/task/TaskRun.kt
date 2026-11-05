@@ -55,6 +55,7 @@ import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.memory.MemoryRuntime
 import com.wangzan101.mika.settings.MemorySwitches
 import com.wangzan101.mika.settings.ProviderStore
+import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.replay.RouteMatcher
 import com.wangzan101.mika.core.replay.RouteRecorder
@@ -511,6 +512,11 @@ class TaskRun(
             // 用户在浏览器页上对着一页问的:那一页借给这个任务当当前网页标签(见 PageLoans);开跑时页面还开着才借得到
             val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
             val light = env.lightModelFactory(service, session)
+            // 同一模型分成两个实例并不会更便宜或更快;禁止它给批量/收尾工具反而只会增加改派和逐步操作。
+            // 这只跳过逐步分工,轻量角色仍可用于意图判断、标题和收尾等辅助调用。
+            val routedLight = light?.takeIf {
+                !ProviderStore.get(service).roles.value.sameModel(ModelRole.Main, ModelRole.Light)
+            }
             val vision = env.visionModelFactory(service, session)
 
             val (knowledge, skills) = withContext(Dispatchers.IO) {
@@ -639,7 +645,16 @@ class TaskRun(
                 val id = phone?.display?.current?.displayId ?: return false
                 return moveTask(taskId, id)
             }
-            val taskGate = TaskGate(states.locked, shellUp) {
+            val taskGate = TaskGate(states.locked, shellUp,
+                refreshLocked = states::refresh,
+                unattendedUnlock = if (provenance.origin == RunOrigin.Trigger) {
+                    {
+                        val result = (service.application as MikaApp).deviceAccess.access.unlock()
+                        states.refresh()
+                        Log.i(TAG, "scheduled unlock finished: ${result.status}")
+                    }
+                } else null,
+            ) {
                 val t = phone?.screen?.target?.value
                 t != null && t.taskId >= 0 && moveBackToAgent(t.taskId)
             }
@@ -829,8 +844,8 @@ class TaskRun(
                 confirmTimeoutMs = TaskService.CONFIRM_TIMEOUT_MS,
                 selfPackage = service.packageName,
                 flags = speed,
-                // 只在 lightSteps 打开、轻量模型能调工具时生效
-                router = light?.let { ModelRouter(model, it) },
+                // 只在 lightSteps 打开、轻量模型能调工具且与主模型不是同一份配置时生效
+                router = routedLight?.let { ModelRouter(model, it) },
                 intentJudge = if (provenance.origin == RunOrigin.Ui) light ?: model else null,
                 // 选路线是辅助判断:用轻量模型,没配用主模型
                 routes = if (speed.replay) RouteMatcher(light ?: model, routeStore, knowledge) else null,
