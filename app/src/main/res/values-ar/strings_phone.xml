@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">فعّل Mika خيار Wireless debugging، لكن النظام لم يسمح به على شبكة Wi-Fi هذه. فعّل «Wireless debugging» بنفسك مرة واحدة؛ وعند السؤال، حدد «Always allow on this network» وانقر على Allow. بعد ذلك سيتمكن Mika من تفعيله تلقائيًا على شبكة Wi-Fi هذه.</string>
     <string name="fail_connect">تعذّر الاتصال بـ Wireless debugging</string>
     <string name="fail_connect_body">تعذّر العثور على منفذ Wireless debugging. يمكنك: إيقاف «Wireless debugging» ثم تفعيله مجددًا والمحاولة؛ أو التبديل إلى نقطة اتصال الهاتف أو شبكة Wi-Fi المنزلية؛ أو إدخال المنفذ أدناه.</string>
+    <string name="fail_not_local">عنوان Wireless debugging ليس على هذا الهاتف</string>
+    <string name="fail_not_local_body">لا يمكن لـ Mika الاتصال إلا بعنوان على هذا الهاتف. أعد المحاولة؛ وإذا استمر ظهور ذلك، فانسخ معلومات التشخيص.</string>
     <string name="fail_revoked">انتهت صلاحية الاقتران</string>
     <string name="fail_revoked_body">ربما ألغى النظام الاقتران بعد فترة طويلة من عدم الاستخدام، أو أُزيل. أجرِ الاقتران مجددًا فحسب. فعّل «Disable adb authorization timeout» في خيارات المطوّر كيلا تنتهي صلاحيته مجددًا.</string>
     <string name="fail_key_unreadable">تعذّرت قراءة مفتاح الاقتران</string>

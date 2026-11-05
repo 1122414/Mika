@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">Mika turned on Wireless debugging, but the system didn’t allow it on this Wi-Fi. Turn on “Wireless debugging” once yourself; when asked, tick “Always allow on this network” and tap Allow. After that Mika can turn it on by itself on this Wi-Fi.</string>
     <string name="fail_connect">Couldn’t connect to Wireless debugging</string>
     <string name="fail_connect_body">Couldn’t find the Wireless debugging port. You can: turn “Wireless debugging” off and on again, then retry; switch to a phone hotspot or your home Wi-Fi; or enter the port below.</string>
+    <string name="fail_not_local">Wireless debugging address isn’t on this phone</string>
+    <string name="fail_not_local_body">Mika can only connect to an address on this phone. Retry; if this keeps happening, copy the diagnostics.</string>
     <string name="fail_revoked">Pairing expired</string>
     <string name="fail_revoked_body">The system may have revoked it after a long time unused, or it was removed. Just pair again. Turn on “Disable adb authorization timeout” in Developer options so it won’t expire again.</string>
     <string name="fail_key_unreadable">Pairing key can’t be read</string>

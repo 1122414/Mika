@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">Mika 替你打开了无线调试,系统没有同意在这个 Wi-Fi 上使用。请亲手打开一次「无线调试」,系统问要不要允许时勾选「始终允许使用此网络」再点允许;以后在这个 Wi-Fi 上 Mika 就能自己打开。</string>
     <string name="fail_connect">没能连上无线调试</string>
     <string name="fail_connect_body">找不到无线调试的端口。可以：关掉再打开「无线调试」后重试；换用手机热点或家里的 Wi-Fi；或在下面手动填端口。</string>
+    <string name="fail_not_local">无线调试地址不是这台手机</string>
+    <string name="fail_not_local_body">Mika 只允许连接这台手机自己的地址。请重试;若一直出现,请复制诊断信息。</string>
     <string name="fail_revoked">配对失效了</string>
     <string name="fail_revoked_body">可能很久没用被系统收回了,或者在系统里删掉了。重新配对一次就好。在开发者选项里打开「停用 adb 授权超时功能」,以后就不会再失效。</string>
     <string name="fail_key_unreadable">配对用的密钥读不出来了</string>

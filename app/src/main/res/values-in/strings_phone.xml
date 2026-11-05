@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">Mika sudah mengaktifkan Proses debug nirkabel, tetapi sistem tidak mengizinkannya di Wi-Fi ini. Aktifkan “Proses debug nirkabel” sendiri sekali; saat diminta, centang “Selalu izinkan di jaringan ini” dan ketuk Izinkan. Setelah itu Mika bisa mengaktifkannya sendiri di Wi-Fi ini.</string>
     <string name="fail_connect">Tidak bisa menyambung ke Proses debug nirkabel</string>
     <string name="fail_connect_body">Port Proses debug nirkabel tidak ditemukan. Anda bisa: matikan lalu aktifkan lagi “Proses debug nirkabel”, kemudian coba ulang; beralih ke hotspot ponsel atau Wi-Fi rumah; atau masukkan port di bawah.</string>
+    <string name="fail_not_local">Alamat Proses debug nirkabel bukan milik ponsel ini</string>
+    <string name="fail_not_local_body">Mika hanya dapat tersambung ke alamat milik ponsel ini. Coba ulang; jika terus terjadi, salin informasi diagnosis.</string>
     <string name="fail_revoked">Pemasangan kedaluwarsa</string>
     <string name="fail_revoked_body">Sistem mungkin mencabutnya setelah lama tidak dipakai, atau pemasangannya dihapus. Cukup pasangkan lagi. Aktifkan “Nonaktifkan waktu tunggu otorisasi adb” di Opsi developer agar tidak kedaluwarsa lagi.</string>
     <string name="fail_key_unreadable">Kunci pemasangan tidak bisa dibaca</string>

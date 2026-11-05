@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">Mika가 무선 디버깅을 켰지만 시스템이 이 Wi-Fi에서는 허용하지 않았어요. “무선 디버깅”을 한 번 직접 켜고, 물어보면 “이 네트워크에서 항상 허용”에 체크하고 허용을 누르세요. 그다음부터는 Mika가 이 Wi-Fi에서 알아서 켤 수 있어요.</string>
     <string name="fail_connect">무선 디버깅에 연결하지 못했어요</string>
     <string name="fail_connect_body">무선 디버깅 포트를 찾지 못했어요. “무선 디버깅”을 껐다가 다시 켠 뒤 재시도하거나, 휴대전화 핫스팟이나 집 Wi-Fi로 바꾸거나, 아래에 포트를 직접 입력해 보세요.</string>
+    <string name="fail_not_local">무선 디버깅 주소가 이 기기의 것이 아니에요</string>
+    <string name="fail_not_local_body">Mika는 이 기기 자신의 주소에만 연결할 수 있어요. 다시 시도하고, 계속 나타나면 진단 정보를 복사하세요.</string>
     <string name="fail_revoked">페어링이 만료됐어요</string>
     <string name="fail_revoked_body">오래 사용하지 않아 시스템이 취소했거나 삭제됐을 수 있어요. 다시 페어링하기만 하면 돼요. 개발자 옵션에서 “adb 인증 시간 제한 사용 안 함”을 켜면 다시 만료되지 않아요.</string>
     <string name="fail_key_unreadable">페어링 키를 읽을 수 없어요</string>

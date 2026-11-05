@@ -65,16 +65,18 @@ object BuiltinShellFailures {
         // 配对端口连不上:配对窗口已经关了(端口随窗口一起消失)
         AdbPairingException.Reason.CONNECT_FAILED -> BuiltinShellFailure.PairingWindowClosed
         AdbPairingException.Reason.TLS_FAILED, AdbPairingException.Reason.PROTOCOL -> BuiltinShellFailure.Unknown
+        AdbPairingException.Reason.NOT_LOCAL -> BuiltinShellFailure.NotLocal
     }
 
     fun ofConnection(reason: AdbConnectionException.Reason) = when (reason) {
         AdbConnectionException.Reason.UNAUTHORIZED -> BuiltinShellFailure.AuthorizationRevoked
+        AdbConnectionException.Reason.NOT_LOCAL -> BuiltinShellFailure.NotLocal
         AdbConnectionException.Reason.CONNECT_FAILED,
         AdbConnectionException.Reason.TLS_FAILED,
         AdbConnectionException.Reason.PROTOCOL -> BuiltinShellFailure.ConnectFailed
     }
 
-    /** 看门狗自己再试有没有用:钥匙被撤销、没 Wi-Fi 要等用户或开关变化。 */
+    /** 看门狗自己再试有没有用:钥匙被撤销、地址不合法、没 Wi-Fi 要等用户或开关变化。 */
     fun retryable(f: BuiltinShellFailure) = f == BuiltinShellFailure.ConnectFailed ||
         f == BuiltinShellFailure.HelperStartFailed || f == BuiltinShellFailure.Unknown
 }

@@ -84,9 +84,9 @@ class PhoneSetupCopyTest {
     fun reconnectOnlyWhenRetryingIsTheFix() {
         val reconnectable = statuses.filter { PhoneSetupCopy.canReconnect(it) }
         assertEquals(
-            // root 被拒绝、没回应:点重试再问一次 su
+            // root 被拒绝、没回应:点重试再问一次 su；非本机地址修正后也可重试。
             listOf(
-                BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.HelperStartFailed,
+                BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.NotLocal, BuiltinShellFailure.HelperStartFailed,
                 BuiltinShellFailure.RootDenied, BuiltinShellFailure.RootNoAnswer, BuiltinShellFailure.Unknown,
             ),
             reconnectable.map { (it as BuiltinShellStatus.Failed).reason },

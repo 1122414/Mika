@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">Mika はワイヤレス デバッグをオンにしましたが、システムがこの Wi-Fi では許可しませんでした。一度ご自身で「ワイヤレス デバッグ」をオンにして、確認が出たら「このネットワークで常に許可」にチェックを入れ、「許可」をタップしてください。それ以降、この Wi-Fi では Mika が自分でオンにできます。</string>
     <string name="fail_connect">ワイヤレス デバッグに接続できませんでした</string>
     <string name="fail_connect_body">ワイヤレス デバッグのポートが見つかりませんでした。次のいずれかをお試しください。「ワイヤレス デバッグ」をいったんオフにしてからオンにし、やり直す。スマホのテザリングや自宅の Wi-Fi に切り替える。下にポートを入力する。</string>
+    <string name="fail_not_local">ワイヤレス デバッグのアドレスがこのスマホのものではありません</string>
+    <string name="fail_not_local_body">Mika はこのスマホ自身のアドレスにしか接続できません。再試行してください。繰り返し表示される場合は、診断情報をコピーしてください。</string>
     <string name="fail_revoked">ペア設定の期限が切れました</string>
     <string name="fail_revoked_body">長期間使わなかったためシステムが取り消したか、削除された可能性があります。もう一度ペア設定してください。「開発者向けオプション」で「adb 認証のタイムアウトを無効にする」をオンにすると、次からは期限切れになりません。</string>
     <string name="fail_key_unreadable">ペア設定のキーを読み取れません</string>

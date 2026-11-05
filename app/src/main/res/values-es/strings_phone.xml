@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">Mika activó la Depuración inalámbrica, pero el sistema no la permitió en este Wi-Fi. Activa tú una vez la “Depuración inalámbrica”; cuando te lo pregunte, marca “Permitir siempre en esta red” y toca Permitir. Después Mika podrá activarla sola en este Wi-Fi.</string>
     <string name="fail_connect">No se pudo conectar con la Depuración inalámbrica</string>
     <string name="fail_connect_body">No se encontró el puerto de la Depuración inalámbrica. Puedes: desactivar y volver a activar la “Depuración inalámbrica” y reintentarlo; cambiar a la conexión compartida de otro teléfono o a tu Wi-Fi de casa; o introducir el puerto abajo.</string>
+    <string name="fail_not_local">La dirección de Depuración inalámbrica no está en este teléfono</string>
+    <string name="fail_not_local_body">Mika solo puede conectarse a una dirección de este teléfono. Reintenta; si sigue ocurriendo, copia el diagnóstico.</string>
     <string name="fail_revoked">La vinculación caducó</string>
     <string name="fail_revoked_body">Puede que el sistema la revocara tras mucho tiempo sin uso, o que se eliminara. Basta con vincular de nuevo. Activa “Desactivar tiempo de espera de autorización de adb” en las Opciones de desarrollador para que no vuelva a caducar.</string>
     <string name="fail_key_unreadable">No se puede leer la clave de vinculación</string>

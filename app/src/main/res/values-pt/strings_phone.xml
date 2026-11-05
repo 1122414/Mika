@@ -70,6 +70,8 @@
     <string name="fail_wifi_not_allowed_body">O Mika ativou a Depuração wireless, mas o sistema não a permitiu neste Wi-Fi. Ative a “Depuração wireless” você mesmo uma vez; quando perguntar, marque “Sempre permitir nesta rede” e toque em Permitir. Depois disso, o Mika consegue ativá-la sozinho neste Wi-Fi.</string>
     <string name="fail_connect">Não foi possível conectar à Depuração wireless</string>
     <string name="fail_connect_body">Não foi possível encontrar a porta da Depuração wireless. Você pode: desativar e ativar de novo a “Depuração wireless” e tentar outra vez; trocar para o ponto de acesso do celular ou para o Wi-Fi de casa; ou digitar a porta abaixo.</string>
+    <string name="fail_not_local">O endereço da Depuração wireless não está neste celular</string>
+    <string name="fail_not_local_body">O Mika só pode se conectar a um endereço deste celular. Tente de novo; se continuar acontecendo, copie o diagnóstico.</string>
     <string name="fail_revoked">O pareamento expirou</string>
     <string name="fail_revoked_body">O sistema pode tê-lo revogado depois de muito tempo sem uso, ou ele foi removido. Basta parear de novo. Ative “Desativar tempo limite de autorização do adb” em Opções do desenvolvedor para ele não expirar mais.</string>
     <string name="fail_key_unreadable">Não é possível ler a chave de pareamento</string>
