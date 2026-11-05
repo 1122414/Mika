@@ -20,6 +20,7 @@ import com.wangzan101.mika.cap.phone.shell.ShellService
 import com.wangzan101.mika.task.AppMuter
 import com.wangzan101.mika.task.AudioMute
 import com.wangzan101.mika.task.MarkerStore
+import com.wangzan101.mika.task.PrefsMarker
 import com.wangzan101.mika.task.ShellAudio
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -322,6 +323,35 @@ class AgentDisplayTest {
             }
         } finally {
             if (targetBefore != null) shell.setAudioMode(SETTINGS, targetBefore)
+        }
+    }
+
+    /** 浮层动作最终经过的真实音频路径：恢复原值，而且本次任务不再自动静音。 */
+    @Test
+    fun manualUnmuteRestoresRealAudioAndSkipsLaterAutomaticMutes() {
+        val prefs = context.getSharedPreferences("manual-unmute-device-test", 0)
+        prefs.edit().clear().commit()
+        val record = AudioMute(ShellAudio(shell), PrefsMarker(prefs, "audio"))
+        val muter = AppMuter(
+            record,
+            enabled = { true },
+            mutable = { it == SETTINGS },
+            onMainScreen = { _, _ -> false },
+            failed = { error("unexpected audio mute failure for $it") },
+        )
+        val before = shell.getAudioMode(SETTINGS)
+        assertNotNull(before)
+        try {
+            muter.opened(SETTINGS, null)
+            assertEquals("ignore", shell.getAudioMode(SETTINGS))
+            assertTrue(muter.unmute(SETTINGS, null))
+            assertEquals(before, shell.getAudioMode(SETTINGS))
+            muter.opened(SETTINGS, null)
+            assertEquals(before, shell.getAudioMode(SETTINGS))
+        } finally {
+            record.restoreAll()
+            shell.setAudioMode(SETTINGS, before)
+            prefs.edit().clear().commit()
         }
     }
 
