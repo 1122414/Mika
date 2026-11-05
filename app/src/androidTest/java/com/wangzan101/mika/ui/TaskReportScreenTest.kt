@@ -15,6 +15,8 @@ import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.record.RunStore
 import org.junit.Rule
 import org.junit.Test
+import org.junit.After
+import org.junit.Assert.assertTrue
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 
@@ -24,9 +26,13 @@ class TaskReportScreenTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
     @get:Rule val compose = createComposeRule()
 
+    private val dirs = mutableListOf<java.io.File>()
+    @After fun cleanup() { dirs.forEach { it.deleteRecursively() } }
+
     private fun vm(): TaskReportViewModel {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val dir = java.io.File(context.cacheDir, "report-test-${java.util.UUID.randomUUID()}")
+        dirs += dir
         val store = RunStore(dir, { null }, 30, System::currentTimeMillis) { it }
         val h = store.open("报告界面测试")
         val bitmap = Bitmap.createBitmap(180, 320, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.LTGRAY) }
@@ -45,7 +51,7 @@ class TaskReportScreenTest {
         val vm = vm()
         compose.setContent {
             var page by remember { mutableStateOf("chat") }
-            var step by remember { mutableStateOf(0) }
+            var step by remember { mutableStateOf(-1) }
             when (page) {
                 "chat" -> TaskReportEntries({ page = "report" }, { page = "replay" })
                 "report" -> TaskReportScreen(vm, { page = "chat" }, { step = it; page = "replay" }, {})
@@ -54,15 +60,24 @@ class TaskReportScreenTest {
         }
         compose.onNodeWithText("任务报告").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("完整的测试报告。").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("第 1 步 · 查看对应回放").performScrollTo().performClick()
+        compose.onNodeWithText("操作回放").performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-tap").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("操作后").performScrollTo().performClick()
+        compose.onNodeWithText("下一步").performClick()
         compose.onNodeWithTag("playback-mark-tap").assertDoesNotExist()
-        compose.onNodeWithText("下一步").performScrollTo().performClick()
+        compose.onNodeWithText("下一步").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-swipe").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("操作后").performScrollTo().performClick()
+        compose.onNodeWithText("下一步").performClick()
         compose.onNodeWithTag("playback-mark-swipe").assertDoesNotExist()
-        compose.onNodeWithText("1×").performScrollTo().performClick()
+        compose.onNodeWithText("操作前").assertDoesNotExist()
+        compose.onNodeWithText("操作后").assertDoesNotExist()
+        val image = compose.onNodeWithTag("playback-image").fetchSemanticsNode().boundsInRoot
+        val viewport = compose.onNodeWithTag("playback-viewport").fetchSemanticsNode().boundsInRoot
+        assertTrue(image.top >= viewport.top && image.bottom <= viewport.bottom + 1)
+        assertTrue(image.left >= viewport.left && image.right <= viewport.right + 1)
+        compose.onNodeWithText("播放回放").assertIsDisplayed()
+        compose.onNodeWithText("步骤明细").performClick()
+        compose.onNodeWithText("关闭").performClick()
+        compose.onNodeWithText("1×").performClick()
         compose.onNodeWithText("2×").assertExists()
     }
 }

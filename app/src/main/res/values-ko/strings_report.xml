@@ -11,15 +11,20 @@
     <string name="playback_legacy">이전 기록에는 스크린샷만 있고 작업 표시는 없습니다.</string>
     <string name="playback_approximate">화살표는 스크롤 방향을 나타내며 실제 터치 위치가 아닙니다.</string>
     <string name="playback_marks">빨간 원: 탭 · 화살표: 스와이프</string>
-    <string name="playback_position">작업 %1$d / %2$d</string>
-    <string name="playback_before">작업 전</string>
-    <string name="playback_after">작업 후</string>
     <string name="playback_progress">재생 진행률</string>
     <string name="playback_pause">일시 정지</string>
     <string name="playback_play">재생</string>
     <string name="playback_previous">이전</string>
     <string name="playback_next">다음</string>
-    <string name="playback_readonly">저장된 화면만 표시하며 기기를 조작하지 않습니다.</string>
     <string name="playback_image">작업 스크린샷</string>
     <string name="playback_missing">스크린샷이 저장되지 않았거나 삭제되었습니다</string>
+    <string name="report_export">내보내기</string>
+    <string name="report_saved">보고서를 저장했습니다</string>
+    <string name="report_save_failed">저장하지 못했습니다. 기록과 저장 위치를 확인하세요.</string>
+    <string name="report_close">닫기</string>
+    <string name="report_final_page">마지막 기록 화면</string>
+    <string name="playback_details">단계 목록</string>
+    <string name="playback_stage_start">시작</string>
+    <string name="playback_stage_input">입력 및 검색</string>
+    <string name="playback_skipped">사용할 수 없는 이미지 %1$d개를 건너뛰었습니다.</string>
 </resources>

@@ -11,15 +11,20 @@
     <string name="playback_legacy">Registro antiguo: solo capturas, sin marcas de acciones.</string>
     <string name="playback_approximate">La flecha indica la dirección de desplazamiento, no puntos de contacto exactos.</string>
     <string name="playback_marks">Círculo rojo: toque · Flecha: deslizamiento</string>
-    <string name="playback_position">Acción %1$d de %2$d</string>
-    <string name="playback_before">Antes</string>
-    <string name="playback_after">Después</string>
     <string name="playback_progress">Progreso de reproducción</string>
     <string name="playback_pause">Pausar</string>
     <string name="playback_play">Reproducir</string>
     <string name="playback_previous">Anterior</string>
     <string name="playback_next">Siguiente</string>
-    <string name="playback_readonly">Solo muestra capturas guardadas. No controla el dispositivo.</string>
     <string name="playback_image">Captura de la tarea</string>
     <string name="playback_missing">Captura no disponible</string>
+    <string name="report_export">Exportar</string>
+    <string name="report_saved">Informe guardado</string>
+    <string name="report_save_failed">No se pudo guardar. Revisa el registro y el destino.</string>
+    <string name="report_close">Cerrar</string>
+    <string name="report_final_page">Última página registrada</string>
+    <string name="playback_details">Pasos</string>
+    <string name="playback_stage_start">Inicio</string>
+    <string name="playback_stage_input">Entrada y búsqueda</string>
+    <string name="playback_skipped">Se omitieron %1$d imágenes no disponibles.</string>
 </resources>

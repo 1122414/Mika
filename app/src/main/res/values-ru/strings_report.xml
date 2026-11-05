@@ -11,15 +11,20 @@
     <string name="playback_legacy">Старая запись: только снимки, без отметок действий.</string>
     <string name="playback_approximate">Стрелка показывает направление прокрутки, а не точные точки касания.</string>
     <string name="playback_marks">Красный круг: касание · Стрелка: свайп</string>
-    <string name="playback_position">Действие %1$d из %2$d</string>
-    <string name="playback_before">До</string>
-    <string name="playback_after">После</string>
     <string name="playback_progress">Ход воспроизведения</string>
     <string name="playback_pause">Пауза</string>
     <string name="playback_play">Воспроизвести</string>
     <string name="playback_previous">Назад</string>
     <string name="playback_next">Далее</string>
-    <string name="playback_readonly">Только просмотр сохранённых снимков, без управления устройством.</string>
     <string name="playback_image">Снимок экрана задачи</string>
     <string name="playback_missing">Снимок недоступен</string>
+    <string name="report_export">Экспорт</string>
+    <string name="report_saved">Отчёт сохранён</string>
+    <string name="report_save_failed">Не удалось сохранить. Проверьте запись и место сохранения.</string>
+    <string name="report_close">Закрыть</string>
+    <string name="report_final_page">Последняя записанная страница</string>
+    <string name="playback_details">Шаги</string>
+    <string name="playback_stage_start">Начало</string>
+    <string name="playback_stage_input">Ввод и поиск</string>
+    <string name="playback_skipped">Пропущено недоступных кадров: %1$d.</string>
 </resources>

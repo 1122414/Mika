@@ -11,15 +11,20 @@
     <string name="playback_legacy">Registro antigo: apenas capturas, sem marcações de ações.</string>
     <string name="playback_approximate">A seta indica a direção da rolagem, não pontos de toque exatos.</string>
     <string name="playback_marks">Círculo vermelho: toque · Seta: deslizar</string>
-    <string name="playback_position">Ação %1$d de %2$d</string>
-    <string name="playback_before">Antes</string>
-    <string name="playback_after">Depois</string>
     <string name="playback_progress">Progresso da reprodução</string>
     <string name="playback_pause">Pausar</string>
     <string name="playback_play">Reproduzir</string>
     <string name="playback_previous">Anterior</string>
     <string name="playback_next">Próxima</string>
-    <string name="playback_readonly">Mostra apenas capturas salvas. Não controla o dispositivo.</string>
     <string name="playback_image">Captura da tarefa</string>
     <string name="playback_missing">Captura indisponível</string>
+    <string name="report_export">Exportar</string>
+    <string name="report_saved">Relatório salvo</string>
+    <string name="report_save_failed">Não foi possível salvar. Verifique o registro e o destino.</string>
+    <string name="report_close">Fechar</string>
+    <string name="report_final_page">Última página registrada</string>
+    <string name="playback_details">Etapas</string>
+    <string name="playback_stage_start">Início</string>
+    <string name="playback_stage_input">Entrada e busca</string>
+    <string name="playback_skipped">%1$d imagens indisponíveis ignoradas.</string>
 </resources>

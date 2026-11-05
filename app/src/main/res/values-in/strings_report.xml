@@ -11,15 +11,20 @@
     <string name="playback_legacy">Catatan lama: hanya gambar, tanpa penanda tindakan.</string>
     <string name="playback_approximate">Panah menunjukkan arah gulir, bukan titik sentuh yang tepat.</string>
     <string name="playback_marks">Lingkaran merah: ketukan · Panah: geseran</string>
-    <string name="playback_position">Tindakan %1$d dari %2$d</string>
-    <string name="playback_before">Sebelum</string>
-    <string name="playback_after">Sesudah</string>
     <string name="playback_progress">Progres pemutaran</string>
     <string name="playback_pause">Jeda</string>
     <string name="playback_play">Putar</string>
     <string name="playback_previous">Sebelumnya</string>
     <string name="playback_next">Berikutnya</string>
-    <string name="playback_readonly">Hanya menampilkan tangkapan layar tersimpan, tanpa mengontrol perangkat.</string>
     <string name="playback_image">Tangkapan layar tugas</string>
     <string name="playback_missing">Tangkapan layar tidak tersedia</string>
+    <string name="report_export">Ekspor</string>
+    <string name="report_saved">Laporan disimpan</string>
+    <string name="report_save_failed">Tidak dapat menyimpan. Periksa rekaman dan lokasi tujuan.</string>
+    <string name="report_close">Tutup</string>
+    <string name="report_final_page">Halaman terakhir yang direkam</string>
+    <string name="playback_details">Langkah</string>
+    <string name="playback_stage_start">Mulai</string>
+    <string name="playback_stage_input">Input dan pencarian</string>
+    <string name="playback_skipped">Melewati %1$d gambar yang tidak tersedia.</string>
 </resources>

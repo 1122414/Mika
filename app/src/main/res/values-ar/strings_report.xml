@@ -11,15 +11,20 @@
     <string name="playback_legacy">سجل قديم: لقطات شاشة فقط دون علامات العمليات.</string>
     <string name="playback_approximate">يشير السهم إلى اتجاه التمرير وليس مواضع اللمس الدقيقة.</string>
     <string name="playback_marks">الدائرة الحمراء: نقرة · السهم: سحب</string>
-    <string name="playback_position">العملية %1$d من %2$d</string>
-    <string name="playback_before">قبل</string>
-    <string name="playback_after">بعد</string>
     <string name="playback_progress">تقدم العرض</string>
     <string name="playback_pause">إيقاف مؤقت</string>
     <string name="playback_play">تشغيل</string>
     <string name="playback_previous">السابق</string>
     <string name="playback_next">التالي</string>
-    <string name="playback_readonly">يعرض اللقطات المحفوظة فقط ولا يتحكم في الجهاز.</string>
     <string name="playback_image">لقطة شاشة المهمة</string>
     <string name="playback_missing">لقطة الشاشة غير متاحة</string>
+    <string name="report_export">تصدير</string>
+    <string name="report_saved">تم حفظ التقرير</string>
+    <string name="report_save_failed">تعذر الحفظ. تحقق من السجل وموقع الحفظ ثم أعد المحاولة.</string>
+    <string name="report_close">إغلاق</string>
+    <string name="report_final_page">آخر صفحة مسجلة</string>
+    <string name="playback_details">الخطوات</string>
+    <string name="playback_stage_start">البداية</string>
+    <string name="playback_stage_input">الإدخال والبحث</string>
+    <string name="playback_skipped">تم تخطي %1$d من الصور غير المتاحة.</string>
 </resources>
