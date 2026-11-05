@@ -28,4 +28,5 @@
     <string name="playback_skipped">已跳过 %1$d 张不可用截图。</string>
     <string name="playback_no_mark">本次操作未保存位置标记。</string>
     <string name="playback_error_unknown">出错：未记录具体原因。</string>
+    <string name="playback_result">操作结果</string>
 </resources>

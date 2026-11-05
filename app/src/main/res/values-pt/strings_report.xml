@@ -28,4 +28,5 @@
     <string name="playback_skipped">%1$d imagens indisponíveis ignoradas.</string>
     <string name="playback_no_mark">Nenhum marcador foi registrado para esta operação.</string>
     <string name="playback_error_unknown">Erro: nenhum motivo específico foi registrado.</string>
+    <string name="playback_result">Resultado da ação</string>
 </resources>

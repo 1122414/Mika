@@ -83,7 +83,7 @@ private fun rememberReport(vm: TaskReportViewModel): Pair<Boolean, TaskReport?> 
 }
 
 @Composable
-fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int) -> Unit, onTimeline: () -> Unit) {
+fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int?) -> Unit, onTimeline: () -> Unit) {
     BackHandler(onBack = onBack)
     val (loaded, report) = rememberReport(vm)
     val c = MikaTheme.colors
@@ -115,7 +115,7 @@ fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int
                     item("screens-heading") { Text(stringResource(R.string.report_screens), style = MikaType.BodyStrong, color = c.ink) }
                     itemsIndexed(r.pages, key = { _, p -> "page-${p.screenshotId}" }) { _, page ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surface)
-                            .clickable { onReplay(page.stepIndex) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                            .clickable { onReplay(page.screenshotId) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             StaticPlaybackImage(vm, page.screenshotId, Modifier.size(46.dp, 72.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -126,7 +126,7 @@ fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int
                         }
                     }
                 }
-                item("replay") { MikaButton(stringResource(R.string.playback_title), { onReplay(-1) }, Modifier.fillMaxWidth(), kind = ButtonKind.Primary) }
+                item("replay") { MikaButton(stringResource(R.string.playback_title), { onReplay(null) }, Modifier.fillMaxWidth(), kind = ButtonKind.Primary) }
                 item("timeline") { MikaButton(stringResource(R.string.chat_view_process), onTimeline, Modifier.fillMaxWidth(), kind = ButtonKind.Tonal, size = ButtonSize.Small) }
                 item("privacy") { Text(stringResource(R.string.report_local_note), style = MikaType.Hint, color = c.ink2) }
             }
@@ -141,11 +141,11 @@ private fun stepLabel(step: PlaybackStep): String {
 }
 
 @Composable
-fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> Unit) {
+fun TaskPlaybackScreen(vm: TaskReportViewModel, initialScreenshotId: Int?, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val (loaded, report) = rememberReport(vm)
     val c = MikaTheme.colors
-    var position by rememberSaveable(vm.runId, initialStep) { mutableIntStateOf(-1) }
+    var position by rememberSaveable(vm.runId, initialScreenshotId) { mutableIntStateOf(-1) }
     var speedIndex by rememberSaveable(vm.runId) { mutableIntStateOf(1) }
     val speeds = listOf(.5f, 1f, 2f)
     var playing by remember(vm) { mutableStateOf(false) }
@@ -160,21 +160,20 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
         onDispose { lifecycle.removeObserver(observer) }
     }
     val frames = report?.frames.orEmpty()
-    LaunchedEffect(frames, initialStep) {
+    LaunchedEffect(frames, initialScreenshotId) {
         if (position < 0 && frames.isNotEmpty()) {
-            // 关键页定位实际动作；标记始终显示在它所属的原图上。
-            position = if (initialStep < 0) 0 else frames.indexOfFirst { it.stepIndex == initialStep }.coerceAtLeast(0)
+            // 关键页直接打开对应截图；普通回放从首张可用画面开始。
+            position = TaskReportViewModel.framePosition(frames, initialScreenshotId)
         }
     }
     val current = position.coerceIn(0, frames.lastIndex.coerceAtLeast(0))
     LaunchedEffect(playing, speedIndex, current, ready) {
-        if (playing && ready == current) {
-            delay((TaskReportViewModel.FRAME_DURATION_MS / speeds[speedIndex]).toLong())
+        if (playing && ready == current && frames.isNotEmpty()) {
+            delay((TaskReportViewModel.frameDuration(frames[current]) / speeds[speedIndex]).toLong())
             if (current < frames.lastIndex) position = current + 1 else playing = false
         }
     }
     fun seek(frame: Int) { playing = false; position = frame.coerceIn(0, frames.lastIndex.coerceAtLeast(0)) }
-    fun seekStep(step: Int) { frames.indexOfFirst { it.stepIndex >= step }.takeIf { it >= 0 }?.let(::seek) }
     PageBackground {
         Column(Modifier.fillMaxSize()) {
             TopBar(stringResource(R.string.playback_title), MikaIcons.Back, onBack, stringResource(R.string.back))
@@ -184,13 +183,18 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
             } else {
                 val frame = frames[current]
                 val step = r.playback[frame.stepIndex]
+                val finalResult = frame.resultOnly && current == frames.lastIndex && frame.stepIndex == r.playback.lastIndex
                 val stage = r.stages.lastOrNull { it.stepIndex <= frame.stepIndex }
                 val stageScroll = rememberLazyListState()
                 LaunchedEffect(stage) { stageScroll.animateScrollToItem(r.stages.indexOf(stage).coerceAtLeast(0)) }
                 val controls: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.surface).padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (frame.resultOnly) stringResource(R.string.report_final_page) else stepLabel(step), Modifier.weight(1f), style = MikaType.BodyStrong, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(when {
+                                finalResult -> stringResource(R.string.report_final_page)
+                                frame.resultOnly -> stringResource(R.string.playback_result)
+                                else -> stepLabel(step)
+                            }, Modifier.weight(1f), style = MikaType.BodyStrong, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${current + 1} / ${frames.size}", style = MikaType.Hint, color = c.ink2)
                         }
                         val progressLabel = stringResource(R.string.playback_progress)
@@ -211,11 +215,11 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
                                 Text(listOf("0.5×", "1×", "2×")[speedIndex], style = MikaType.Caption)
                             }
                         }
-                        if (!frame.resultOnly) step.failure?.let { Text(it, style = MikaType.Hint, color = c.bad) }
+                        step.failure?.let { Text(it, style = MikaType.Hint, color = c.bad) }
                         if (r.stages.isNotEmpty()) LazyRow(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), state = stageScroll, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             itemsIndexed(r.stages) { i, s ->
                                 Text("${i + 1} · ${s.title}", Modifier.widthIn(max = 180.dp).clip(RoundedCornerShape(9.dp))
-                                    .background(if (s == stage) c.accentSoft else c.bg).clickable { seekStep(s.stepIndex) }.padding(9.dp, 7.dp),
+                                    .background(if (s == stage) c.accentSoft else c.bg).clickable { seek(TaskReportViewModel.framePosition(frames, s.screenshotId, s.stepIndex)) }.padding(9.dp, 7.dp),
                                     style = MikaType.Hint, color = if (s == stage) c.accent else c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
@@ -233,7 +237,8 @@ fun TaskPlaybackScreen(vm: TaskReportViewModel, initialStep: Int, onBack: () -> 
                     } else Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         picture(Modifier.weight(1f).fillMaxWidth())
                         Text(stringResource(when {
-                            frame.resultOnly -> R.string.report_final_page
+                            finalResult -> R.string.report_final_page
+                            frame.resultOnly -> R.string.playback_result
                             step.legacy -> R.string.playback_legacy
                             frame.mark?.approximate == true -> R.string.playback_approximate
                             frame.mark != null -> R.string.playback_marks
@@ -269,7 +274,9 @@ private fun AnimatedPlaybackImage(vm: TaskReportViewModel, frame: ReplayFrame, m
     }
     // 已解码的图片及其自身标记一起交叉淡入，手动/自动走同一路径，不闪空、不串标记。
     Crossfade(displayed, modifier, animationSpec = tween(TaskReportViewModel.TRANSITION_MS), label = "replay-frame") { loaded ->
-        if (loaded?.bitmap != null) FittedPlaybackImage(loaded.bitmap, loaded.frame.mark, Modifier.fillMaxSize())
+        if (loaded?.bitmap != null) Box(Modifier.fillMaxSize().testTag("playback-frame-${loaded.frame.frame.screenshotId}")) {
+            FittedPlaybackImage(loaded.bitmap, loaded.frame.mark, Modifier.fillMaxSize())
+        }
         else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             if (loaded != null) Text(stringResource(R.string.playback_missing), style = MikaType.Caption, color = MikaTheme.colors.ink2)
         }

@@ -28,4 +28,5 @@
     <string name="playback_skipped">Пропущено недоступных кадров: %1$d.</string>
     <string name="playback_no_mark">Маркер положения для этого действия не записан.</string>
     <string name="playback_error_unknown">Ошибка: конкретная причина не записана.</string>
+    <string name="playback_result">Результат действия</string>
 </resources>

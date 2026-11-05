@@ -18,9 +18,11 @@ data class PlaybackStep(
 }
 
 data class PlaybackFrame(val screenshotId: Int, val after: Boolean?)
-data class ReplayFrame(val stepIndex: Int, val frame: PlaybackFrame, val mark: PlaybackMark?, val resultOnly: Boolean = false)
+data class ReplayFrame(val stepIndex: Int, val frame: PlaybackFrame, val mark: PlaybackMark?) {
+    val resultOnly: Boolean get() = frame.after == true
+}
 data class ReportPage(val title: String, val stepIndex: Int, val screenshotId: Int)
-data class PlaybackStage(val stepIndex: Int, val title: String)
+data class PlaybackStage(val stepIndex: Int, val title: String, val screenshotId: Int? = null)
 data class TaskReport(
     val header: TimelineHeader, val answer: String, val playback: List<PlaybackStep>,
     val frames: List<ReplayFrame> = emptyList(), val pages: List<ReportPage> = emptyList(),
@@ -40,7 +42,7 @@ class TaskReportViewModel(private val store: RunStore, val runId: String) {
         } }
         val available = all.filter { screen(it.frame.screenshotId)?.length()?.let { n -> n > 0 } == true }
         val pages = keyPages(events, answer, steps, available)
-        val frames = actionFrames(steps, available)
+        val frames = available
         return TaskReport(timeline.header, answer, steps, frames, pages, stages(steps, frames, pages), all.size - available.size)
     }
 
@@ -65,18 +67,14 @@ class TaskReportViewModel(private val store: RunStore, val runId: String) {
                 .map { PlaybackStep(it.step, null, it.mediaId, null, legacy = true) }
         }
 
-        /** 一个动作一个播放项，结果截图不再冒充另一次无标记的点击/滑动。 */
-        internal fun actionFrames(steps: List<PlaybackStep>, available: List<ReplayFrame>): List<ReplayFrame> {
-            val byAction = available.groupBy { it.stepIndex }
-            val actions = steps.indices.mapNotNull { index ->
-                val candidates = byAction[index].orEmpty()
-                candidates.firstOrNull { it.mark != null }
-                    ?: candidates.lastOrNull { it.frame.after == true } ?: candidates.firstOrNull()
-            }
-            val final = available.lastOrNull { it.stepIndex == steps.lastIndex && it.frame.after == true }
-            return if (final != null && actions.lastOrNull()?.frame?.screenshotId != final.frame.screenshotId)
-                actions + final.copy(mark = null, resultOnly = true) else actions
+        /** 关键页和阶段按证据截图定位，不能用打开它之前的动作画面代替。 */
+        internal fun framePosition(frames: List<ReplayFrame>, screenshotId: Int?, stepIndex: Int = 0): Int {
+            val exact = frames.indexOfFirst { it.frame.screenshotId == screenshotId }
+            return if (exact >= 0) exact else frames.indexOfFirst { it.stepIndex >= stepIndex }.coerceAtLeast(0)
         }
+
+        internal fun frameDuration(frame: ReplayFrame): Long =
+            if (frame.frame.after == false) 1_200L else FRAME_DURATION_MS
 
         /** 只选正文引用过的页面文字，并通过观测编号→实际调用关联截图，不能按轮次猜批次子动作。 */
         internal fun keyPages(events: List<RunEvent>, answer: String, steps: List<PlaybackStep>, frames: List<ReplayFrame>): List<ReportPage> {
@@ -104,8 +102,9 @@ class TaskReportViewModel(private val store: RunStore, val runId: String) {
             val result = mutableListOf(PlaybackStage(available.first(), tr(R.string.playback_stage_start)))
             available.firstOrNull { steps[it].tool in setOf("phone_type_text", "phone_clear_text", "web_type") }
                 ?.let { result += PlaybackStage(it, tr(R.string.playback_stage_input)) }
-            result += pages.map { PlaybackStage(it.stepIndex, it.title) }
-            return result.distinctBy { it.stepIndex }.sortedBy { it.stepIndex }
+            result += pages.map { PlaybackStage(it.stepIndex, it.title, it.screenshotId) }
+            // 同一步既是开始/输入阶段又有证据页时，保留能直达证据的入口。
+            return result.asReversed().distinctBy { it.stepIndex }.sortedBy { it.stepIndex }
         }
 
         private fun normalize(s: String) = s.filter { it.isLetterOrDigit() }.lowercase()

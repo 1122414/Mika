@@ -28,4 +28,5 @@
     <string name="playback_skipped">Unavailable frames skipped: %1$d.</string>
     <string name="playback_no_mark">No action marker was recorded for this operation.</string>
     <string name="playback_error_unknown">Error: no specific reason was recorded.</string>
+    <string name="playback_result">Operation result</string>
 </resources>

@@ -224,7 +224,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
     }
     var runId by rememberSaveable { mutableStateOf<String?>(null) }
     var reportRunId by rememberSaveable { mutableStateOf<String?>(null) }
-    var playbackStep by rememberSaveable { mutableStateOf(-1) }
+    var playbackScreenshotId by rememberSaveable { mutableStateOf<Int?>(null) }
     var sourceRunId by rememberSaveable { mutableStateOf<String?>(null) }
     var sourceLegacyText by rememberSaveable { mutableStateOf<String?>(null) }
     val status by monitor.status.collectAsState()
@@ -327,7 +327,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                     openSettings = { nav.push(Route.Settings) },
                     openRun = { runId = it; nav.push(Route.Run) },
                     openReport = { reportRunId = it; nav.push(Route.Report) },
-                    openPlayback = { reportRunId = it; playbackStep = -1; nav.push(Route.Playback) },
+                    openPlayback = { reportRunId = it; playbackScreenshotId = null; nav.push(Route.Playback) },
                     phoneSetupNeeded = phoneSetupNeeded && status.builtinShell != BuiltinShellStatus.Running,
                     openPhoneSetup = { onFix(Fix.OpenPhoneSetup) },
                     loadSource = { id ->
@@ -428,9 +428,9 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             val vm = remember(id) { id?.let { TaskReportViewModel(RunStore(context), it) } }
             if (vm == null) LaunchedEffect(Unit) { nav.back() }
             else if (nav.current == Route.Report) TaskReportScreen(vm, back,
-                onReplay = { playbackStep = it; nav.push(Route.Playback) },
+                onReplay = { playbackScreenshotId = it; nav.push(Route.Playback) },
                 onTimeline = { runId = id; nav.push(Route.Run) })
-            else TaskPlaybackScreen(vm, playbackStep, back)
+            else TaskPlaybackScreen(vm, playbackScreenshotId, back)
         }
         Route.Source -> {
             val vm = remember(sourceRunId, sourceLegacyText) {

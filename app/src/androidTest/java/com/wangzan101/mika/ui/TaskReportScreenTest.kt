@@ -51,11 +51,11 @@ class TaskReportScreenTest {
         val vm = vm()
         compose.setContent {
             var page by remember { mutableStateOf("chat") }
-            var step by remember { mutableStateOf(-1) }
+            var screenshot by remember { mutableStateOf<Int?>(null) }
             when (page) {
                 "chat" -> TaskReportEntries({ page = "report" }, { page = "replay" })
-                "report" -> TaskReportScreen(vm, { page = "chat" }, { step = it; page = "replay" }, {})
-                else -> TaskPlaybackScreen(vm, step, { page = "report" })
+                "report" -> TaskReportScreen(vm, { page = "chat" }, { screenshot = it; page = "replay" }, {})
+                else -> TaskPlaybackScreen(vm, screenshot, { page = "report" })
             }
         }
         compose.onNodeWithText("任务报告").performClick()
@@ -63,7 +63,10 @@ class TaskReportScreenTest {
         compose.onNodeWithText("操作回放").performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-tap").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("下一步").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-frame-2").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("playback-mark-tap").assertDoesNotExist()
+        compose.onAllNodesWithText("操作结果").assertCountEquals(2)
+        compose.onNodeWithText("下一步").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-swipe").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("下一步").performClick()
         compose.onNodeWithTag("playback-mark-swipe").assertDoesNotExist()
@@ -79,4 +82,21 @@ class TaskReportScreenTest {
         compose.onNodeWithText("1×").performClick()
         compose.onNodeWithText("2×").assertExists()
     }
+    @Test fun keyScreenshotOpensItsResultInsteadOfThePrecedingGesture() {
+        val vm = vm()
+        compose.setContent {
+            var replay by remember { mutableStateOf(false) }
+            var screenshot by remember { mutableStateOf<Int?>(null) }
+            if (replay) TaskPlaybackScreen(vm, screenshot, {})
+            else TaskReportScreen(vm, {}, { screenshot = it; replay = true }, {})
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("完整的测试报告。").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("结束时页面").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-frame-4").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("playback-mark-swipe").assertDoesNotExist()
+        compose.onNodeWithText("上一步").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-frame-3").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("playback-mark-swipe").assertExists()
+    }
+
 }
