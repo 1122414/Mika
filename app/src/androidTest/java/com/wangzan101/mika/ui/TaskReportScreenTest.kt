@@ -1,0 +1,68 @@
+package com.wangzan101.mika.ui
+
+import android.graphics.Bitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.wangzan101.mika.ChineseUi
+import com.wangzan101.mika.core.record.PlaybackMark
+import com.wangzan101.mika.core.record.RunEvent
+import com.wangzan101.mika.record.RunStore
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
+
+/** 使用独立测试记录，不操作真实设备或调用模型。 */
+@RunWith(AndroidJUnit4::class)
+class TaskReportScreenTest {
+    @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
+    @get:Rule val compose = createComposeRule()
+
+    private fun vm(): TaskReportViewModel {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val dir = java.io.File(context.cacheDir, "report-test-${java.util.UUID.randomUUID()}")
+        val store = RunStore(dir, { null }, 30, System::currentTimeMillis) { it }
+        val h = store.open("报告界面测试")
+        val bitmap = Bitmap.createBitmap(180, 320, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.LTGRAY) }
+        val bytes = ByteArrayOutputStream().use { out -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray() }
+        bitmap.recycle()
+        h.event(RunEvent.TaskStarted(1, "报告界面测试", "test"))
+        (1..4).forEach { h.media(it, bytes) }
+        h.event(RunEvent.TaskPlayback(2, 1, "phone_tap", "a", 1, 2, PlaybackMark("tap", 500, 500)))
+        h.event(RunEvent.TaskPlayback(3, 2, "phone_swipe", "b", 3, 4, PlaybackMark("swipe", 500, 800, 500, 200)))
+        h.event(RunEvent.TaskEnded(4, "succeeded", "## 查询结果\n完整的测试报告。"))
+        h.close()
+        return TaskReportViewModel(store, h.runId)
+    }
+
+    @Test fun entriesOpenReportAndEvidenceOpensReplayWithMarkers() {
+        val vm = vm()
+        compose.setContent {
+            var page by remember { mutableStateOf("chat") }
+            var step by remember { mutableStateOf(0) }
+            when (page) {
+                "chat" -> TaskReportEntries({ page = "report" }, { page = "replay" })
+                "report" -> TaskReportScreen(vm, { page = "chat" }, { step = it; page = "replay" }, {})
+                else -> TaskPlaybackScreen(vm, step, { page = "report" })
+            }
+        }
+        compose.onNodeWithText("任务报告").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("完整的测试报告。").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("第 1 步 · 查看对应回放").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-tap").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("操作后").performScrollTo().performClick()
+        compose.onNodeWithTag("playback-mark-tap").assertDoesNotExist()
+        compose.onNodeWithText("下一步").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("playback-mark-swipe").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("操作后").performScrollTo().performClick()
+        compose.onNodeWithTag("playback-mark-swipe").assertDoesNotExist()
+        compose.onNodeWithText("1×").performScrollTo().performClick()
+        compose.onNodeWithText("2×").assertExists()
+    }
+}

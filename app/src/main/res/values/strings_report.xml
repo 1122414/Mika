@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Task report</string>
+    <string name="report_entry_hint">Results · Details · Screenshots</string>
+    <string name="report_no_answer">No final answer was saved for this task.</string>
+    <string name="report_screens">Key screenshots</string>
+    <string name="report_view_step">Step %1$d · Open replay</string>
+    <string name="report_local_note">Saved locally with the run record. Screenshots may contain page content; only the latest 30 runs are retained.</string>
+    <string name="playback_title">Operation replay</string>
+    <string name="playback_empty">No screenshots were recorded for this task.</string>
+    <string name="playback_legacy">Older record: screenshots only, without action markers.</string>
+    <string name="playback_approximate">Arrow indicates scroll direction, not exact touch points.</string>
+    <string name="playback_marks">Red circle: tap · Arrow: swipe</string>
+    <string name="playback_position">Action %1$d of %2$d</string>
+    <string name="playback_before">Before</string>
+    <string name="playback_after">After</string>
+    <string name="playback_progress">Replay progress</string>
+    <string name="playback_pause">Pause</string>
+    <string name="playback_play">Play</string>
+    <string name="playback_previous">Previous</string>
+    <string name="playback_next">Next</string>
+    <string name="playback_readonly">Read-only replay. Playback does not control the device.</string>
+    <string name="playback_image">Recorded task screenshot</string>
+    <string name="playback_missing">Screenshot unavailable</string>
+</resources>

@@ -28,6 +28,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
@@ -44,8 +46,10 @@ import kotlinx.coroutines.withContext
 import com.wangzan101.mika.ui.theme.MikaTheme
 
 /** 按 Markdown 显示一段回答；流式草稿用临时闭合的语法预览。 */
+private val LocalReportStyle = staticCompositionLocalOf { false }
+
 @Composable
-fun MarkdownText(markdown: String, style: TextStyle, modifier: Modifier = Modifier, streaming: Boolean = false) {
+fun MarkdownText(markdown: String, style: TextStyle, modifier: Modifier = Modifier, streaming: Boolean = false, reportStyle: Boolean = false) {
     // 流式片段更新频繁，在后台解析；上一帧保留到新片段准备好，避免主线程卡顿和文字闪空。
     val colors = MikaTheme.colors
     val styles = remember(colors) { MarkdownModel.Styles.of(colors) }
@@ -67,7 +71,7 @@ fun MarkdownText(markdown: String, style: TextStyle, modifier: Modifier = Modifi
             }
         }
     }
-    CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+    CompositionLocalProvider(LocalUriHandler provides uriHandler, LocalReportStyle provides reportStyle) {
         Blocks(blocks, style, modifier, depth = 0)
     }
 }
@@ -119,26 +123,28 @@ private fun Block(b: MdBlock, style: TextStyle, depth: Int) {
 /** 表格:各列取本列最宽的格(有上限,超了换行),各行取本行最高的格;整张表可左右滑动。 */
 @Composable
 private fun TableBlock(t: MdBlock.Table, style: TextStyle) {
+    val report = LocalReportStyle.current
     val cols = t.header.size
     if (cols == 0) return
     val cellStyle = style.copy(fontSize = 13.5.sp, lineHeight = 19.sp)
     val rows = listOf(t.header) + t.rows
-    Box(Modifier.horizontalScroll(rememberScrollState())) {
+    Box(Modifier.then(if (report) Modifier.clip(RoundedCornerShape(16.dp)).background(MikaTheme.colors.surface) else Modifier)
+        .horizontalScroll(rememberScrollState())) {
         Layout(
             content = {
                 rows.forEachIndexed { r, row ->
                     row.forEach { cell ->
                         Box(
-                            Modifier.border(0.5.dp, MikaTheme.colors.hair)
+                            Modifier.then(if (report) Modifier else Modifier.border(0.5.dp, MikaTheme.colors.hair))
                                 .then(if (r == 0) Modifier.background(MikaTheme.colors.fill) else Modifier)
-                                .padding(horizontal = 9.dp, vertical = 6.dp),
+                                .padding(horizontal = if (report) 12.dp else 9.dp, vertical = if (report) 12.dp else 6.dp),
                         ) {
                             Text(cell, style = if (r == 0) cellStyle.copy(fontWeight = FontWeight.SemiBold) else cellStyle)
                         }
                     }
                 }
             },
-            modifier = Modifier.border(0.5.dp, MikaTheme.colors.hair, RoundedCornerShape(2.dp)),
+            modifier = if (report) Modifier else Modifier.border(0.5.dp, MikaTheme.colors.hair, RoundedCornerShape(2.dp)),
         ) { measurables, _ ->
             val maxCol = 240.dp.roundToPx()
             val minCol = 48.dp.roundToPx()

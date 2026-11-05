@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">任务报告</string>
+    <string name="report_entry_hint">任务结果 · 详细说明 · 关键截图</string>
+    <string name="report_no_answer">本次任务没有保存最终回答。</string>
+    <string name="report_screens">关键页面</string>
+    <string name="report_view_step">第 %1$d 步 · 查看对应回放</string>
+    <string name="report_local_note">记录保存在本机，截图可能包含页面内容；沿用最近 30 次任务的保留规则。</string>
+    <string name="playback_title">操作回放</string>
+    <string name="playback_empty">本次任务没有记录截图。</string>
+    <string name="playback_legacy">旧记录仅有截图，没有操作标记。</string>
+    <string name="playback_approximate">箭头表示滚动方向，不代表实际触点。</string>
+    <string name="playback_marks">红圈：点击位置 · 箭头：滑动方向</string>
+    <string name="playback_position">第 %1$d / %2$d 个操作</string>
+    <string name="playback_before">操作前</string>
+    <string name="playback_after">操作后</string>
+    <string name="playback_progress">回放进度</string>
+    <string name="playback_pause">暂停</string>
+    <string name="playback_play">播放回放</string>
+    <string name="playback_previous">上一步</string>
+    <string name="playback_next">下一步</string>
+    <string name="playback_readonly">只读查看历史截图，播放不会控制手机。</string>
+    <string name="playback_image">任务记录截图</string>
+    <string name="playback_missing">截图未保存或已被清理</string>
+</resources>

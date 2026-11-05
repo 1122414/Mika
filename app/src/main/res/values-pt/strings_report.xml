@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Relatório da tarefa</string>
+    <string name="report_entry_hint">Resultados · Detalhes · Capturas</string>
+    <string name="report_no_answer">Nenhuma resposta final foi salva para esta tarefa.</string>
+    <string name="report_screens">Capturas principais</string>
+    <string name="report_view_step">Etapa %1$d · Abrir reprodução</string>
+    <string name="report_local_note">Os registros ficam no dispositivo. As capturas podem conter dados das páginas. Apenas as últimas 30 tarefas são mantidas.</string>
+    <string name="playback_title">Reprodução de ações</string>
+    <string name="playback_empty">Não há capturas registradas para esta tarefa.</string>
+    <string name="playback_legacy">Registro antigo: apenas capturas, sem marcações de ações.</string>
+    <string name="playback_approximate">A seta indica a direção da rolagem, não pontos de toque exatos.</string>
+    <string name="playback_marks">Círculo vermelho: toque · Seta: deslizar</string>
+    <string name="playback_position">Ação %1$d de %2$d</string>
+    <string name="playback_before">Antes</string>
+    <string name="playback_after">Depois</string>
+    <string name="playback_progress">Progresso da reprodução</string>
+    <string name="playback_pause">Pausar</string>
+    <string name="playback_play">Reproduzir</string>
+    <string name="playback_previous">Anterior</string>
+    <string name="playback_next">Próxima</string>
+    <string name="playback_readonly">Mostra apenas capturas salvas. Não controla o dispositivo.</string>
+    <string name="playback_image">Captura da tarefa</string>
+    <string name="playback_missing">Captura indisponível</string>
+</resources>

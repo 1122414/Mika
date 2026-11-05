@@ -179,6 +179,8 @@ fun ChatScreen(
     voice: VoiceSource? = null,
     /** 「还不能语音输入」里的「去选」。 */
     openSpeechModel: () -> Unit = {},
+    openReport: (String) -> Unit = {},
+    openPlayback: (String) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val others by vm.otherRunning.collectAsState()
@@ -307,6 +309,7 @@ fun ChatScreen(
                     exchange(
                         i, ex, ui.conversationId, ui.takeoverStage, vm, reduceMotion, backgroundNote, openRun, loadSource, openSource, kept,
                         tokens = ConversationTokens.turn(ex.runId?.let(runMetrics::get)),
+                        openReport = openReport, openPlayback = openPlayback,
                     )
                 }
                 if (phoneSetupNeeded && ui.exchanges.isNotEmpty()) item("phone-setup") { PhoneSetupLine(openPhoneSetup) }
@@ -525,6 +528,7 @@ private fun LazyListScope.exchange(
     kept: KeptPage? = null,
     /** 这一轮用了多少 token(结束后、读到运行小结时才有)。 */
     tokens: Long? = null,
+    openReport: (String) -> Unit = {}, openPlayback: (String) -> Unit = {},
 ) {
     if (ex.goal.isNotEmpty()) item("u$index") { UserBubble(ex.goal, conversationId, key = "u$index") }
     val active = ex.status.isActive()
@@ -546,7 +550,7 @@ private fun LazyListScope.exchange(
     joined.forEach(::steer)
     ex.draft?.takeIf(String::isNotBlank)?.let { draft -> item("d$index") { DraftText(draft, ex.waitingForModel) } }
     waiting.forEach(::steer)
-    item("r$index") { StatusCard(ex.status, stage, vm, ex.runId, loadSource, openSource, "r$index") }
+    item("r$index") { StatusCard(ex.status, stage, vm, ex.runId, loadSource, openSource, "r$index", ex.goal, openReport, openPlayback) }
     // 这一轮结束后留在后台运行的那一页:还开着是绿色一行(能关),关了是一句原因
     keptPageRow(index, ex, kept, vm::closeKeptPage)
     if (ex.files.isNotEmpty()) item("f$index") { FileCards(ex.files) }
@@ -941,6 +945,7 @@ private fun StatusCard(
     loadSource: suspend (String) -> EvidenceSource?, openSource: (String?, String?) -> Unit,
     /** 回答的长按菜单认这一条用的(见 [MessageArea])。 */
     key: String,
+    goal: String, openReport: (String) -> Unit, openPlayback: (String) -> Unit,
 ) {
     when (status) {
         ExchangeStatus.Working -> Unit
@@ -989,8 +994,11 @@ private fun StatusCard(
         }
         // 长按整块回答弹菜单;复制、引用的只是回答的字,不带上面的提示和下面的来源
         is ExchangeStatus.Done -> Box(Modifier.padding(bottom = 12.dp)) {
+            var expanded by rememberSaveable(key) { mutableStateOf(false) }
             AnswerArea(key, status.answer, Modifier.fillMaxWidth().answerSurface()) {
                 Column {
+                    if (runId != null) Text(goal, Modifier.padding(bottom = 12.dp), style = MikaType.BodyStrong,
+                        color = MikaTheme.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     status.unverifiedLine?.let { line ->
                         Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(18.dp).background(MikaTheme.colors.warnSoft, CircleShape), contentAlignment = Alignment.Center) {
@@ -999,9 +1007,12 @@ private fun StatusCard(
                             Text(line, style = MikaType.Caption, fontWeight = FontWeight.SemiBold, color = MikaTheme.colors.ink2)
                         }
                     }
-                    MarkdownText(status.answer, AnswerText.copy(color = MikaTheme.colors.ink))
+                    MarkdownText(if (runId != null && !expanded) TaskReportViewModel.excerpt(status.answer) else status.answer, AnswerText.copy(color = MikaTheme.colors.ink))
+                    // 运行记录会被轮换清理；对话里的完整回答始终可以直接展开。
+                    if (runId != null && status.answer.length > 240) TextLink(stringResource(if (expanded) R.string.collapse else R.string.expand)) { expanded = !expanded }
                     // 来源:旧记录里模型写的依据文字,或运行记录里代码记下的来源;都没有就不显示
                     if (status.evidence != null || runId != null) SourceChip(status.evidence, runId, loadSource, openSource)
+                    if (runId != null) TaskReportEntries({ openReport(runId) }, { openPlayback(runId) })
                 }
             }
         }
@@ -1011,6 +1022,7 @@ private fun StatusCard(
                 Text(stringResource(R.string.chat_not_done), style = MikaType.BodyStrong, color = MikaTheme.colors.ink)
             }
             Text(status.reason, Modifier.padding(top = 4.dp), style = CardBody, color = MikaTheme.colors.ink2)
+            if (runId != null) TaskReportEntries({ openReport(runId) }, { openPlayback(runId) })
         }
         // 停止后补上的交代当作这一轮的回答,排在「已停止」下面;还在写时一行小字
         is ExchangeStatus.Cancelled -> Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
@@ -1025,6 +1037,7 @@ private fun StatusCard(
                     }
                 }
             }
+            if (runId != null) TaskReportEntries({ openReport(runId) }, { openPlayback(runId) })
         }
     }
 }

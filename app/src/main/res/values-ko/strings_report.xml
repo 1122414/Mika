@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">작업 보고서</string>
+    <string name="report_entry_hint">결과 · 세부 정보 · 스크린샷</string>
+    <string name="report_no_answer">이 작업의 최종 답변이 저장되지 않았습니다.</string>
+    <string name="report_screens">주요 화면</string>
+    <string name="report_view_step">%1$d단계 · 재생 열기</string>
+    <string name="report_local_note">기록은 기기에 저장됩니다. 스크린샷에 페이지 내용이 포함될 수 있으며 최근 작업 30개만 보관합니다.</string>
+    <string name="playback_title">작업 재생</string>
+    <string name="playback_empty">이 작업에는 기록된 스크린샷이 없습니다.</string>
+    <string name="playback_legacy">이전 기록에는 스크린샷만 있고 작업 표시는 없습니다.</string>
+    <string name="playback_approximate">화살표는 스크롤 방향을 나타내며 실제 터치 위치가 아닙니다.</string>
+    <string name="playback_marks">빨간 원: 탭 · 화살표: 스와이프</string>
+    <string name="playback_position">작업 %1$d / %2$d</string>
+    <string name="playback_before">작업 전</string>
+    <string name="playback_after">작업 후</string>
+    <string name="playback_progress">재생 진행률</string>
+    <string name="playback_pause">일시 정지</string>
+    <string name="playback_play">재생</string>
+    <string name="playback_previous">이전</string>
+    <string name="playback_next">다음</string>
+    <string name="playback_readonly">저장된 화면만 표시하며 기기를 조작하지 않습니다.</string>
+    <string name="playback_image">작업 스크린샷</string>
+    <string name="playback_missing">스크린샷이 저장되지 않았거나 삭제되었습니다</string>
+</resources>

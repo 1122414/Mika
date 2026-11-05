@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Informe de tarea</string>
+    <string name="report_entry_hint">Resultados · Detalles · Capturas</string>
+    <string name="report_no_answer">No se guardó una respuesta final para esta tarea.</string>
+    <string name="report_screens">Capturas clave</string>
+    <string name="report_view_step">Paso %1$d · Abrir reproducción</string>
+    <string name="report_local_note">Los registros se guardan en el dispositivo. Las capturas pueden incluir contenido de las páginas. Solo se conservan las últimas 30 tareas.</string>
+    <string name="playback_title">Reproducción de acciones</string>
+    <string name="playback_empty">No hay capturas registradas para esta tarea.</string>
+    <string name="playback_legacy">Registro antiguo: solo capturas, sin marcas de acciones.</string>
+    <string name="playback_approximate">La flecha indica la dirección de desplazamiento, no puntos de contacto exactos.</string>
+    <string name="playback_marks">Círculo rojo: toque · Flecha: deslizamiento</string>
+    <string name="playback_position">Acción %1$d de %2$d</string>
+    <string name="playback_before">Antes</string>
+    <string name="playback_after">Después</string>
+    <string name="playback_progress">Progreso de reproducción</string>
+    <string name="playback_pause">Pausar</string>
+    <string name="playback_play">Reproducir</string>
+    <string name="playback_previous">Anterior</string>
+    <string name="playback_next">Siguiente</string>
+    <string name="playback_readonly">Solo muestra capturas guardadas. No controla el dispositivo.</string>
+    <string name="playback_image">Captura de la tarea</string>
+    <string name="playback_missing">Captura no disponible</string>
+</resources>
