@@ -53,3 +53,7 @@
 仅检查本功能和上述回归范围。现有 Android 11 API 兼容、原页面 Lint 等问题未扩展修复；详见上一份验收记录。未验证所有品牌、横屏或极大字体组合。
 
 DOCX 包结构参考：[Microsoft WordprocessingML 文档结构](https://learn.microsoft.com/en-us/office/open-xml/word/structure-of-a-wordprocessingml-document)。
+
+## 发布配置
+
+测试版本 `0.1.37-report-preview.2`，versionCode 40。包名及测试签名与 preview.1 一致，可覆盖升级并保留配置和记录；默认非 Preview 构建仍为上游版本。两个 perf APK 均为完整安装包，ARM64 优先；GitHub 预发布不设为 Latest。最终格式复核：手机导出的 MD 保留重点标记，TXT 没有 Markdown 星号，Word 的重点结论和日期为加粗 run。
