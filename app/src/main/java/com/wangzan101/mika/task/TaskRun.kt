@@ -168,6 +168,8 @@ class TaskRun(
     internal var provenance = RunProvenance()
     internal var triggerWindowKey: String? = null
     internal var triggerActionGoal: String? = null
+    /** 条件检查运行时用户写的条件原文;对话和通知显示它,不显示生成的检查目标 [goal]。 */
+    internal var triggerCondition: String? = null
     internal var triggerThreadId: String? = null
     internal var mcpExternalId: String? = null
     internal var channelPeer: ChannelPeer? = null
@@ -368,7 +370,7 @@ class TaskRun(
                 if (stopPressed) markSteers(setOf(messageId), SteerState.Cancelled)
                 else {
                     markSteers(setOf(messageId), SteerState.Next)
-                    service.deferMessage(conversationId, text)
+                    service.deferMessage(conversationId, text, messageId)
                 }
             }
         }
@@ -403,7 +405,7 @@ class TaskRun(
         val (discard, next) = left.partition { cancelled || it.currentTaskOnly }
         markSteers(discard.map { it.messageId }.toSet(), SteerState.Cancelled)
         markSteers(next.map { it.messageId }.toSet(), SteerState.Next)
-        next.forEach { service.deferMessage(conversationId, it.text) }
+        next.forEach { service.deferMessage(conversationId, it.text, it.messageId) }
     }
 
     /** 已交给这个任务的插话,随这一轮存进对话。 */
@@ -686,7 +688,13 @@ class TaskRun(
             val sink: RunSink = withContext(Dispatchers.IO) {
                 runCatching {
                     val runs = RunStore(service).also { runStore = it }
-                    runs.open(goal).also { record = it; _runId.value = it.runId }
+                    runs.open(goal).also { opened ->
+                        record = opened
+                        _runId.value = opened.runId
+                        mcpExternalId?.let { ext ->
+                            (service.application as? com.wangzan101.mika.MikaApp)?.remoteTasks?.rememberRun(ext, opened.runId)
+                        }
+                    }
                 }.onFailure { Log.w(TAG, "run record unavailable, running without it", it) }.getOrNull()
             } ?: RunSink.NONE
             val trace = record?.takeIf { traceTicket != null }?.let { run ->
@@ -834,6 +842,8 @@ class TaskRun(
                 // 这个对话之前几轮的运行记录(只读;history_read 只认 runSpec 里这个对话的轮次)
                 runRecords = RunStore(service).reader(),
                 mcpServers = mcpEndpoints(),
+                // 仅用户明确配置并启用时提供通用搜索;否则继续用浏览器搜索。
+                webSearch = com.wangzan101.mika.settings.WebSearchSettings.get(service).service(),
                 // 已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才登记 root 工具(子任务、条件检查不给)
                 root = phoneServices.shellManager.root.takeIf { !conditionCheck && it.commandsAllowed() }
                     ?.let { r -> RootCommands(RootShell::su, r::commandsAllowed) { a -> if (a == null) r.suGone() else r.commandsDenied(a) } })

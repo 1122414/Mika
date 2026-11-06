@@ -44,6 +44,8 @@ internal class ToolConfig(
     val selfConfig: com.wangzan101.mika.core.settings.SelfConfig? = null,
     /** 存下的运行记录;给了、而这个对话之前有记过运行的轮次时提供 history_read。 */
     val runRecords: com.wangzan101.mika.core.record.RunRecords? = null,
+    /** 用户配置并启用的网页搜索;为空时不提供 web_search。 */
+    val webSearch: com.wangzan101.mika.core.search.WebSearch? = null,
 )
 
 /**

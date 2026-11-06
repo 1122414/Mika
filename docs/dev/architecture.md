@@ -47,7 +47,7 @@
 
 `TaskCenter`(`app/task/TaskRegistry.kt`,由 `TaskService` 持有)管运行的启动、排队与收尾:
 
-- 每个对话同时只有一个 Run。同一对话里任务进行中用户又发消息,不另开任务,而是作为插话交给正在跑的 Run(`TaskService.begin`)。
+- 每个对话同时只有一个 Run。同一对话里任务进行中用户又发消息，默认作为插话交给正在跑的 Run（`TaskService.begin`）；用户也可以在输入框上选「排队」，这句会进这个对话的持久队列（`FollowUpQueue`），当前任务结束后成为下一件。
 - 不同对话的任务可以并行,上限见 §8;超过上限的进先进先出队列,有 Run 结束时依次补上(跳过对话里已有 Run 的)。并行开关关着(默认)时,任务进行中界面不能切换对话(`ChatViewModel.canSwitch`、侧栏 `ChatDrawer` 里别的对话不可点并有提示),交给服务的另一个对话的任务(对话页、悬浮胶囊、浏览器页、定时、电脑)一律进队列,不丢(`TaskService.begin`)。对话页先等服务空下来再交(这时那条消息下面写「等前一个任务做完再开始」,`ChatViewModel.begin`),防的是同一个对话里上一个任务还在收尾时,新的一句被当成插话;查完到交到之间别处先开始了一个任务,它照样排上,那个任务收尾后开始。这时点停止只停这个对话的任务(`TaskActions.cancelIn`),不碰正在跑的那个。
 - 定时任务到点时,如果原对话正有任务在跑,就在这个对话里排队等它结束(`queueInConversation`),不当成插话,也不丢。
 - 运行状态写进 `runs-v3.json`(`app/task/FileRunStateStore.kt`,原子替换写入)。
@@ -64,9 +64,10 @@
 - **等待提前结束**:收件箱给出「有插话还没交给模型」的信号(`core/run/SteerSignal.kt`),装在整个运行的协程上下文里。撤掉也什么都不丢的调用经 `waitOrSteer` 包起来,插话一到就提前结束:纯等待和只问看图模型的工具(声明 `AgentTool.yieldsToSteer`:wait、phone_wait、phone_event、web_wait_for、describe、find_visually,由分发器统一包)、`phone_run` 里的等字、`do_steps` 按条件等界面的每一段、网页换页之前的停留(`PageDwell`)、同一网站或 App 里两次对外动作之间的间隔(`ActionExecutor`)。被截断的调用报 `skipped_for_new_message`、这次什么也没做;在 `do_steps` 里这一步和后面的子步一起跳过。动作做完之后等界面安静、判效果的那一下不截断(它给的是动作的结果)。模型调用的重试等待本来就在模型请求里,随它一起撤掉。
 - **节奏保护不丢**:停留和间隔被截断时,动作本身不做(工具结果说明为什么、要的话再调一次)。两者都按时刻算(间隔从上一次对外动作做完算起,停留从这一页来的时刻算起),没停够的部分不算停过,下一次换页或对外动作之前照样补足余下的时间;插话只是让模型现在就能想,不会让下一次动作来得更快。
 - **一次多步途中**:`do_steps` 在两步之间发现有插话,就停在那里,结果写明「为处理新消息而跳过」(`skipped_for_new_message`),不算失败(`core/agent/BatchRunner.kt`)。某一步做完正在按条件等界面时有插话,等待也马上停下(那一步的 `wait.stopped` 是 `new_message`),后面的子步照样跳过。
-- **界面上马上有回音**:`TaskRun.steer` 送进收件箱成功就把这句话标成「已收到，下一步处理」(`SteerState.Received`),交给模型时改成「已加入当前任务」;对话页和悬浮胶囊的对话卡片都在这句话下面写这行小字(`steerLabel`)。
+- **界面上马上有回音**：`TaskRun.steer` 送进收件箱成功就把这句话标成「已收到，下一步调整当前任务」(`SteerState.Received`)；任务暂停/接管中显示「已收到，任务继续后处理」；交给模型时改成「已加入当前任务」；没赶上收尾、排到下一件时是「当前任务已结束，已排到下一件」。对话页和悬浮胶囊的对话卡片都在这句话下面写这行小字(`steerLabel`)。
 - **撤回与编辑插话**:默认仍直接插给当前任务。对话页长按尚未交给模型的消息,可以撤回或取回编辑;`RunInbox.withdrawSteer` 与 `takeSteers`、收尾共用一把锁,已交给模型或已收尾时返回失败。成功后标为 `SteerState.Withdrawn`,对话页和胶囊不再显示,也不计入已加入的插话。任务尚未交给服务时从 `ChatViewModel.held` 撤回。编辑恢复正文与引用,输入框已有草稿、引用或附件时不提供编辑;悬浮胶囊带着屏幕、浏览器页带着页面说明插的话不提供编辑(`editableSteer`):取回来时输入框开头是屏幕标记或几行页面说明原文,删掉就丢了屏幕和页面,改坏就认不出页面。电脑追加的插话(`SteerNote.remote`)也显示在对话里,但不提供撤回和编辑,收件箱也拒绝撤回(编辑会把只归当前任务的话变成手机插话、可能转成下一件事;撤不撤由电脑定);`remoteSteers` 把 `Withdrawn` 按 `not_applied` 报,不多出对外状态。
-- **没来得及处理的插话**:运行结束时还没消费的插话,如果用户没按停止,就成为这个对话的下一个任务;按了停止的丢掉(`TaskRun.handoffUnconsumed` 只管收尾时未消费的)。运行已关闭后才到的插话,由 `TaskRun.steer` 收不进收件箱时 `deferMessage`,或 `TaskService.begin` 发现任务已收尾时排成下一个任务。
+- **没来得及处理的插话**:运行结束时还没消费的插话,如果用户没按停止,就成为这个对话的下一件;按了停止的丢掉(`TaskRun.handoffUnconsumed` 只管收尾时未消费的)。运行已关闭后才到的插话,由 `TaskRun.steer` 收不进收件箱时排成下一件,或 `TaskService.begin` 发现任务已收尾时排成下一件。
+- **排队（`FollowUpQueue`，`app/task/FollowUpQueue.kt`）**：用户明确选「排队」的话和没赶上收尾的引导都进同一个按对话分开的 FIFO，落盘在 `files/followups-v1.json`（临时文件 + 落盘 + 原子改名；坏文件挪到 `.corrupt-时间戳`）。所有增删都先写盘再发布内存状态，写失败不出现「已排队」的界面状态；主对话先等服务空下来的那段也只落盘、不提前开始。附件先复制进对话工作区，再把其中的路径随原话入队；胶囊截图也先保存。服务用 `TaskCenter.tryStart(..., followUp)` 在同一个锁里决定开始还是放回队列；`onRunEnded` 只取**这个对话**的下一件，按 `claimNext` 一次一件；`cancelQueued` 之后也会取下一件，免得排在后面的项搁浅。容量队列里的项同样保留到真正 `markRunning` 才移除，容量排队时取消则同时移除。`claimed` 只在内存里：进程在取走和登记运行之间被杀，重启后这条仍是待处理；登记后运行记录里的 `followUpId` 负责去重和清账，不会重复执行。停止当前任务不取消明确排队的项；进程被杀或退出后队列文件保留，不在启动时自动开始，下次打开对话时 `ChatViewModel.openConversation/switchTo/refresh` 调 `TaskService.drainFollowUps`。界面用 `app.followUpQueue.changes` 显示输入框上方排队条；引导 fallback 由穿插话那行 `SteerState.Next` 表示，不重复显示。
 - **停止**:Cancel 是控制信号,不在插话后面排队。`TaskRun.cancel` 同时取消子任务;接管中就结束接管;排队中的直接移出队列。
 - **停止后的交代**:界面当场显示已停止,输入框空出来;随后补上几行交代当作这一轮的回答(做过什么、看到了什么、成批的事发出了几次和是哪些、哪些没做完),结局照旧是取消(评测、结果分类、学习都按取消算)。`TaskService` 收尾时先把运行编号登记进 `TaskCenterState.summarizing`(界面据此在「已停止」下面写「正在整理已做的事…」),记下「已取消」那一轮,再在进程级作用域里由 `TaskRun.stopSummary` 写,写好用 `ConversationStore.updateTurn` 改进那一轮,写好或写不成都拿掉登记;不挡着收尾、下一件事和再点停止。写法在 `StopSummary`(`core/agent/StopSummary.kt`):只读这次的运行记录(活动、那一步的用意、最近读到的两段、停下时写了一半的字,有上限,不带画面),请一次模型(轻量模型优先,出错换主模型,不给工具,总共 12 秒),没模型、出错、超时就按记录直接拼(`StopSummary.plain`)。对外动作(发送、提交)按活动上的 `outward`(`ActionExecutor` 照不可逆判定标上)数。什么也没做、也没写出字的只说已停止。下一轮的上文里写成「你中途停止了这次任务,停止前:…」(`Conversation.context`),「继续」知道从哪接着做。之前几轮读到的原文不进上文,要用时模型自己查(`history_read`,见「之前几轮的记录」)。
 
@@ -233,7 +234,7 @@
 - `MiniHttpServer`(`core/remote/HttpServer.kt`):共用的极简 HTTP/1.1 监听。每个连接一个线程,连接数、请求头、正文都有上限,认 Content-Length 和 chunked,连接可以复用。保留路径和查询参数供入口校验;不做 TLS,靠只收私有地址和访问令牌把关。
 - `RemoteAccess`(`core/remote/RemoteAccess.kt`):两个入口共用的门口,顺序固定:带 `Origin` 头的 403;同一地址一分钟内认证失败 5 次封一分钟(429,带 `Retry-After`);`Authorization: Bearer` 令牌按常量时间比较,不对 401。路由与错误格式由适配器决定,未知路径也先过认证。`privateAddress` 判定回环、局域网、私有组网和链路本地地址;连接两端有一端不是私有地址就当场断开。局域网令牌认所有允许的连接,USB 令牌只认回环,两个都比、不短路。认证失败计数跨 API 和 MCP 共用。
 - `RemoteTaskService`(`core/remote/RemoteTaskService.kt`):协议无关的启动、查询、列表、等待、回答与取消用例,集中校验输入和任务状态,返回类型化结果与业务错误;不包含 HTTP、MCP 工具名或 JSON-RPC 信封。`RemoteTasks` / `RemoteTask` / `RemoteStatus` 在 `core/remote/RemoteTasks.kt`;状态只从已有的 `TaskState` 映射,两种入口共用字段和同一个任务索引。等待按状态变化返回(进度说明变了不算),最多 50 秒;索引中的任务消失就报不存在。保留 mcp- 前缀以兼容已有远程对话 ID,与手机本地对话隔离。
-- `RemoteTaskApi`(`core/remote/RemoteTaskApi.kt`):普通 HTTP/JSON 入口 `/api/v1`,提供版本、任务生命周期和只读设备状态,无需 MCP 握手或工具发现。业务错误映射为 HTTP 状态和 code/message;未知字段会被拒绝。详细契约见 [CLI 文档](../cli.md#http-契约)。
+- `RemoteTaskApi`(`core/remote/RemoteTaskApi.kt`):普通 HTTP/JSON 入口 `/api/v1`,提供版本、任务生命周期、只读设备状态,以及按任务编号或运行记录编号导出脱敏运行记录(`GET /tasks/{id}/export`,有记录出口时能力里才有 run_export)。无需 MCP 握手或工具发现。业务错误映射为 HTTP 状态和 code/message;未知字段会被拒绝。详细契约见 [CLI 文档](../cli.md#http-契约)。
 - `McpRpc`(`core/mcp/McpRpc.kt`):Streamable HTTP 上的 JSON-RPC,只回单个 JSON、不开 SSE 流(规范允许),GET / DELETE 回 405,不发会话编号,服务端不发请求。两代协议都认:新一代(2026-07-28)每个请求在 `_meta` 里带版本和客户端能力,HTTP 头里的 `MCP-Protocol-Version`、`Mcp-Method`、`Mcp-Name` 要和正文一致(不一致 -32020),不认的版本回 -32022 并列出认的版本,支持 `server/discover`;老一代(2025-03-26 到 2025-11-25)先 `initialize` 握手,选双方都认的版本。工具参数不对、任务找不到是工具执行出错(`isError`),交回给对面的模型看;工具名不认得是协议错误。
 - `McpTaskTools`(`core/mcp/McpTaskTools.kt`):保留原有工具名、schema、MCP 提示文案与返回格式,把参数转为共用服务调用。`mika_run_task` / `mika_task_status` / `mika_wait_task` / `mika_answer` / `mika_cancel_task` / `mika_list_tasks` 均不另存任务状态。付款、确认和手机接管不能被普通回答放行。
 - `RemoteEndpoints`(`core/remote/RemoteEndpoints.kt`):完成传输认证后的共用协议路由,持有 `RemoteTaskService`,把 `/api/v1` 交给普通 API、`/mcp` 交给 MCP,并记录近期活动。它不认证连接,由调用者先完成对应入口的认证。
@@ -289,11 +290,11 @@
 
 - **工具**:`schedule_task`(`core/general/ScheduleTask.kt`),`op` = create(默认)/ list / pause / resume / delete / run_now / reschedule。只在对话界面发起的运行里提供。恢复认领过(跑过或正在跑)的一次性计划时(`TriggerEngine.setEnabled`)不改,报 `already_ran`(计划页对这种计划也不给开关),要再跑用 reschedule 或 run_now。
 - **时间规则**(`TriggerDefinition`,`core/trigger/Triggers.kt`):一次性(`at`);固定间隔(`intervalMinutes`,错过多次合并成一次并记下错过几次);按当地时间每天或每周几(`repeatAt` + `repeatZone` + `weekdays`),跨夏令时保持钟点不变。
-- **三种做法**:固定提醒(`reminder`)到点直接送达,不调模型;办事任务到点作为无人在场的 Run 执行;带 `condition` 的先用只读的网页和沙箱检查条件,结果结构化为 `ConditionOutcome`(`core/trigger/ConditionOutcome.kt`),检查出错不算「不满足」;只在条件从不满足变为满足时才执行动作。`whenIdle` 让它等到没有任务在跑时再做。
-- **调度**(`app/task/TriggerRuntime.kt`):系统闹钟只是唤醒信号,`FileTriggerStore` 是真源。派发前先写好下次时间和这一次的窗口(编号 = 触发器 + 到期时间),同一窗口不会派发两次。这一次的窗口已经记过账的计划不再认领,`rearm` 也不为它排闹钟(判断条件和认领时查账本的条件相同,见 `slotTaken`):按过期的到期时间排就是马上响,响了又认领不了,会一直空转。能用精确闹钟就用,没有权限时第一次会发通知引导用户去系统设置打开,`schedule_task` 的结果也告诉模型「可能不准时」;计划页显示提示。开机、改时间、改时区、精确闹钟权限变化时重新布置(`app/setup/BootRestoreReceiver.kt`),App 启动时也会。设备时区记在 `triggers` 里(`TriggerRuntime.syncTimeZone`):改时区时、App 启动时(关着时改了时区也补上;第一次只记下当前的)和记下的比,变了就把跟随旧设备时区的当地时间计划改到新时区重算(`TriggerEngine.rezone`),明确钉了别的时区的不动。
+- **三种做法**:固定提醒(`reminder`)到点直接送达,不调模型;办事任务到点作为无人在场的 Run 执行;带 `condition` 的先用只读的网页和沙箱检查条件,结果结构化为 `ConditionOutcome`(`core/trigger/ConditionOutcome.kt`),检查出错不算「不满足」。检查目标由 `conditionCheckGoal`(`core/trigger/ConditionCheck.kt`)生成:条件原文、比较基准、只输出 `{"met","value","evidence"}` 的要求;`value` 是下次拿来比的关键值(去掉格式字符、空白合成一个空格,至多 80 字);基准写进检查目标时按不可信内容套标记(`Untrusted`)。基准(`baselineValue`)是上次派发动作时的值,从没派发过时是第一次检查到的值。是否执行由 `afterCheck` 决定:`notifyWhen` 为 `ConditionNotify.BecomesMet`(默认)时只在条件从不满足变为满足时执行,`ConditionNotify.EachTimeMet` 时每次满足都执行;设了 `cooldownMs` 时,冷却从上次执行动作那次检查的计划时间算起(检查跑得快慢不影响),冷却期内想执行的这次跳过、不补跑(`lastConditionMet` 不动),冷却结束后的检查满足照样执行。跳过的时段记下原因 `condition_not_met`、`condition_unchanged` 或 `cooldown`。动作同步启动失败时 `revertFire` 把派发状态退回检查前;检查前已有基准时基准也退回,没有时留着这次记下的。动作已经登记或开始之后,无论成功、失败还是取消都保留这次派发基准,不自动重放同一变化。检查运行的目标是生成的检查指令;记进对话的那一轮(检查出错、排队时被取消、中断后的善后)和进度通知用用户写的条件原文(`StoredRun.userText`),不把检查指令记成用户的话。`whenIdle` 让它等到没有任务在跑时再做。
+- **调度**(`app/task/TriggerRuntime.kt`):系统闹钟只是唤醒信号,`FileTriggerStore` 是真源。主计划文件保持旧 schema,新增的观测值、基准、通知方式和冷却状态放在旁边的 `.conditions` sidecar;旧版本仍能读主计划,sidecar 损坏只丢掉扩展状态,不会清空整份计划。派发前先写好下次时间和这一次的窗口(编号 = 触发器 + 到期时间),同一窗口不会派发两次。这一次的窗口已经记过账的计划不再认领,`rearm` 也不为它排闹钟(判断条件和认领时查账本的条件相同,见 `slotTaken`):按过期的到期时间排就是马上响,响了又认领不了,会一直空转。能用精确闹钟就用,没有权限时第一次会发通知引导用户去系统设置打开,`schedule_task` 的结果也告诉模型「可能不准时」;计划页显示提示。开机、改时间、改时区、精确闹钟权限变化时重新布置(`app/setup/BootRestoreReceiver.kt`),App 启动时也会。设备时区记在 `triggers` 里(`TriggerRuntime.syncTimeZone`):改时区时、App 启动时(关着时改了时区也补上;第一次只记下当前的)和记下的比,变了就把跟随旧设备时区的当地时间计划改到新时区重算(`TriggerEngine.rezone`),明确钉了别的时区的不动。
 - **结果回原对话**:到点的任务就在创建它的对话里运行,结果、提醒和失败说明都写回那个对话,通知点开就是它。
 - **进程中途被杀**:提醒重新送达(按编号去重);其他已认领的窗口标为结果不明,在原对话里说明并通知「Mika 不会自动重复操作」。
-- **计划页**(`app/ui/PlansScreen.kt`):分「进行中」「已停用」两段,每条三行(做什么、重复规则与下次时间或状态、上次结果),右边开关即暂停与恢复;点一行升起操作面板:看对话、立即执行、改时间、删除。
+- **计划页**(`app/ui/PlansScreen.kt`):分「进行中」「已停用」两段,每条三行(做什么、重复规则与下次时间或状态、上次结果:跳过的分「条件未满足」「条件未变化」「冷却期内」,那次检查记下了值时一起显示),右边开关即暂停与恢复;点一行升起操作面板:看对话、立即执行、改时间、删除。
 
 ## 11. 知识与技能
 
@@ -335,7 +336,11 @@
 
 ## 13. 运行记录
 
+电脑任务台经 `RemoteHistory` 只读接口查看手机保存的对话与运行。`PhoneHistory` 直接读 `ConversationStore`、`RunStore` 和 `TraceStore`，按对话核对运行归属，活动任务读任务中心自己的状态。`McpSettings.historyEnabled` 默认关闭，由手机「连接电脑 → 高级设置」授权，适用于 USB 与私有网络。新接口仍先过 `RemoteAccess`；机主授权后，模型请求与回复正文只在任务台显式展开时分页读取。控制接口继续只认 `RemoteTaskHub` 登记的任务，历史读取不扩大任务控制范围。任务状态附带实际 `"run_id"`，供前端将远程任务与同一历史轮次合并；任务台在原有可见页面的刷新调度中更新录制，保持所选轮次与草稿。
+
 每次运行写一份记录(`app/record/RunStore.kt`):`files/runs/<时间>-<编号>/` 下的 `run.json`、`events.jsonl` 与画面截图,保留最近 30 次。事件类型见 `core/record/RunEvent.kt`(模型回复与用量、工具结果、观察、活动、确认、接管、来源、压缩、结局判定等);写入前由 `Redactor` 遮掉密码框输入和像密钥的字符串。界面上「查看过程」打开时间线(`app/ui/RunTimelineScreen.kt`):顶部是目标、标准、结局、用时,模型调用次数等细节收在「更多详情」里,下面用竖线步骤(`components/StepLine.kt`)逐步列出,点有画面的步骤看当时的画面。任务在跑时对话页的步骤下面就有「运行过程」:编号按卡片所在的对话取(`TaskCenterState.run(对话).runId`,和结束时的 `endedRunIds` 同一个来处,不用服务对外那份显示中的编号);页面顶上结局写「进行中」,每秒重读一次记录、步骤往下长,不自动滚到底;有结束记录或任务已不在(`RunTimelineViewModel` 的 `alive`,进程被杀、记录没写完的那种)就停。
+
+电脑侧用同一份落盘记录排障(`core/remote/RunRecordExport.kt`,`app/task/RemoteRunExport.kt`):`GET /api/v1/tasks/{id}/export`(CLI `mika task export`)按任务编号或运行记录编号导出,头里写 `task_id`、`conversation_id`、run_id,`exportFormat` 为 1。导出时字符串再过一遍 `Redactor`。只认 `RemoteTaskHub` 收件索引里、且属于当前电脑访问令牌的任务；运行概要里的来源字段和缺失索引都不能代替归属校验，手机上发起的运行不导出。进行中、或任务已交但记录还没开,标 `partial`。不读截图文件,也不附带 OTLP Trace。运行记录一打开,`TaskRun` 把编号记到对应的收件上,进程重启后按任务编号仍能导出。
 
 **详细 Trace** 默认关闭。调试版和性能测试版可在「设置 → 开发者选项 → 运行记录」开启，从下一次任务起采集，关闭即停录。四种模型接口的每次主循环请求（含重发）和顶层工具调用各记一个 span。在「查看过程 → 详细 Trace」可对照同一模型相邻请求中首个变化的块，缓存用量未上报与命中为零分开显示。
 

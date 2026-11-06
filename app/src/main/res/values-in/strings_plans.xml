@@ -40,6 +40,10 @@
     <string name="plans_never_run">Belum pernah berjalan</string>
     <string name="plans_delivered">Terkirim</string>
     <string name="plans_unchanged">Kondisi tidak berubah</string>
+    <string name="plans_not_met">Kondisi tidak terpenuhi</string>
+    <string name="plans_cooldown">Dalam masa tunggu</string>
+    <string name="plans_condition_each">Berjalan setiap kali terpenuhi: %1$s · %2$s</string>
+    <string name="plans_last_value">Terakhir %1$s · %2$s · %3$s</string>
     <string name="plans_running_now">Berjalan</string>
     <string name="trigger_deleted">Tugas terjadwal sudah dihapus</string>
     <string name="trigger_busy">Tugas ini masih berjalan</string>

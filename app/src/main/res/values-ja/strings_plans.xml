@@ -40,6 +40,10 @@
     <string name="plans_never_run">まだ実行されていません</string>
     <string name="plans_delivered">通知済み</string>
     <string name="plans_unchanged">条件は変わっていません</string>
+    <string name="plans_not_met">条件を満たしていません</string>
+    <string name="plans_cooldown">クールダウン期間内</string>
+    <string name="plans_condition_each">条件を満たすたびに実行: %1$s · %2$s</string>
+    <string name="plans_last_value">前回 %1$s · %2$s · %3$s</string>
     <string name="plans_running_now">実行中</string>
     <string name="trigger_deleted">スケジュールされたタスクを削除しました</string>
     <string name="trigger_busy">このタスクはまだ実行中です</string>
