@@ -14,6 +14,7 @@
     <string name="voice_left">還剩 %1$d 秒</string>
     <string name="voice_slide_cancel">上滑取消</string>
     <string name="voice_release_cancel">放開 取消</string>
+    <string name="voice_release_send">放開 傳送</string>
     <string name="voice_release_fill">放開 填入</string>
     <string name="voice_release_convert">放開 轉文字</string>
     <string name="voice_converting">轉文字…</string>

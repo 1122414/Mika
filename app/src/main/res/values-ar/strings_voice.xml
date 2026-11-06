@@ -15,6 +15,7 @@
     <string name="voice_left">تبقّى %1$d ث</string>
     <string name="voice_slide_cancel">اسحب لأعلى للإلغاء</string>
     <string name="voice_release_cancel">ارفع إصبعك للإلغاء</string>
+    <string name="voice_release_send">ارفع إصبعك للإرسال</string>
     <string name="voice_release_fill">ارفع إصبعك للإدراج</string>
     <string name="voice_release_convert">ارفع إصبعك للتحويل</string>
     <string name="voice_converting">جارٍ التحويل…</string>

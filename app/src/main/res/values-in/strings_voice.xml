@@ -14,6 +14,7 @@
     <string name="voice_left">Sisa %1$d dtk</string>
     <string name="voice_slide_cancel">Geser ke atas untuk membatalkan</string>
     <string name="voice_release_cancel">Lepaskan untuk membatalkan</string>
+    <string name="voice_release_send">Lepaskan untuk mengirim</string>
     <string name="voice_release_fill">Lepaskan untuk mengisi</string>
     <string name="voice_release_convert">Lepaskan untuk mengubah</string>
     <string name="voice_converting">Mengubah…</string>

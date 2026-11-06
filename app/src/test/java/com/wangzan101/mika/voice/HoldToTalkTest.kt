@@ -292,4 +292,89 @@ class HoldToTalkTest {
         assertEquals("book ", HoldToTalk.join("book ", ""))
         assertEquals("book a", HoldToTalk.join("book ", "a"))
     }
+
+    @Test
+    fun sendArmedGivesDoneToSend() {
+        val session = pressed()
+        now = 2_000
+        hold.aim(cancel = false, send = true)
+        assertTrue((hold.state.value as HoldToTalk.State.Listening).sendArmed)
+        hold.release()
+        assertEquals(1, session.released)
+        hold.onEvent(SpeechEvent.Final("帮我订票"))
+        assertEquals(HoldToTalk.State.Done("帮我订票", send = true), hold.state.value)
+    }
+
+    @Test
+    fun sendDisarmedFillsAsBefore() {
+        pressed()
+        now = 2_000
+        hold.aim(cancel = false, send = true)
+        hold.aim(cancel = false, send = false)
+        hold.release()
+        hold.onEvent(SpeechEvent.Final("帮我订票"))
+        assertEquals(HoldToTalk.State.Done("帮我订票", send = false), hold.state.value)
+    }
+
+    @Test
+    fun sendArmedKeepsPendingResultAndSendsOnRelease() {
+        pressed()
+        now = 2_000
+        // 手还按着时会话先结束了:留着,松开在「松开 发送」上才直接发出
+        hold.onEvent(SpeechEvent.Final("帮我订票"))
+        hold.aim(cancel = false, send = true)
+        hold.release()
+        assertEquals(HoldToTalk.State.Done("帮我订票", send = true), hold.state.value)
+    }
+
+    @Test
+    fun sendArmedConvertsThenSends() {
+        val session = pressed(live = false)
+        now = 2_000
+        hold.aim(cancel = false, send = true)
+        hold.release()
+        assertEquals(HoldToTalk.State.Converting, hold.state.value)
+        assertEquals(1, session.released)
+        hold.onEvent(SpeechEvent.Final("帮我订票"))
+        assertEquals(HoldToTalk.State.Done("帮我订票", send = true), hold.state.value)
+    }
+
+    @Test
+    fun sendArmedButTooShortIsNoMatch() {
+        val session = pressed()
+        now = 300
+        hold.aim(cancel = false, send = true)
+        hold.release()
+        assertEquals(HoldToTalk.State.Problem(null), hold.state.value)
+        assertEquals(0, session.released)
+    }
+
+    @Test
+    fun cancelWinsOverSend() {
+        val session = pressed()
+        now = 2_000
+        hold.aim(cancel = true, send = true)
+        val s = hold.state.value as HoldToTalk.State.Listening
+        assertTrue(s.cancelArmed)
+        assertFalse(s.sendArmed)
+        hold.release()
+        assertEquals(HoldToTalk.State.Idle, hold.state.value)
+        assertEquals(1, session.cancelled)
+    }
+
+    @Test
+    fun nextPressStartsWithoutSend() {
+        pressed()
+        now = 2_000
+        hold.aim(cancel = false, send = true)
+        hold.release()
+        hold.onEvent(SpeechEvent.Final("帮我订票"))
+        hold.reset()
+        // 上一段松开在「松开 发送」上,不影响下一段
+        pressed()
+        now = 4_000
+        hold.release()
+        hold.onEvent(SpeechEvent.Final("再订一张"))
+        assertEquals(HoldToTalk.State.Done("再订一张", send = false), hold.state.value)
+    }
 }

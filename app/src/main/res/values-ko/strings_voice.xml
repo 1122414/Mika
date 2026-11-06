@@ -14,6 +14,7 @@
     <string name="voice_left">%1$d초 남음</string>
     <string name="voice_slide_cancel">위로 밀어서 취소</string>
     <string name="voice_release_cancel">손을 떼면 취소돼요</string>
+    <string name="voice_release_send">손을 떼면 보내져요</string>
     <string name="voice_release_fill">손을 떼면 입력돼요</string>
     <string name="voice_release_convert">손을 떼면 변환돼요</string>
     <string name="voice_converting">변환 중…</string>
