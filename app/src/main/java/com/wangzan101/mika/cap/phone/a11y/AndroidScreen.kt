@@ -185,6 +185,7 @@ class AndroidScreen(
         val late = if (register) lateSpill() else null
         val r = read()
         val after = treeHash()
+        val foreground = if (r.topPackage == null) foregroundTaskPackage() else null
         val snap = NodeSnapshot(snapshotId(), r.entries)
         if (register) ids.put(snap)
         ScreenSnapshot(
@@ -194,12 +195,14 @@ class AndroidScreen(
             width = screenWidth,
             height = screenHeight,
             changedDuringRead = after != r.hash,
-            protected = r.hasAppWindow && frameBlack() == true,
             hasWindow = r.anyAppWindow,
-            unreadableApp = if (r.topPackage == null) foregroundTaskPackage() else null,
+            unreadableApp = foreground,
             windows = r.windows,
             // 还在等用户在主屏上选:照样说一声
             opened = late?.opened ?: _userPick.value?.let { OpenedElsewhere(it.packageName, it.app, pulledBack = false, picker = true) },
+            // 黑帧只说明画面不可用,不能据此声称窗口防截屏;读屏元素仍可作为降级路径。
+            captureError = if ((r.anyAppWindow || foreground != null) && frameServable() && frameBlack() == true)
+                ScreenDiagnosis.DISPLAY_CAPTURE_UNAVAILABLE else null,
         )
     }
 
@@ -230,7 +233,8 @@ class AndroidScreen(
     }.distinctUntilChanged { a, b -> a.packageName == b.packageName && a.userId == b.userId }
 
     override suspend fun screenshotPng(): ByteArray? = withContext(Dispatchers.IO) {
-        if (!frameServable()) return@withContext null
+        // 黑图没有可用画面信息,也不能凭它区分安全窗口和合成失败;不要交给模型或 OCR。
+        if (!frameServable() || frameBlack() == true) return@withContext null
         display.current?.latestFramePng()
     }
 
@@ -275,17 +279,13 @@ class AndroidScreen(
         runCatching { FrameGrid.sample(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
-    override suspend fun isProtected(): Boolean = withContext(Dispatchers.IO) {
-        hasDisplay && read().hasAppWindow && frameBlack() == true
-    }
-
     override suspend fun checkScreen(): ScreenCheck = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext ScreenDiagnosis.classify(
             ScreenFacts(currentApp = null, hasWindow = false, readableElements = 0, changing = false, blackFrames = emptyList(), texts = emptyList(), passwordField = false),
         )
         // 先看界面会不会安静下来:一直有变化就是还在加载
         val quiet = withEventClock { clock -> clock.awaitQuiet(QUIET_MS, CHECK_CAP_MS) }
-        // 安静时取两次画面,两次都黑才可能是防截屏
+        // 安静时看两次;持续全黑只报画面不可用,不把黑像素当成防截屏的证据
         val black = mutableListOf<Boolean>()
         frameBlack()?.let(black::add)
         if (quiet) {
@@ -1902,7 +1902,7 @@ class AndroidScreen(
         return runCatching { FrameMath.lumaGrid(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
-    /** 画面是否全黑(防截屏窗口在虚拟屏上画成黑色);没有画面时为 null。 */
+    /** 画面是否全黑;安全窗口和虚拟屏合成失败都可能产生这种帧,不能单靠它判原因。 */
     private fun frameBlack(): Boolean? {
         val bmp = display.current?.frames?.value ?: return null
         return runCatching { FrameMath.isBlack(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()

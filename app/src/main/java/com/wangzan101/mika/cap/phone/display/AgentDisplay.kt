@@ -8,6 +8,7 @@ import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import android.util.Log
 import android.view.Surface
 import com.wangzan101.mika.shell.IMikaShell
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,7 +88,13 @@ class AgentDisplay(
 
     private fun processLatest() {
         if (released) return
-        val image = runCatching { reader.acquireLatestImage() }.getOrNull() ?: return
+        val image = try {
+            reader.acquireLatestImage()
+        } catch (t: Throwable) {
+            // 没拿到新帧时沿用现有null/新鲜度保护;留下取帧失败证据,不把旧帧当新帧。
+            Log.w(TAG, "acquireLatestImage failed: ${t.javaClass.simpleName}", t)
+            null
+        } ?: return
         try {
             val plane = image.planes[0]
             val strideWidth = plane.rowStride / plane.pixelStride
@@ -154,6 +161,7 @@ class AgentDisplay(
     }
 
     private companion object {
+        const val TAG = "AgentDisplay"
         const val PREVIEW_SHORT_SIDE = 360
         const val FRAME_INTERVAL_MS = 100L
     }

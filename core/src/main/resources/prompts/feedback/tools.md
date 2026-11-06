@@ -469,6 +469,9 @@ No readable elements. The app may still be loading: wait, then look again. If it
 ## screenshot_unavailable
 The screen could not be captured right now. Read the element list instead.
 
+## display_capture_unavailable
+The app window is present, but the virtual display is providing only black frames. Black pixels alone cannot distinguish a secure window from content that this display cannot render. Do not send or describe the black image, and do not keep retrying screenshots. Use readable accessibility elements if they are enough for the task; otherwise call hand_to_user with reason display_capture so the user can take over on the device screen.
+
 ## recall_not_found
 Only the last {{keep}} screens of this task are kept; these ids are unknown or too old. Use the screenshotId from a screen read.
 
