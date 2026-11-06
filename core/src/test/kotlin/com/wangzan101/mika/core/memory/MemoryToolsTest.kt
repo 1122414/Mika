@@ -61,6 +61,7 @@ class MemoryToolsTest {
         toolDispatcher(screen, memory = store, utterances = utterances)
 
     private fun ToolDispatcher.run(name: String, args: JsonObject) = runBlocking { execute(memCall(name, args)).content }
+    private fun ToolDispatcher.search(query: String) = run("memory_search", buildJsonObject { put("query", query) })
     private fun JsonObject.s(k: String) = this[k]!!.jsonPrimitive.content
 
     @Test fun saveFactActiveProcedurePending() {
@@ -276,6 +277,7 @@ class MemoryToolsTest {
             add("再把那条记忆删掉")
         }
         val d = dispatcher(store, said)
+        d.search("外卖")
         val updated = d.run("memory_edit", editArgs("update", original.id, "把外卖那条改成以后点外卖不要香菜和葱", "用户点外卖不要香菜和葱"))
         assertEquals("true", updated.s("ok")); assertEquals("update", updated.s("op")); assertEquals(original.id, updated.s("id"))
         assertEquals("用户点外卖不要香菜和葱", store.items.value.single().content)
@@ -321,16 +323,64 @@ class MemoryToolsTest {
     @Test fun editMissingIdDoesNothing() {
         val store = memStore()
         val d = dispatcher(store, UserUtterances().apply { add("把那条记忆删掉") })
+        d.search("不存在")
         val result = d.run("memory_edit", editArgs("delete", "missing", "把那条记忆删掉"))
         assertEquals("not_found", result.s("error"))
         assertTrue(d.savedChanges.isEmpty())
+    }
+
+    @Test fun editRequiresIdInLatestSearchCandidates() {
+        val store = memStore()
+        val first = store.add(MemoryKind.fact, "用户点外卖不要香菜", listOf("外卖"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val second = store.add(MemoryKind.fact, "用户家住浦东", listOf("住址"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val original = store.items.value
+        val d = dispatcher(store, UserUtterances().apply { add("把那条记忆删掉") })
+
+        val noSearch = d.run("memory_edit", editArgs("delete", first.id, "把那条记忆删掉"))
+        assertEquals("not_found", noSearch.s("error"))
+        assertEquals(original, store.items.value)
+
+        d.search("没有匹配")
+        val emptySearch = d.run("memory_edit", editArgs("delete", first.id, "把那条记忆删掉"))
+        assertEquals("not_found", emptySearch.s("error"))
+        assertEquals(original, store.items.value)
+
+        d.search("外卖")
+        val notCandidate = d.run("memory_edit", editArgs("delete", second.id, "把那条记忆删掉"))
+        assertEquals("not_found", notCandidate.s("error"))
+        assertEquals(original, store.items.value)
+        assertTrue(d.savedChanges.isEmpty())
+    }
+
+    @Test fun multipleCandidatesNeedExactIdInCurrentQuote() {
+        val store = memStore()
+        val first = store.add(MemoryKind.fact, "用户家住浦东", listOf("住址"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val second = store.add(MemoryKind.fact, "用户家住张江", listOf("住址"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val generic = "把那条记忆删掉"
+        val exact = "把 ${first.id} 那条记忆删掉"
+        val d = dispatcher(store, UserUtterances().apply { add(generic); add(exact) })
+        d.search("住址")
+
+        val ambiguous = d.run("memory_edit", editArgs("delete", first.id, generic))
+        assertEquals("ambiguous_target", ambiguous.s("error"))
+        assertEquals(listOf(first, second), store.items.value)
+        assertTrue(d.savedChanges.isEmpty())
+
+        val deleted = d.run("memory_edit", editArgs("delete", first.id, exact))
+        assertEquals("true", deleted.s("ok"))
+        assertEquals(listOf(second), store.items.value)
+        assertEquals(1, d.savedChanges.size)
     }
 
     @Test fun editRunRecordKeepsOperationButNoMemoryText() = runTest {
         val store = memStore()
         val item = store.add(MemoryKind.fact, "用户觉得旧名字不好", emptyList(), MemorySource("manual", atMs = 1)).getOrThrow().item
         val events = mutableListOf<RunEvent>()
-        val model = FakeModel(toolReply(memCall("memory_edit", editArgs("delete", item.id, "把那条记忆删掉"))), finishReply)
+        val model = FakeModel(
+            toolReply(memCall("memory_search", buildJsonObject { put("query", "旧名字") })),
+            toolReply(memCall("memory_edit", editArgs("delete", item.id, "把那条记忆删掉"))),
+            finishReply,
+        )
         AgentLoop(model, toolDispatcher(FakeScreen(), memory = store, utterances = UserUtterances()), "B",
             sink = object : RunSink { override fun event(e: RunEvent) { events += e } }, memory = store).run("把那条记忆删掉")
         val record = events.filter { it is RunEvent.ModelReply || it is RunEvent.ToolResult }.joinToString("\n") { RunEvent.encode(it) }

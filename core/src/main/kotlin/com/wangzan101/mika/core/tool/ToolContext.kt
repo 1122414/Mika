@@ -89,6 +89,11 @@ internal class ToolContext(
     val savedChanges: List<Change> get() = synchronized(saved) { saved.toList() }
     fun noteSaved(c: Change) = synchronized(saved) { saved += c }
 
+    /** 最近一次 memory_search 返回的稳定编号;null 表示本任务还没搜过,空列表表示最近搜不到。 */
+    @Volatile private var memoryCandidates: List<String>? = null
+    fun noteMemorySearch(ids: List<String>) { memoryCandidates = ids }
+    fun memorySearchCandidates(): List<String>? = memoryCandidates
+
     /** 这次调用的工具会由分发器报实际效果(effect):「没变化」由效果来说,这里不另提示。 */
     var reportsEffect = false
 

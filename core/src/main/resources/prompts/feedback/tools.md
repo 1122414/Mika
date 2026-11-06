@@ -397,10 +397,10 @@ Update or delete needs the exact words from the current user message. A previous
 The quoted current message does not explicitly ask to update or delete a memory. Nothing was changed; ask the user what they want changed.
 
 ## memory.not_found
-No memory has this exact id. Nothing was changed. Search again; if more than one entry could be the target, ask the user which one instead of guessing.
+The id is not in the latest memory_search result set, or no search has run. Nothing was changed. Search again and use an exact returned id.
 
 ## memory.ambiguous_target
-The stored id matches more than one entry, so the target is not unambiguous. Nothing was changed; do not retry an update or deletion for this id.
+The latest search returned multiple entries and the current quote does not contain the exact id, or the stored id is duplicated. Nothing was changed. Narrow the search to one entry or ask the user to specify the exact id; do not retry an ambiguous update or deletion.
 
 ## memory.content_not_from_user
 content or keywords contain details (names, numbers, addresses) the user did not say in this task. Save only what the user said.

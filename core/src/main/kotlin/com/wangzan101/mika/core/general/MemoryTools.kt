@@ -49,6 +49,7 @@ internal object MemorySearch : AgentTool {
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
         val q = a.str("query", max = 100)!!
         val found = MemoryIndex(ctx.config.memory!!.items.value).search(q, MEMORY_SEARCH_LIMIT)
+        ctx.noteMemorySearch(found.map { (m, _) -> m.id })
         return ok {
             put("memories", JsonArray(found.map { (m, _) ->
                 buildJsonObject { put("id", m.id); put("kind", m.kind.name); put("content", m.content) }
@@ -150,6 +151,13 @@ internal object MemoryEdit : AgentTool {
             else -> throw ArgError("op", "must be update or delete")
         }
         if (!requested) return fail("edit_not_requested", Feedback["memory.edit_not_requested"], recoverable = false)
+        val candidates = ctx.memorySearchCandidates()
+        if (candidates == null || id !in candidates) {
+            return fail("not_found", Feedback["memory.not_found"], recoverable = true)
+        }
+        if (candidates.size > 1 && !quotesExactId(quote, id)) {
+            return fail("ambiguous_target", Feedback["memory.ambiguous_target"], recoverable = false)
+        }
         if (op == "update" && (listOf(content!!) + keywords.orEmpty()).any { utterances.unsupportedSpecifics(it, quote).isNotEmpty() }) {
             return fail("content_not_from_user", Feedback["memory.content_not_from_user"], recoverable = false)
         }
@@ -184,6 +192,9 @@ internal object MemoryEdit : AgentTool {
             },
         )
     }
+
+    private fun quotesExactId(quote: String, id: String): Boolean =
+        Regex("(?<![A-Za-z0-9_-])" + Regex.escape(id) + "(?![A-Za-z0-9_-])").containsMatchIn(quote)
 
     private val UPDATE_REQUEST = Regex("修改|改成|改为|更新|更正|改掉|编辑|\\b(?:update|change|edit|correct)\\b", RegexOption.IGNORE_CASE)
     private val DELETE_REQUEST = Regex("删除|删掉|删了|忘掉|忘记|别记|不要记|取消记忆|\\b(?:delete|forget|remove)\\b", RegexOption.IGNORE_CASE)
