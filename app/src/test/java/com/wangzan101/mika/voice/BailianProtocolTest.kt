@@ -34,6 +34,7 @@ class BailianProtocolTest {
         assertEquals("pcm", params.getValue("format").jsonPrimitive.content)
         assertEquals("16000", params.getValue("sample_rate").jsonPrimitive.content)
         assertNull(params["intermediate_result_enabled"])
+        assertEquals("true", params.getValue("heartbeat").jsonPrimitive.content)
         val finish = obj(p.closing().single()).getValue("header").jsonObject
         assertEquals("finish-task", finish.getValue("action").jsonPrimitive.content)
         assertEquals(taskId, finish.getValue("task_id").jsonPrimitive.content)
@@ -59,6 +60,7 @@ class BailianProtocolTest {
         val params = obj(BailianProtocol("qwen-audio-3.1-asr-flash-message").opening().single())
             .getValue("payload").jsonObject.getValue("parameters").jsonObject
         assertEquals("true", params.getValue("intermediate_result_enabled").jsonPrimitive.content)
+        assertNull(params["heartbeat"])
     }
 
     @Test fun sentencesReplaceByIdAndAreKeptWhenTheyEnd() {

@@ -9,7 +9,7 @@ import org.junit.Test
 
 class HoldToTalkTest {
     /** 假会话:只记松开、取消各被调了几次;事件由测试直接喂给 [HoldToTalk.onEvent]。 */
-    private class FakeSession(override val live: Boolean = true) : SpeechSession {
+    private class FakeSession(override val live: Boolean = true, override val unlimited: Boolean = false) : SpeechSession {
         override val events: Flow<SpeechEvent> = emptyFlow()
         var released = 0
         var cancelled = 0
@@ -115,6 +115,19 @@ class HoldToTalkTest {
         // 到点以后再 tick 不重复收尾
         now = 61_000
         hold.tick()
+        assertEquals(1, session.released)
+    }
+
+    // 流式识别不封顶:过了 60 秒照样听,不收尾,松开才收尾
+    @Test
+    fun unlimitedSessionKeepsListeningPastTheCap() {
+        val session = FakeSession(unlimited = true).also { hold.press(it) }
+        assertTrue((hold.state.value as HoldToTalk.State.Listening).unlimited)
+        now = 180_000
+        hold.tick()
+        assertEquals(0, session.released)
+        assertEquals(180_000L, (hold.state.value as HoldToTalk.State.Listening).elapsedMs)
+        hold.release()
         assertEquals(1, session.released)
     }
 

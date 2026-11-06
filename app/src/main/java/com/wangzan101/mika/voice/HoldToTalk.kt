@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * 按住说话的状态机:按下、上滑取消、松开、到点收尾、收会话的事件,算出界面此刻该显示什么。
  * 不碰界面也不碰手势,对话输入栏和悬浮胶囊共用;会话由调用方开好再交进来([press]),
- * 事件由调用方收了转进来([onEvent]),[tick] 由调用方按住时定时调(计时、到 [maxMs] 收尾)。
+ * 事件由调用方收了转进来([onEvent]),[tick] 由调用方按住时定时调(计时、到 [maxMs] 收尾;会话不封顶时不收尾)。
  * 手还按着时会话自己先结束了(手机自带识别一段说完不再重开、中途出错但已听到字):结果先留着,
  * 等手指离开再按那时的落点处理——停在取消上就丢掉,否则才交出去;这样不会在用户想取消时把字发出去。
  * 只在一个线程(主线程)上调。
@@ -18,7 +18,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
 
         /**
          * 按着(或刚松开、手机自带识别还在收尾):[stable] 已经定下的字,[tail] 末尾还可能变的几个字。
-         * [ended]:手还按着,会话却已经结束、结果留着等松开。
+         * [ended]:手还按着,会话却已经结束、结果留着等松开。[unlimited]:这次不封顶(见 [SpeechSession.unlimited]),不倒数。
          */
         data class Listening(
             val stable: String,
@@ -28,6 +28,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
             val cancelArmed: Boolean,
             val live: Boolean,
             val ended: Boolean = false,
+            val unlimited: Boolean = false,
         ) : State
 
         /** 服务商:松开后在转文字。 */
@@ -57,7 +58,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
         startedAt = clock()
         released = false
         pending = null
-        _state.value = State.Listening("", "", 0f, 0, cancelArmed = false, live = session.live)
+        _state.value = State.Listening("", "", 0f, 0, cancelArmed = false, live = session.live, unlimited = session.unlimited)
     }
 
     /** 手指从按下处往上移了 [upPx];超过 [thresholdPx] 就是「松开取消」,移回来又恢复。 */
@@ -109,7 +110,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
         val s = _state.value as? State.Listening ?: return
         if (released || (session == null && pending == null)) return
         val elapsed = clock() - startedAt
-        if (elapsed >= maxMs) {
+        if (!s.unlimited && elapsed >= maxMs) {
             _state.value = s.copy(elapsedMs = maxMs)
             release()
         } else if (elapsed != s.elapsedMs) {

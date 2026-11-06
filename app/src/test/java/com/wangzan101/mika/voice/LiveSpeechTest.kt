@@ -56,6 +56,8 @@ class LiveSpeechTest {
         val session = LiveSpeech(capture, FunAsrProtocol(), { socket }, this)
         val events = collect(session)
         assertTrue(session.live)
+        // 边说边传:按住多久都行
+        assertTrue(session.unlimited)
         assertEquals("START", socket.text())
         // 服务端确认前录到的音频先留着
         repeat(2) { capture.chunks.send(ShortArray(800) { 7 }) }

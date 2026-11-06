@@ -570,7 +570,7 @@ private fun ListenCard(s: HoldToTalk.State.Listening, title: String, engine: Str
                     stringResource(if (s.live) R.string.voice_foot_live else R.string.voice_foot_convert),
                     Modifier.weight(1f), style = FootText, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                VoiceCopy.countdown(s.elapsedMs)?.let { Text(it, style = FootText, color = c.warn) }
+                if (!s.unlimited) VoiceCopy.countdown(s.elapsedMs)?.let { Text(it, style = FootText, color = c.warn) }
             }
         }
     }

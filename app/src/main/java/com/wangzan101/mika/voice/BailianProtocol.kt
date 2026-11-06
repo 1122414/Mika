@@ -38,6 +38,8 @@ internal class BailianProtocol(private val model: String, private val language: 
                 if (language != AsrLanguage.Auto) put("language_hints", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(language.code)) })
                 // 通义听写消息版默认不给中间结果,打开才能边说边出字
                 if (model.startsWith("qwen-audio")) put("intermediate_result_enabled", true)
+                // 按住说话不封顶,中间停下想一想时静音较久:开心跳,服务端不因长时间静音断开(心跳结果在 read 里跳过)
+                else put("heartbeat", true)
             }
             putJsonObject("input") {}
         }

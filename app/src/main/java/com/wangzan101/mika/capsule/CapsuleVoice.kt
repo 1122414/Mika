@@ -207,7 +207,8 @@ internal class CapsuleTalk(
             while (active && !released) {
                 delay(TICK_MS)
                 // 到点按此刻的落点收尾(状态机到点也会自己松开,但它不知道落点)
-                if (SystemClock.elapsedRealtime() - startedAt >= MAX_MS) finish(aim) else hold.tick()
+                val unlimited = (hold.state.value as? HoldToTalk.State.Listening)?.unlimited == true
+                if (!unlimited && SystemClock.elapsedRealtime() - startedAt >= MAX_MS) finish(aim) else hold.tick()
             }
         }
         return Begin.Started

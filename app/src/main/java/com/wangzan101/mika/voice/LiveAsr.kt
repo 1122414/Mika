@@ -157,6 +157,7 @@ internal fun pcmBytes(pcm: ShortArray, size: Int = pcm.size): ByteArray {
 /**
  * 一次按住说话:录音和上传、收结果同时进行;松开后送完剩下的音频和收尾消息,等服务端说结束才给 Final。
  * 断开、超时都算失败,不把没收完的中间结果当最终文字交出去(交出去的字会接着发给模型)。
+ * 按住多久都行([unlimited]):只有连接、等开始、等终结果各有时限,整次会话不设上限。
  */
 internal class LiveSpeech(
     private val recorder: StreamingRecorder,
@@ -170,6 +171,8 @@ internal class LiveSpeech(
     private val out = SessionEvents()
     override val events: Flow<SpeechEvent> = out.flow
     override val live = true
+    // 边说边传、不攒整段录音:按住多久都行
+    override val unlimited = true
     private var work: Job? = null
     private var levels: Job? = null
     private var stopping: Job? = null
@@ -186,7 +189,7 @@ internal class LiveSpeech(
     private suspend fun runSession() {
         var socket: LiveAsrSocket? = null
         try {
-            withTimeout(SESSION_LIMIT_MS) {
+            run {
                 val connection = withTimeout(connectTimeoutMs) { connect() }
                 socket = connection
                 protocol.opening().forEach(connection::sendText)
@@ -285,9 +288,6 @@ internal class LiveSpeech(
     companion object {
         /** 100 ms 一包(16 kHz 单声道)。 */
         const val PACKET_SAMPLES = 1600
-
-        /** 录音最多 60 秒,加上连接和等终结果的时间。 */
-        const val SESSION_LIMIT_MS = 80_000L
     }
 }
 
