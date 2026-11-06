@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">일본어</string>
     <string name="speech_asr_language_yue">광둥어</string>
     <string name="speech_asr_language_ko">한국어</string>
-    <string name="speech_asr_language_note">‘자동’이면 서비스가 판단합니다. 직접 운영하는 서버가 인식할 수 있는 언어는 실행 중인 모델에 따라 다릅니다.</string>
 </resources>

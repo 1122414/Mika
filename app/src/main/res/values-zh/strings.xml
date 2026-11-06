@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">日语</string>
     <string name="speech_asr_language_yue">粤语</string>
     <string name="speech_asr_language_ko">韩语</string>
-    <string name="speech_asr_language_note">选「自动」时由服务自己判断。自建服务能识别哪些语言取决于它运行的模型。</string>
 </resources>

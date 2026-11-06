@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">Japonês</string>
     <string name="speech_asr_language_yue">Cantonês</string>
     <string name="speech_asr_language_ko">Coreano</string>
-    <string name="speech_asr_language_note">Em Automático, o serviço decide. Os idiomas que um servidor próprio reconhece dependem do modelo que ele executa.</string>
 </resources>

@@ -37,6 +37,60 @@ class FunAsrProtocolTest {
         assertEquals(LiveAsrUpdate.Ended("先打开微信。给张三发一条消息。"), p.read("""{"event": "stopped"}"""))
     }
 
+    // 一段话说得长、还没切句时服务端只解最近 15 秒:窗口往后挪掉出去的字留在预览里,不被删掉(样例照真实服务的回应)
+    @Test fun textThatSlidesOutOfThePartialWindowIsKept() {
+        val p = FunAsrProtocol()
+        fun partial(text: String, start: Long, duration: Long) =
+            p.read("""{"sentences": [], "partial": "$text", "partial_start_ms": $start, "duration_ms": $duration, "is_final": false}""")
+        assertEquals(LiveAsrUpdate.Text("", "今天我们来聊一聊语音识别的问题，首先需要打开设置页面。"), partial("今天我们来聊一聊语音识别的问题，首先需要打开设置页面。", 0, 15000))
+        // 新窗口开头(不算标点)在上一份里找到:前面那截掉出去了
+        assertEquals(
+            LiveAsrUpdate.Text("今天", "我们来聊一聊语音识别的问题，首先需要打开设置页面，然后"),
+            partial("我们来聊一聊语音识别的问题，首先需要打开设置页面，然后", 1000, 16000),
+        )
+        assertEquals(
+            LiveAsrUpdate.Text("今天我们来聊一", "聊语音识别的问题。首先需要打开设置页面，然后找到"),
+            partial("聊语音识别的问题。首先需要打开设置页面，然后找到", 2000, 17000),
+        )
+        // 窗口没挪:不多留
+        assertEquals(
+            LiveAsrUpdate.Text("今天我们来聊一", "聊语音识别的问题，首先需要打开设置页面，然后找到模型"),
+            partial("聊语音识别的问题，首先需要打开设置页面，然后找到模型", 2000, 17500),
+        )
+        // 这段整段放进 sentences:留下的字作废,只用服务端的句子;下一段从头来,不和上一段对齐
+        val whole = "今天我们来聊一聊语音识别的问题，首先需要打开设置页面，然后找到模型。"
+        assertEquals(
+            LiveAsrUpdate.Text(whole, ""),
+            p.read("""{"sentences": [{"text": "$whole", "start": 0, "end": 17800}], "partial": "", "partial_start_ms": 18000, "duration_ms": 18500, "is_final": false}"""),
+        )
+        assertEquals(
+            LiveAsrUpdate.Text(whole, "第二段"),
+            p.read("""{"sentences": [{"text": "$whole", "start": 0, "end": 17800}], "partial": "第二段", "partial_start_ms": 19000, "duration_ms": 20000, "is_final": false}"""),
+        )
+    }
+
+    // 留着掉出去的字时松开:终结果只用服务端整段重解的句子,不拼留下的那截
+    @Test fun finalIgnoresCarriedText() {
+        val p = FunAsrProtocol()
+        p.read("""{"sentences": [], "partial": "今天我们来聊一聊", "partial_start_ms": 0, "duration_ms": 15000, "is_final": false}""")
+        assertEquals(
+            LiveAsrUpdate.Text("今天", "我们来聊一聊语音"),
+            p.read("""{"sentences": [], "partial": "我们来聊一聊语音", "partial_start_ms": 1000, "duration_ms": 16000, "is_final": false}"""),
+        )
+        assertEquals(
+            LiveAsrUpdate.Text("今天我们来聊一聊语音识别。", ""),
+            p.read("""{"sentences": [{"text": "今天我们来聊一聊语音识别。", "start": 0, "end": 16500}], "partial": "", "partial_start_ms": 0, "duration_ms": 16500, "is_final": true}"""),
+        )
+        assertEquals(LiveAsrUpdate.Ended("今天我们来聊一聊语音识别。"), p.read("""{"event": "stopped"}"""))
+    }
+
+    // 新窗口开头在上一份里找不到(识别结果变了)时按时间比例估掉出去的那截
+    @Test fun droppedPrefixFallsBackToTime() {
+        assertEquals("甲乙", FunAsrProtocol.droppedPrefix("甲乙丙丁戊己庚辛壬癸", "子丑寅卯", 0, 10000, 2000))
+        assertEquals("今天", FunAsrProtocol.droppedPrefix("今天，我们来", "我们来了", 0, 3000, 1000))
+        assertEquals("", FunAsrProtocol.droppedPrefix("甲乙", "子丑", 0, 0, 1000))
+    }
+
     // 没送过音频(或太短)时服务端不给终结果,直接回 stopped:当没听清
     @Test fun stoppedWithoutFinalIsEmpty() {
         assertEquals(LiveAsrUpdate.Ended(""), FunAsrProtocol().read("""{"event": "stopped"}"""))

@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">Jepang</string>
     <string name="speech_asr_language_yue">Kanton</string>
     <string name="speech_asr_language_ko">Korea</string>
-    <string name="speech_asr_language_note">Dengan Otomatis, layanan yang menentukan. Bahasa yang dikenali server sendiri bergantung pada model yang dijalankannya.</string>
 </resources>

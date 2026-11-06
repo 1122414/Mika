@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">Японский</string>
     <string name="speech_asr_language_yue">Кантонский</string>
     <string name="speech_asr_language_ko">Корейский</string>
-    <string name="speech_asr_language_note">В режиме «Авто» язык определяет сервис. Какие языки распознаёт свой сервер, зависит от запущенной на нём модели.</string>
 </resources>

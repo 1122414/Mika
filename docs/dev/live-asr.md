@@ -23,7 +23,7 @@
 
 ### 自建 Fun-ASR 的消息（`FunAsrProtocol`）
 
-文字 `START` → 服务端回 `{"event":"started"}`；之后按住时送音频，服务端约每半秒回一份到此刻的全文 `{"sentences":[{"text","start","end"}],"partial":"…","partial_start_ms","duration_ms","is_final":false}`（`sentences` 是 VAD 切出的已定句子，`partial` 是正在说的那句，每份都是整份）；文字 `STOP` → 先回 `is_final` 为 true 的终结果（这时 `partial` 并进 `sentences`），再回 `{"event":"stopped"}`，收到 `stopped` 才结束。没送过音频时服务端不给终结果、直接回 `stopped`，当没听清（空串）。指定识别语言时，`START` 之前先发 `LANGUAGE:<中文语言名>`（中文、英文、日文、粤语、韩文；服务端把它拼进提示词「语音转写成…」），服务端回 `language_set`；自动时不发。`hotwords_set`、`language_set` 等确认不改文字。每次按住说话用一个新连接。服务端的模型串行解码，多人同时用会排队。
+文字 `START` → 服务端回 `{"event":"started"}`；之后按住时送音频，服务端约每半秒回一份到此刻的全文 `{"sentences":[{"text","start","end"}],"partial":"…","partial_start_ms","duration_ms","is_final":false}`（`sentences` 是 VAD 切出的已定句子，`partial` 是正在说的那句，每份都是整份）；文字 `STOP` → 先回 `is_final` 为 true 的终结果（这时 `partial` 并进 `sentences`），再回 `{"event":"stopped"}`，收到 `stopped` 才结束。没送过音频时服务端不给终结果、直接回 `stopped`，当没听清（空串）。一段话说得长、中间没有停顿（VAD 还没切句）时，服务端只拿最近 15 秒（服务端参数 `--partial-window-sec`）去解 `partial`，前面的字会从 `partial` 里掉出去，要等这段说完才整段放进 `sentences`；所以 `partial_start_ms` 变大而 `sentences` 没变时，把上一份 `partial` 里掉出去的那截留下，接在定下的字后面（拿新 `partial` 开头几个字、不算标点，在上一份里找位置；找不到按时间比例估，`FunAsrProtocol.droppedPrefix`），服务端把这段放进 `sentences` 时丢掉它、改用服务端的句子。这只影响按着时的预览，最终文字只用服务端的终结果。指定识别语言时，`START` 之前先发 `LANGUAGE:<中文语言名>`（中文、英文、日文、粤语、韩文；服务端把它拼进提示词「语音转写成…」），服务端回 `language_set`；自动时不发。`hotwords_set`、`language_set` 等确认不改文字。每次按住说话用一个新连接。服务端的模型串行解码，多人同时用会排队。
 
 ### 百炼的消息（`BailianProtocol`）
 

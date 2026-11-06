@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">日本語</string>
     <string name="speech_asr_language_yue">広東語</string>
     <string name="speech_asr_language_ko">韓国語</string>
-    <string name="speech_asr_language_note">「自動」ではサービスが判断します。セルフホストのサーバーが認識できる言語は、動かしているモデルによります。</string>
 </resources>

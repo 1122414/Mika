@@ -131,7 +131,6 @@ private fun LanguagePicker(selected: AsrLanguage, onSelect: (AsrLanguage) -> Uni
     ) {
         AsrLanguage.entries.forEach { l -> SelectChip(asrLanguageName(l), l == selected, { onSelect(l) }) }
     }
-    FooterNote(tr(R.string.speech_asr_language_note), Modifier.padding(top = 8.dp))
 }
 
 /**

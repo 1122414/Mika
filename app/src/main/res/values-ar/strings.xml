@@ -107,5 +107,4 @@
     <string name="speech_asr_language_ja">اليابانية</string>
     <string name="speech_asr_language_yue">الكانتونية</string>
     <string name="speech_asr_language_ko">الكورية</string>
-    <string name="speech_asr_language_note">مع «تلقائي» تقرّر الخدمة. تعتمد اللغات التي يتعرّف عليها الخادم الذاتي على النموذج الذي يشغّله.</string>
 </resources>

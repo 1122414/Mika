@@ -108,5 +108,4 @@
     <string name="speech_asr_language_ja">Japanese</string>
     <string name="speech_asr_language_yue">Cantonese</string>
     <string name="speech_asr_language_ko">Korean</string>
-    <string name="speech_asr_language_note">With Auto the service decides. Which languages a self-hosted server can recognise depends on the model it runs.</string>
 </resources>
