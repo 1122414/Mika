@@ -112,7 +112,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 对话输入栏的按住说话:输入框上的手势([holdToTalk])、按住时整条变蓝的输入栏([VoiceBarCover])、
- * 输入栏上方的「在听」卡片和上滑取消提示、没听清之类的轻提示([VoiceFloat])、
+ * 输入栏上方的「在听」卡片和「上滑 发送/取消」提示、没听清之类的轻提示([VoiceFloat])、
  * 「还不能语音输入」和录音权限的说明([VoiceSheetHost])。状态都在 [HoldToTalk] 里,这里只管画和接线。
  */
 
@@ -138,7 +138,7 @@ internal enum class VoiceAim { Fill, Send, Cancel }
 /**
  * 按着说话时手指的落点。[finger] 和 [card](「在听」卡片)都是根布局坐标,[upPx] 是从按下处往上移了多少。
  * 卡片还没排好版(空的)时照旧只看上滑距离:过了 [cancelLiftPx] 是取消。
- * 排好版后:手指在卡片上沿以上是取消(「上滑取消」的小胶囊就在那里);在卡片里、且上滑过 [sendLiftPx] 是直接发送;
+ * 排好版后:手指在卡片上沿以上是取消(「上滑 发送/取消」的小胶囊就在那里);在卡片里、且上滑过 [sendLiftPx] 是直接发送;
  * 其余(还在输入栏上、或卡片和输入栏之间)是填进输入框。只看纵向,卡片本来就差不多和屏幕一样宽。
  */
 internal fun voiceAim(finger: Offset, card: Rect, upPx: Float, cancelLiftPx: Float, sendLiftPx: Float): VoiceAim = when {
@@ -458,7 +458,7 @@ private const val WAVE_BARS = 14
 
 /**
  * 输入栏上方浮起的那一层,不占布局(放在输入栏前面、高度算 0、往上画):
- * 按着时的「上滑取消」提示、「在听」卡片,以及没听清之类的轻提示。
+ * 按着时的「上滑 发送/取消」提示、「在听」卡片,以及没听清之类的轻提示。
  * [title] 是卡片顶上那句(平时「在听」,任务在跑时「插话给『…』」)。
  */
 @Composable
@@ -493,7 +493,7 @@ internal fun VoiceFloat(vh: VoiceHold, state: HoldToTalk.State, title: String, b
     }
 }
 
-/** 「上滑取消」的小胶囊;滑到了变红写「松开 取消」。 */
+/** 「上滑 发送/取消」的小胶囊:往上滑进卡片是发送、再滑过卡片到这里是取消;滑到这里变红写「松开 取消」。 */
 @Composable
 private fun CancelHint(armed: Boolean, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
@@ -506,7 +506,7 @@ private fun CancelHint(armed: Boolean, modifier: Modifier = Modifier) {
     ) {
         val fg = if (armed) c.onAccent else c.ink2
         Icon(MikaIcons.Up, null, Modifier.size(15.dp), tint = fg)
-        Text(stringResource(if (armed) R.string.voice_release_cancel else R.string.voice_slide_cancel), style = HintText, color = fg)
+        Text(stringResource(if (armed) R.string.voice_release_cancel else R.string.voice_slide_send_cancel), style = HintText, color = fg)
     }
 }
 
