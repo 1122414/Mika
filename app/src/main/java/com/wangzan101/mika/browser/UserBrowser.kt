@@ -65,6 +65,8 @@ class UserBrowser private constructor(private val app: Context) {
     val recent = RecentPages(dir)
     val favorites = BrowserFavorites(dir)
     val looks = SiteLooks(dir)
+    /** 起始页和地址栏用的搜索引擎;用户可以在起始页换。 */
+    val searchEngine = SearchEngineStore(dir)
     private val modes = UserSiteModes(dir)
     /** 看着的这一页借给任务(见 [PageLoans])。 */
     val loans = PageLoans<WebTab>()
@@ -98,7 +100,7 @@ class UserBrowser private constructor(private val app: Context) {
      * 打开地址栏或搜索框里的一句话(见 [AddressInput])。打不开时返回给用户看的原因,不动当前页面。
      */
     fun submit(input: String): String? {
-        val url = AddressInput.resolve(input) ?: return null
+        val url = AddressInput.resolve(input, searchEngine.engine.value) ?: return null
         return open(url)
     }
 

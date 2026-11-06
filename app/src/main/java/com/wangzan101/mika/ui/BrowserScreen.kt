@@ -68,6 +68,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val recentPages by browser.recent.entries.collectAsState()
     val edits by browser.favorites.edits.collectAsState()
     val looks by browser.looks.entries.collectAsState()
+    val searchEngine by browser.searchEngine.engine.collectAsState()
     val activity = remember(context) { context.findActivity() }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -118,6 +119,8 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 },
                 onAddHint = { toast(BROWSER_ADD_HINT) },
                 onClearRecent = browser.recent::clear,
+                engine = searchEngine,
+                onPickEngine = browser.searchEngine::set,
             )
         } else {
             val host = WebUrlPolicy.host(p.url)

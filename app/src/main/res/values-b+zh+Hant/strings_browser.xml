@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="browser_engine">Bing</string>
+    <string name="browser_engine_bing">Bing</string>
+    <string name="browser_engine_google">Google</string>
+    <string name="browser_engine_duckduckgo">DuckDuckGo</string>
+    <string name="browser_engine_baidu">Baidu</string>
+    <string name="browser_engine_choose">搜尋引擎</string>
     <string name="browser_recent_source">最近開啟</string>
     <string name="browser_search_colon">搜尋：%1$s</string>
     <string name="browser_search_q">搜尋「%1$s」</string>
@@ -50,8 +54,8 @@
     <string name="browser_leave_body">你在這個網頁上做的修改可能不會儲存。</string>
     <string name="browser_leave">離開</string>
     <string name="browser_search_hint">搜尋或輸入網址</string>
-    <string name="browser_engine_note">用Bing搜尋</string>
-    <string name="browser_typing_note">輸入網址直接開啟，其他內容用Bing搜尋</string>
+    <string name="browser_engine_note">用%1$s搜尋</string>
+    <string name="browser_typing_note">輸入網址直接開啟，其他內容用%1$s搜尋</string>
     <string name="browser_login_legend">已登入，Mika 辦事時也能直接用</string>
     <string name="browser_add_hint">開啟網站後，在「更多」裡點「加入常用網站」</string>
     <string name="browser_edit_favorites">整理常用網站</string>

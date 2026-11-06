@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,11 +61,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.browser.FavoriteSite
 import com.wangzan101.mika.browser.RecentItem
+import com.wangzan101.mika.browser.SearchEngine
 import com.wangzan101.mika.browser.SiteFace
 import com.wangzan101.mika.browser.StartPageModel
 import com.wangzan101.mika.browser.Suggestion
 import com.wangzan101.mika.ui.components.GroupCard
 import com.wangzan101.mika.ui.components.Hairline
+import com.wangzan101.mika.ui.components.MikaDialog
+import com.wangzan101.mika.ui.components.RadioRow
 import com.wangzan101.mika.ui.components.TopBar
 import com.wangzan101.mika.ui.components.cardSurface
 import com.wangzan101.mika.ui.components.keepsKeyboard
@@ -75,14 +79,13 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
 val BROWSER_SEARCH_HINT: String get() = tr(R.string.browser_search_hint)
-val BROWSER_ENGINE_NOTE: String get() = tr(R.string.browser_engine_note)
-val BROWSER_TYPING_NOTE: String get() = tr(R.string.browser_typing_note)
 val BROWSER_LOGIN_LEGEND: String get() = tr(R.string.browser_login_legend)
 val BROWSER_ADD_HINT: String get() = tr(R.string.browser_add_hint)
 private const val COLUMNS = 4
 
 /**
- * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
+ * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(用 [engine] 搜索,下面一行小字点开换引擎),
+ * 输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
  * 「常用网站」一行四个(图标、名字,登录着的带小绿点,最后一格「＋」),「整理」或长按进整理(图标轻轻抖,× 移除,「完成」退出);
  * 「最近打开」(搜索写成「搜索：…」,右边是时间,标题右边「清除」)。整理和输入中按返回先退出它们。
  */
@@ -98,11 +101,14 @@ fun BrowserStart(
     onRemoveSite: (FavoriteSite) -> Unit,
     onAddHint: () -> Unit,
     onClearRecent: () -> Unit,
+    engine: SearchEngine = SearchEngine.Bing,
+    onPickEngine: (SearchEngine) -> Unit = {},
     now: Long = System.currentTimeMillis(),
 ) {
     val c = MikaTheme.colors
     var query by rememberSaveable { mutableStateOf("") }
     var editing by rememberSaveable { mutableStateOf(false) }
+    var pickingEngine by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = editing || query.isNotEmpty()) {
         if (editing) editing = false else query = ""
     }
@@ -135,22 +141,25 @@ fun BrowserStart(
                     }
                 })
                 if (query.isBlank()) {
-                    Caption(BROWSER_ENGINE_NOTE)
+                    EngineNote(engine) { pickingEngine = true }
                     SectionHeader(tr(R.string.browser_favorites), if (sites.isEmpty()) null else tr(R.string.browser_edit)) { editing = true }
                     SiteGrid(sites, face, editing = false, onOpen = onOpenSite, onRemove = {}, onEdit = { editing = true }, onAdd = onAddHint)
                     if (sites.any { it.loggedIn }) Legend(BROWSER_LOGIN_LEGEND, dot = true)
                     SectionHeader(tr(R.string.browser_recent_source), if (recent.isEmpty()) null else tr(R.string.clear), onClearRecent)
                     RecentCard(recent, face, now, onOpenUrl)
                 } else {
-                    val suggestions = remember(query, recent) { StartPageModel.suggestions(query, recent) }
+                    val suggestions = remember(query, recent, engine) { StartPageModel.suggestions(query, recent, engine) }
                     SuggestionCard(suggestions, face) { s ->
                         query = ""
                         onOpenUrl(s.url)
                     }
-                    Caption(BROWSER_TYPING_NOTE)
+                    Caption(tr(R.string.browser_typing_note, engine.displayName))
                 }
             }
             Spacer(Modifier.height(MikaSpace.S24))
+        }
+        if (pickingEngine) {
+            EnginePicker(engine, onPick = { pickingEngine = false; onPickEngine(it) }, onDismiss = { pickingEngine = false })
         }
     }
 }
@@ -195,6 +204,36 @@ private val BigText = MikaType.Body.copy(fontSize = 16.sp)
 private fun Caption(text: String) {
     Text(
         text, Modifier.fillMaxWidth().padding(top = 8.dp), style = MikaType.Hint, color = MikaTheme.colors.ink3, textAlign = TextAlign.Center,
+    )
+}
+
+/** 搜索框下的一行小字「用必应搜索」:点一下换搜索引擎。 */
+@Composable
+private fun EngineNote(engine: SearchEngine, onClick: () -> Unit) {
+    val c = MikaTheme.colors
+    Text(
+        tr(R.string.browser_engine_note, engine.displayName),
+        Modifier.fillMaxWidth().clip(MikaShapes.Pill)
+            .clickable(role = Role.Button, onClickLabel = tr(R.string.browser_engine_choose), onClick = onClick)
+            .padding(top = 8.dp, bottom = 2.dp).testTag("browser-engine"),
+        style = MikaType.Hint, color = c.ink3, textAlign = TextAlign.Center,
+    )
+}
+
+/** 换搜索引擎的弹窗:一列单选项,选中就收起。 */
+@Composable
+private fun EnginePicker(engine: SearchEngine, onPick: (SearchEngine) -> Unit, onDismiss: () -> Unit) {
+    MikaDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr(R.string.browser_engine_choose)) },
+        text = {
+            Column(Modifier.testTag("browser-engine-picker")) {
+                SearchEngine.entries.forEachIndexed { i, e ->
+                    RadioRow(e.displayName, selected = e == engine, onClick = { onPick(e) }, first = i == 0)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.done)) } },
     )
 }
 

@@ -1,6 +1,8 @@
 package com.wangzan101.mika.ui
 
 import com.wangzan101.mika.ChineseUi
+import com.wangzan101.mika.R
+import com.wangzan101.mika.i18n.tr
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -25,6 +27,7 @@ import com.wangzan101.mika.browser.AddressInput
 import com.wangzan101.mika.browser.BrowserPage
 import com.wangzan101.mika.browser.FavoriteSite
 import com.wangzan101.mika.browser.RecentPage
+import com.wangzan101.mika.browser.SearchEngine
 import com.wangzan101.mika.browser.SiteLook
 import com.wangzan101.mika.browser.SiteLooks
 import com.wangzan101.mika.browser.StartPageModel
@@ -92,7 +95,7 @@ class BrowserScreenTest {
     fun startPageShowsSearchSitesAndRecent() {
         start()
         compose.onNodeWithText(BROWSER_SEARCH_HINT).assertIsDisplayed()
-        compose.onNodeWithText(BROWSER_ENGINE_NOTE).assertIsDisplayed()
+        compose.onNodeWithText(tr(R.string.browser_engine_note, SearchEngine.Bing.displayName)).assertIsDisplayed()
         compose.onNodeWithText("常用网站").assertIsDisplayed()
         compose.onNodeWithText(BROWSER_LOGIN_LEGEND).assertIsDisplayed()
         compose.onAllNodesWithTag("browser-site-logged-in", useUnmergedTree = true).fetchSemanticsNodes().let { assertEquals(1, it.size) }
@@ -102,6 +105,14 @@ class BrowserScreenTest {
         compose.onNodeWithText("清除").performClick()
         compose.onNodeWithText("添加").performClick()
         assertEquals(listOf("open https://docs.example.net/guide", "clear", "add"), calls)
+    }
+
+    @Test
+    fun engineNoteOpensTheEnginePicker() {
+        start()
+        compose.onNodeWithTag("browser-engine").performClick()
+        compose.onNodeWithTag("browser-engine-picker").assertIsDisplayed()
+        compose.onNodeWithText("谷歌").assertIsDisplayed()
     }
 
     @Test

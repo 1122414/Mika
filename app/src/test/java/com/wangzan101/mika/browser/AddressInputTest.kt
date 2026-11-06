@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AddressInputTest {
-    private fun bing(q: String) = AddressInput.SEARCH_PREFIX + q
+    private fun bing(q: String) = "https://www.bing.com/search?q=$q"
 
     @Test
     fun blankIsNothing() {
@@ -56,10 +56,30 @@ class AddressInputTest {
     }
 
     @Test
+    fun eachEngineSearchesAndReadsBack() {
+        for (e in SearchEngine.entries) {
+            val url = e.searchUrl("天气 预报")
+            assertEquals("天气 预报", e.queryOf(url))
+            assertEquals(url, AddressInput.search("天气 预报", e))
+            assertEquals(url, AddressInput.resolve("天气 预报", e))
+            assertEquals("天气 预报", AddressInput.searchQuery(url))
+            assertEquals(e, SearchEngine.of(url))
+        }
+    }
+
+    @Test
+    fun googleAndBaiduUseTheirOwnUrls() {
+        assertEquals("https://www.google.com/search?q=hello+world", AddressInput.resolve("hello world", SearchEngine.Google))
+        assertEquals("https://www.baidu.com/s?wd=hello+world", AddressInput.resolve("hello world", SearchEngine.Baidu))
+        assertEquals("https://duckduckgo.com/?q=hello+world", AddressInput.resolve("hello world", SearchEngine.DuckDuckGo))
+    }
+
+    @Test
     fun searchQueryReadsBackTheWords() {
         assertEquals("天气 预报", AddressInput.searchQuery(AddressInput.search("天气 预报")))
         assertEquals("a&b", AddressInput.searchQuery(AddressInput.search("a&b") + "&form=x"))
         assertEquals(null, AddressInput.searchQuery("https://www.example.com/a/b"))
-        assertEquals(null, AddressInput.searchQuery(AddressInput.SEARCH_PREFIX))
+        assertEquals(null, AddressInput.searchQuery(SearchEngine.Bing.searchUrl("")))
+        assertEquals(null, AddressInput.searchQuery(SearchEngine.Google.searchUrl("   ")))
     }
 }

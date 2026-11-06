@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="browser_engine">Bing</string>
+    <string name="browser_engine_bing">Bing</string>
+    <string name="browser_engine_google">Google</string>
+    <string name="browser_engine_duckduckgo">DuckDuckGo</string>
+    <string name="browser_engine_baidu">Baidu</string>
+    <string name="browser_engine_choose">検索エンジン</string>
     <string name="browser_recent_source">最近開いたページ</string>
     <string name="browser_search_colon">検索: %1$s</string>
     <string name="browser_search_q">「%1$s」を検索</string>
@@ -50,8 +54,8 @@
     <string name="browser_leave_body">このページでの変更は保存されない可能性があります。</string>
     <string name="browser_leave">移動する</string>
     <string name="browser_search_hint">検索または URL を入力</string>
-    <string name="browser_engine_note">Bing で検索</string>
-    <string name="browser_typing_note">URL はそのまま開き、それ以外は Bing で検索します</string>
+    <string name="browser_engine_note">%1$s で検索</string>
+    <string name="browser_typing_note">URL はそのまま開き、それ以外は %1$s で検索します</string>
     <string name="browser_login_legend">ログイン済み — Mika がタスクでそのまま使えます</string>
     <string name="browser_add_hint">サイトを開き、「その他」の「お気に入りに追加」をタップしてください</string>
     <string name="browser_edit_favorites">お気に入りを編集</string>
