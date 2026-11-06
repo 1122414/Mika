@@ -1,5 +1,7 @@
 package com.wangzan101.mika.cap.phone.a11y
 
+import android.view.accessibility.AccessibilityEvent
+
 /**
  * 判 Agent 的一个动作是不是让一个 App 开到了用户的主屏上。App 不是从自己在 Mika 屏上的页面、而是从后台
  * (服务、通知的跳转、系统的选择器、跨用户的转交)打开另一个 App 时,系统按默认放到主屏;Mika 的屏上看不出变化,
@@ -38,6 +40,15 @@ internal object MainScreenSpill {
     data class PullBack(override val arrival: Arrival) : Verdict
     /** 开到了用户正在主屏上用着的那个 App 里:不动它,告诉模型。 */
     data class InUse(override val arrival: Arrival) : Verdict
+
+    /** 主屏上的这次事件能证明用户在亲手操作;系统触摸事件不要求 App 另发控件点击事件。 */
+    fun isUserTap(eventType: Int): Boolean = when (eventType) {
+        AccessibilityEvent.TYPE_VIEW_CLICKED,
+        AccessibilityEvent.TYPE_VIEW_LONG_CLICKED,
+        AccessibilityEvent.TYPE_TOUCH_INTERACTION_START,
+        -> true
+        else -> false
+    }
 
     /**
      * [since] 动作开始的时刻,[windowMs] 之后冒出来的不算这个动作的;[topBefore] 动作开始时主屏最上面的任务;

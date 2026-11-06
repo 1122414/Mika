@@ -1298,10 +1298,14 @@ class AndroidScreen(
         tapWatch = spillScope.launch(start = CoroutineStart.UNDISPATCHED) {
             val collecting = launch(start = CoroutineStart.UNDISPATCHED) {
                 a11y.eventsFor(Display.DEFAULT_DISPLAY).collect { e ->
-                    if ((e.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || e.eventType == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED) &&
-                        e.packageName?.toString() != a11y.packageName
+                    val systemTouch = e.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START
+                    if (MainScreenSpill.isUserTap(e.eventType) &&
+                        // Mika 浮层自己的控件点击不是用户打开了别的 App;系统触摸事件没有这种包名歧义
+                        (systemTouch || e.packageName?.toString() != a11y.packageName)
                     ) {
-                        userTaps.addLast(MainScreenSpill.Tap(SystemClock.uptimeMillis(), e.packageName?.toString()))
+                        // 系统触摸事件带有真实发生时刻;通知栏、桌面等不发控件点击事件的入口也不能漏掉
+                        val at = if (systemTouch) e.eventTime else SystemClock.uptimeMillis()
+                        userTaps.addLast(MainScreenSpill.Tap(at, e.packageName?.toString()))
                         while (userTaps.size > MAX_USER_TAPS) userTaps.pollFirst()
                     }
                 }

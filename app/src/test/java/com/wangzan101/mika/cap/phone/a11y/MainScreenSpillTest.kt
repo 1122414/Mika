@@ -1,5 +1,6 @@
 package com.wangzan101.mika.cap.phone.a11y
 
+import android.view.accessibility.AccessibilityEvent
 import com.wangzan101.mika.cap.phone.a11y.MainScreenSpill.InUse
 import com.wangzan101.mika.cap.phone.a11y.MainScreenSpill.PullBack
 import org.junit.Assert.assertEquals
@@ -57,6 +58,14 @@ class MainScreenSpillTest {
         assertTrue(decide(arrival(at = since + 900), taps = listOf(other)).isEmpty())
         // 动作之前的点按不算
         assertEquals(1, decide(arrival(at = since + 900), taps = listOf(MainScreenSpill.Tap(since - 100, "com.other"))).size)
+    }
+
+    @Test fun systemTouchWithoutASemanticClickKeepsTheUsersAppOnTheMainScreen() {
+        // 通知栏等入口只保证系统的触摸事件,不保证另发 TYPE_VIEW_CLICKED;不能因此把用户开的 App 挪走
+        assertTrue(MainScreenSpill.isUserTap(AccessibilityEvent.TYPE_TOUCH_INTERACTION_START))
+        assertFalse(MainScreenSpill.isUserTap(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED))
+        val touch = MainScreenSpill.Tap(since + 400, null)
+        assertTrue(decide(arrival(at = since + 900), taps = listOf(touch)).isEmpty())
     }
 
     @Test fun userTappingThePopupItselfLeavesItThere() {
