@@ -90,7 +90,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Mika 界面在不在前台([AppForeground])、屏幕亮没亮([DeviceStateWatcher])、无障碍服务在不在交给 [CapsuleModel],
  * 按它的结果经 [com.wangzan101.mika.cap.phone.a11y.OverlayHost] 加上、挪动或拆掉浮层窗口。
  * 点一颗或胶囊展开卡片([CapsuleCards] 定内容,只说一件事),点卡片外面、收起按钮或返回收回成一颗(看过的不再展开,模型记着);卡片和胶囊上的按钮都转成任务服务现有的动作。
- * 一颗和卡片各在一个窗口里、各待各的位置(见 [window]):展开时一颗那个窗口空出来,卡片在自己的窗口里从那一颗的方位缩放、淡入,
+ * 一颗和卡片各在一个窗口里、各待各的位置(见 [window]):展开时一颗那个窗口显式隐藏,卡片在自己的窗口里从那一颗的方位缩放、淡入,
  * 收起时缩回去,一颗再在边上冒出来([OverlayMotion]:只动图层,不挪窗口,也不逐帧改窗口大小)。
  * 双击一颗或胶囊(见 [DoubleTap]:单击要等双击的时限过去才展开,两下还要同来源、落点相近)把用户此刻的屏幕截进那张卡片的输入框预览,
  * 不直接发出;用户看过预览、按发送后才和在卡片里发一句话走同一条路。卡片输入框左边的截屏按钮也挂在输入框上面,可以补一句再发。
@@ -220,7 +220,7 @@ class CapsuleController(
 
     /**
      * 两个浮层窗口,各自待在自己的位置上,展开、收起时谁都不挪:[window] 放一颗、胶囊和那一条,停在边上;[cardWindow] 放卡片,
-     * 左右居中(收起时里面是空的,窗口没有大小,不挡下面的 App)。一个窗口在一颗和卡片的位置间来回挪,系统会把挪动做成滑过去的动画
+     * 左右居中(收起时显式设为不可见,里面随后空出来,不挡下面的 App)。一个窗口在一颗和卡片的位置间来回挪,系统会把挪动做成滑过去的动画
      * (安卓原版的窗口移动动画),看上去是一颗从中间滑回边上、卡片从边上滑到中间。
      */
     private var window: OverlayWindow? = null
@@ -415,6 +415,7 @@ class CapsuleController(
         cardWindow = cardW
         panelWindow = panel
         windowOn = service
+        syncWindowVisibility()
         for (it in listOf(ball, cardW)) it.onResize(::place)
         ball.onTouch { e ->
             wake()
@@ -473,6 +474,7 @@ class CapsuleController(
         expanded = false
         closing = false
         cardOut = false
+        syncWindowVisibility()
         follow = null
         zoomed = false
         quitConfirm = false
@@ -481,6 +483,13 @@ class CapsuleController(
         inputUi = inputUi.collapsed()
         watchPreview(null)
         updateThread(null, emptyList())
+    }
+
+    /** 两个窗口交替时显式显隐;空内容只负责排版,不承担把系统窗口旧帧撤下屏幕的职责。 */
+    private fun syncWindowVisibility() {
+        val visible = capsuleWindowVisibility(expanded, cardOut, closing)
+        window?.setVisible(visible.capsule)
+        cardWindow?.setVisible(visible.card)
     }
 
     // ---------- 输入 ----------
@@ -1207,6 +1216,7 @@ class CapsuleController(
         if (!expanded) anchorY = placedY + (window?.height ?: 0) / 2
         expanded = true
         closing = false
+        syncWindowVisibility()
     }
 
     /** 点在窗口外面:先关掉放大的画面,再收起卡片。 */
@@ -1233,6 +1243,7 @@ class CapsuleController(
             return
         }
         closing = true
+        syncWindowVisibility()
     }
 
     private fun closed() {
@@ -1304,13 +1315,16 @@ class CapsuleController(
         }
     }
 
-    /** 卡片窗口里:展开时是卡片,收起时什么都没有(窗口没有大小)。标题栏的电源按钮点过时换成退出的确认。 */
+    /** 卡片窗口里:展开时是卡片,收起时窗口先显式隐藏、内容随后清空。标题栏的电源按钮点过时换成退出的确认。 */
     @Composable
     private fun CardOverlay() {
         val c = card ?: return
         MikaTheme(reduceMotion = animationsOff(context)) {
             val height = if (cardHeight > 0) with(LocalDensity.current) { cardHeight.toDp() } else Dp.Unspecified
-            OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = { cardOut = true }) {
+            OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = {
+                cardOut = true
+                syncWindowVisibility()
+            }) {
                 if (quitConfirm) QuitCard(actions, height)
                 else CapsuleCard(
                     c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle,
@@ -1423,6 +1437,12 @@ class CapsuleController(
         const val IME_POLL_MS = 30L
     }
 }
+
+/** 一颗和卡片两个窗口此刻该不该显示;卡片收尾完成后无论动画停在哪一帧都不能再显示。 */
+internal data class CapsuleWindowVisibility(val capsule: Boolean, val card: Boolean)
+
+internal fun capsuleWindowVisibility(expanded: Boolean, cardOut: Boolean, closing: Boolean): CapsuleWindowVisibility =
+    CapsuleWindowVisibility(capsule = !expanded || !cardOut || closing, card = expanded)
 
 /** 胶囊上临时闪的一句:[kind] 定前面的标记(办好了是勾、没办成是叹号);[opensMika] 时点它打开 Mika;[id] 每句不同(胶囊按它重新定宽)。 */
 private data class CapsuleNote(val text: String, val kind: CapsuleKind, val opensMika: Boolean, val id: Int)
