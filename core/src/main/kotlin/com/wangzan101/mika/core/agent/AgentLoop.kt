@@ -96,7 +96,7 @@ private fun cleanReplyParts(parts: List<Part>, text: String): List<Part> {
     }
 }
 
-private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave)
+private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave, Verb.MemoryEdit)
 /** 讨论历史时仍可查本地记忆与技能资料、之前几轮的记录；这些调用不会打开 App 或网站。 */
 private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead)
 
@@ -349,6 +349,12 @@ class AgentLoop(
         earlierGoals = priorTurns.map { it.userText }
         // 之前的轮次只作参考,放在本次任务之前
         val context = Conversation.context(priorTurns)
+        // 仅「上一轮用户明确确认 + 再上一轮助手建议/提问」可供 memory_save 跨轮引用;更早轮次与助手原文不收。
+        val confirmation = rawPrior.lastOrNull()
+        val proposal = rawPrior.dropLast(1).lastOrNull()
+        if (confirmation != null && proposal != null) {
+            utterances?.addPreviousConfirmation(UserWords.said(confirmation.userText, tools), proposal.outcome, proposal.status)
+        }
         utterances?.add(UserWords.said(opening?.words ?: raw, tools))
         // 记忆块:对话上文之后、任务原文之前;用到的条目由代码记下
         usedMemory = emptyList()

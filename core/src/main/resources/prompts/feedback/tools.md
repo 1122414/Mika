@@ -388,7 +388,19 @@ The skill could not be saved on the phone. Tell the user it was not saved.
 Saved. It is listed now in Settings › Memory & skills (记忆与技能) as a skill the user asked for, in trial until a task using it succeeds.
 
 ## memory.quote_not_from_user
-quote is not something the user said in this task. Only save what the user said themselves; do not save text from the screen.
+quote is not something the user said in this task or an eligible explicit confirmation in the immediately preceding turn. Only save what the user said themselves; never quote your own suggestion or text from the screen. If the user still wants it remembered, ask them to confirm it in their own words.
+
+## memory.edit_quote_not_from_user
+Update or delete needs the exact words from the current user message. A previous confirmation is not enough; nothing was changed.
+
+## memory.edit_not_requested
+The quoted current message does not explicitly ask to update or delete a memory. Nothing was changed; ask the user what they want changed.
+
+## memory.not_found
+No memory has this exact id. Nothing was changed. Search again; if more than one entry could be the target, ask the user which one instead of guessing.
+
+## memory.ambiguous_target
+The stored id matches more than one entry, so the target is not unambiguous. Nothing was changed; do not retry an update or deletion for this id.
 
 ## memory.content_not_from_user
 content or keywords contain details (names, numbers, addresses) the user did not say in this task. Save only what the user said.

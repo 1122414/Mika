@@ -81,10 +81,10 @@ fun toolDispatcher(
     adaptiveVision: Boolean = false,
     /** 提速开关 deepLinks:提供打开链接的工具。 */
     deepLinks: Boolean = false,
-    /** 记忆;和 [utterances] 都给了才提供 memory_search / memory_save。 */
+    /** 记忆;和 [utterances] 都给了才提供 memory_search / memory_save / memory_edit。 */
     memory: MemoryStore? = null,
     profile: ProfileStore? = null,
-    /** 用户本次说过的话,memory_save 的引文据此校验;AgentLoop 往里加。 */
+    /** 用户本次说过的话,memory_save / memory_edit 的引文据此校验;AgentLoop 往里加。 */
     utterances: UserUtterances? = null,
     /** 本次任务所在的对话;记进记忆的出处。 */
     conversationId: String? = null,

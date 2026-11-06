@@ -50,6 +50,9 @@ internal fun toolReply(c: Part.ToolCall) = ModelReply(listOf(c), StopReason.Tool
 internal fun saveArgs(kind: String, content: String, quote: String) = buildJsonObject {
     put("kind", kind); put("content", content); put("quote", quote); putJsonArray("keywords") { add(kotlinx.serialization.json.JsonPrimitive("外卖")) }
 }
+internal fun editArgs(op: String, id: String, quote: String, content: String? = null) = buildJsonObject {
+    put("op", op); put("id", id); put("quote", quote); content?.let { put("content", it) }
+}
 internal val finishReply = com.wangzan101.mika.core.testing.answerReply("ok")
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -161,7 +164,7 @@ class MemoryToolsTest {
         assertEquals("unknown_tool", d.run("memory_save", saveArgs("fact", "x", "x")).s("error"))
         // 只给其中一样也不提供
         assertFalse(dispatcher(memStore(), null).definitions().any { it.name.startsWith("memory_") })
-        assertTrue(dispatcher(memStore(), UserUtterances()).definitions().map { it.name }.containsAll(listOf("memory_search", "memory_save")))
+        assertTrue(dispatcher(memStore(), UserUtterances()).definitions().map { it.name }.containsAll(listOf("memory_search", "memory_save", "memory_edit")))
     }
 
     @Test fun utterancesNormalizeWidthAndShortQuotes() {
@@ -215,6 +218,17 @@ class MemoryToolsTest {
         assertEquals("true", ok.s("ok"))
     }
 
+    @Test fun previousConfirmationDoesNotWeakenCurrentQuoteChecks() {
+        val store = memStore()
+        val said = UserUtterances().apply {
+            addPreviousConfirmation("好的，我家住张江路100号", "我建议记住这个地址，你觉得怎么样?", "succeeded")
+            add("记住这个")
+        }
+        val result = dispatcher(store, said).run("memory_save", saveArgs("fact", "用户家住张江路100号", "记住这个"))
+        assertEquals("content_not_from_user", result.s("error"))
+        assertTrue(store.items.value.isEmpty())
+    }
+
     private fun saveWith(said: String, content: String, quote: String, keywords: List<String> = emptyList()): JsonObject {
         val args = buildJsonObject {
             put("kind", "fact"); put("content", content); put("quote", quote)
@@ -252,5 +266,76 @@ class MemoryToolsTest {
         AgentLoop(model, toolDispatcher(FakeScreen(), memory = store, utterances = UserUtterances()), "B",
             sink = object : RunSink { override fun event(e: RunEvent) { events += e } }, memory = store).run("记住:点外卖先比价")
         assertEquals(listOf(RunEvent.MemorySaved(0, "id1", "procedure", "pending")), events.filterIsInstance<RunEvent.MemorySaved>().map { it.copy(atMs = 0) })
+    }
+
+    @Test fun updateAndDeleteUseStableIdAndKeepUndoableRecords() {
+        val store = memStore()
+        val original = store.add(MemoryKind.preference, "用户点外卖不要香菜", listOf("外卖"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val said = UserUtterances().apply {
+            add("把外卖那条改成以后点外卖不要香菜和葱")
+            add("再把那条记忆删掉")
+        }
+        val d = dispatcher(store, said)
+        val updated = d.run("memory_edit", editArgs("update", original.id, "把外卖那条改成以后点外卖不要香菜和葱", "用户点外卖不要香菜和葱"))
+        assertEquals("true", updated.s("ok")); assertEquals("update", updated.s("op")); assertEquals(original.id, updated.s("id"))
+        assertEquals("用户点外卖不要香菜和葱", store.items.value.single().content)
+        assertEquals(original.content, store.items.value.single().replaces)
+        assertEquals("把外卖那条改成以后点外卖不要香菜和葱", store.items.value.single().source.quote)
+
+        val deleted = d.run("memory_edit", editArgs("delete", original.id, "再把那条记忆删掉"))
+        assertEquals("true", deleted.s("ok")); assertEquals("true", deleted.s("deleted"))
+        assertTrue(store.items.value.isEmpty())
+        assertEquals(listOf(NoteKind.updated, NoteKind.forgot), MemoryExtractor.notes(d.savedChanges).map { it.kind })
+        assertTrue(store.undo((d.savedChanges[1] as Change.Forgot).undoToken))
+        assertTrue(store.undo((d.savedChanges[0] as Change.Updated).undoToken))
+        assertEquals(listOf(original), store.items.value)
+    }
+
+    @Test fun editRequiresCurrentExplicitRequest() {
+        val store = memStore()
+        val item = store.add(MemoryKind.fact, "用户家住浦东", emptyList(), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val said = UserUtterances().apply {
+            addPreviousConfirmation("嗯，好的，知微", "我建议叫我知微，你觉得怎么样?", "succeeded")
+            add("用户家住张江")
+            add("不要删掉那条记忆")
+            add("不要修改那条记忆")
+            add("不要忘记那条记忆")
+        }
+        val d = dispatcher(store, said)
+        val oldQuote = d.run("memory_edit", editArgs("delete", item.id, "嗯，好的，知微"))
+        assertEquals("quote_not_from_user", oldQuote.s("error"))
+        val noRequest = d.run("memory_edit", editArgs("update", item.id, "用户家住张江", "用户家住张江"))
+        assertEquals("edit_not_requested", noRequest.s("error"))
+        for ((op, quote) in listOf(
+            "delete" to "不要删掉那条记忆",
+            "update" to "不要修改那条记忆",
+            "delete" to "不要忘记那条记忆",
+        )) {
+            val negated = d.run("memory_edit", editArgs(op, item.id, quote, if (op == "update") "用户家住张江" else null))
+            assertEquals(quote, "edit_not_requested", negated.s("error"))
+        }
+        assertEquals(listOf(item), store.items.value)
+        assertTrue(d.savedChanges.isEmpty())
+    }
+
+    @Test fun editMissingIdDoesNothing() {
+        val store = memStore()
+        val d = dispatcher(store, UserUtterances().apply { add("把那条记忆删掉") })
+        val result = d.run("memory_edit", editArgs("delete", "missing", "把那条记忆删掉"))
+        assertEquals("not_found", result.s("error"))
+        assertTrue(d.savedChanges.isEmpty())
+    }
+
+    @Test fun editRunRecordKeepsOperationButNoMemoryText() = runTest {
+        val store = memStore()
+        val item = store.add(MemoryKind.fact, "用户觉得旧名字不好", emptyList(), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val events = mutableListOf<RunEvent>()
+        val model = FakeModel(toolReply(memCall("memory_edit", editArgs("delete", item.id, "把那条记忆删掉"))), finishReply)
+        AgentLoop(model, toolDispatcher(FakeScreen(), memory = store, utterances = UserUtterances()), "B",
+            sink = object : RunSink { override fun event(e: RunEvent) { events += e } }, memory = store).run("把那条记忆删掉")
+        val record = events.filter { it is RunEvent.ModelReply || it is RunEvent.ToolResult }.joinToString("\n") { RunEvent.encode(it) }
+        assertTrue(record.contains("memory_edit")); assertTrue(record.contains("delete")); assertTrue(record.contains(item.id))
+        assertFalse(record.contains("用户觉得旧名字不好")); assertFalse(record.contains("把那条记忆删掉"))
+        assertEquals(1, events.filterIsInstance<RunEvent.ToolResult>().count { "memory_edit" in RunEvent.encode(it) })
     }
 }
