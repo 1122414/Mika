@@ -670,6 +670,19 @@ class AgentLoopTest {
         assertTrue("$r", r is TaskState.Failed && "连续 3 次没有读到新数据" in r.reason)
     }
 
+    @Test fun visibleButUnreadableTreeStopsAfterThreeNoEffectTaps() = runTest {
+        val s = object : ScreenPort by FakeScreen() {
+            private val empty = ScreenSnapshot("visible", "com.example", emptyList(), 1080, 2400)
+            override suspend fun snapshot() = empty
+            override suspend fun peek() = empty
+        }
+        val m = FakeModel(*(1..4).map { tools(call("phone_tap", """{"x":500,"y":500}""")) }.toTypedArray())
+        val r = AgentLoop(m, toolDispatcher(s), "BASE", retry = FIXED_RETRY).run("t")
+        assertTrue("$r", r is TaskState.Failed && r.kind == FailKind.Guard)
+        assertTrue("$r", r is TaskState.Failed && "无法确认操作是否生效" in r.reason)
+        assertEquals(3, m.requests.size)
+    }
+
     @Test fun screenshotsFollowToolResultsWhenVisionOn() = runTest {
         val m = FakeModel(tools(call("phone_observe")), finish())
         loop(m, vision = true).run("t")

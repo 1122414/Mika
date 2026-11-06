@@ -416,7 +416,7 @@ internal class ScreenSession(
         // 树读不出点的那一处(只在手机上判:网页没有树够不够用这回事):看不出变化不等于没点上
         val e = effect?.let { judged ->
             if (surface.id != "phone") return@let judged
-            val quality = lastTree?.quality ?: probe.before?.let { TreeAdequacy.ofTree(it).quality }
+            val quality = probe.before?.let { TreeAdequacy.ofTree(it).quality } ?: lastTree?.quality
             if (judged.kind == EffectKind.NoEffect && ActionEffect.treeBlind(verb, quality, probe.before, target, region)) judged.copy(treeBlind = true) else judged
         } ?: return r
         if ("screen" !in c && e.kind != EffectKind.NoEffect) stale = true

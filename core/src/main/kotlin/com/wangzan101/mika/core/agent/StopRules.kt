@@ -4,6 +4,7 @@ import com.wangzan101.mika.core.net.ProxyFailure
 import com.wangzan101.mika.core.guard.GuardVerdict
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.tool.Outcome
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * 停止规则:任务什么时候、以什么结局结束(放弃、守卫叫停、模型出错、没给出回答、步数用完)。办完不在这里:
@@ -43,9 +44,11 @@ internal object StopRules {
         else TaskState.Failed("模型调用异常:${e.message ?: e::class.simpleName}", FailKind.Model)
 
     fun guard(v: GuardVerdict): TaskState.Failed {
+        val treeBlind = v.evidence["treeBlind"] == JsonPrimitive(true)
         val why = when (v.code) {
             "repeating_action" -> "同一个操作反复执行仍没有效果"
-            "no_progress" -> "操作多次后画面一直没有变化"
+            "no_progress" -> if (treeBlind) "控件树读不到操作位置,连续操作后画面仍无可见变化,无法确认操作是否生效,已停止重试"
+                else "操作多次后画面一直没有变化"
             "read_loop" -> "页面没有变化,反复读也读不出要找的内容"
             "too_many_failures" -> "操作连续失败"
             "sandbox_loop" -> "同一条命令原样重复仍然失败"
