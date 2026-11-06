@@ -50,7 +50,8 @@ class SharedDraftImporter(private val context: Context, private val store: Share
                 val tmp = store.imageFile("$fileName.tmp") ?: return@withContext null
                 val size = try {
                     resolver.openInputStream(uri)?.use { input ->
-                        SharedDraftCopy.copy(input, tmp, final) { final.usableSpace }
+                        // 目标文件尚未创建,查它的可用空间会得到 0;copy 会先建好父目录。
+                        SharedDraftCopy.copy(input, tmp, final) { tmp.parentFile?.usableSpace ?: 0L }
                     } ?: return@withContext null
                 } catch (e: CancellationException) {
                     tmp.delete()
