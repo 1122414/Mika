@@ -16,7 +16,7 @@ import java.io.IOException
 
 /**
  * 各家服务商共用的那一段:发请求、把常见的 HTTP 状态换成给模型的失败、读 JSON。
- * 各家特殊的状态(比如 SearXNG 的 403)由 [special] 先认。
+ * 各家特殊的状态由 [special] 先认:可以是一种失败(比如 SearXNG 的 403),也可以是结果(比如 Jina 零命中回的 422)。
  */
 internal object SearchHttp {
     private const val MAX_RESPONSE_CHARS = 1_000_000
@@ -30,7 +30,7 @@ internal object SearchHttp {
     suspend fun call(
         client: OkHttpClient,
         request: Request,
-        special: (Response) -> WebSearchResult.Failure? = { null },
+        special: (Response) -> WebSearchResult? = { null },
         parse: (JsonObject) -> WebSearchResult,
     ): WebSearchResult = withContext(Dispatchers.IO) {
         val r = request.newBuilder().header("Accept", "application/json").header("User-Agent", USER_AGENT).build()

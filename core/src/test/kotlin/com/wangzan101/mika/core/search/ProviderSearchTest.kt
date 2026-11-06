@@ -74,6 +74,21 @@ class ProviderSearchTest {
         assertEquals("invalid_response", (JinaSearch("k", client, server.url("/")).search("q", 5) as WebSearchResult.Failure).code)
     }
 
+    @Test fun jinaNoResults422IsAnEmptySuccess() = withServer(
+        MockResponse().setResponseCode(422).setBody(
+            // 真机实测的零命中返回
+            """{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"No search results available for query zq site:example.invalid","readableMessage":"AssertionFailureError: No search results available for query zq site:example.invalid"}""",
+        ),
+    ) { server ->
+        assertEquals(WebSearchResult.Success(emptyList()), JinaSearch("k", client, server.url("/")).search("zq site:example.invalid", 3))
+    }
+
+    @Test fun otherJina422IsStillAFailure() = withServer(
+        MockResponse().setResponseCode(422).setBody("""{"data":null,"code":422,"name":"ParamValidationError","status":42200,"message":"Invalid num"}"""),
+    ) { server ->
+        assertEquals("service_unavailable", (JinaSearch("k", client, server.url("/")).search("q", 3) as WebSearchResult.Failure).code)
+    }
+
     @Test fun jinaRejectedKeyIsAuthenticationFailure() = withServer(MockResponse().setResponseCode(401).setBody("""{"data":null,"code":401}""")) { server ->
         assertEquals("authentication_failed", (JinaSearch("bad", client, server.url("/")).search("q", 5) as WebSearchResult.Failure).code)
     }
