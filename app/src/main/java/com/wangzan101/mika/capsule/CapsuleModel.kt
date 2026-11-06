@@ -370,6 +370,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         fun progressText(p: RunProgress): String = when (p) {
             is RunProgress.Replay -> tr(R.string.capsule_replay, p.step, p.total)
             is RunProgress.Batch -> trPlural(R.plurals.capsule_batch, p.steps)
+            is RunProgress.Task -> p.display
             is RunProgress.WaitingForApp -> tr(R.string.progress_waiting_app, p.app)
         }
 

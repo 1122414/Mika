@@ -24,6 +24,13 @@ internal object StopRules {
 
     fun stepLimit(maxSteps: Int) = TaskState.Failed("已达到 $maxSteps 步上限,任务没有完成。", FailKind.StepLimit)
 
+    /** 收尾请求本身失败或仍没交出结果时，按触发收尾的原因落结局，不谎报步数用完。 */
+    fun closeoutFailed(reason: Closeout, maxSteps: Int): TaskState.Failed = when (reason) {
+        Closeout.StepLimit -> stepLimit(maxSteps)
+        Closeout.Completed -> TaskState.Failed("任务进度已经完成,但模型没有给出结果。", FailKind.Model)
+        Closeout.NoNewData -> TaskState.Failed("连续 ${NewDataTracker.LIMIT} 次没有读到新数据,任务已停止。", FailKind.Guard)
+    }
+
     /** 提醒过一次,模型仍然回了空话(或又被输出上限截断)。 */
     fun noAnswer() = TaskState.Failed("模型停止了操作,没有给出回答。", FailKind.Model)
 

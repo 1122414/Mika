@@ -39,6 +39,7 @@ object StatusCopy {
     fun progress(p: RunProgress): String = when (p) {
         is RunProgress.Replay -> tr(R.string.progress_replay, p.step, p.total)
         is RunProgress.Batch -> trPlural(R.plurals.progress_batch, p.steps)
+        is RunProgress.Task -> p.display
         // 只是在等另一个任务,不要用户做什么
         is RunProgress.WaitingForApp -> tr(R.string.progress_waiting_app, p.app)
     }

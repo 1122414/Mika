@@ -101,6 +101,7 @@ class CapsuleModelTest {
         assertEquals(CapsuleModel.PREPARING, CapsuleModel.runningText(running(step = 0)))
         assertEquals("照着路线做 3/7", CapsuleModel.runningText(running("在搜牙膏", progress = RunProgress.Replay(3, 7))))
         assertEquals("一次做 4 步", CapsuleModel.runningText(running(progress = RunProgress.Batch(4))))
+        assertEquals("已保存 · 36/36 · 第 36 条", CapsuleModel.runningText(running(progress = RunProgress.Task("已保存", 36, 36, "第 36 条"))))
     }
 
     @Test fun eachStateHasItsLine() {
