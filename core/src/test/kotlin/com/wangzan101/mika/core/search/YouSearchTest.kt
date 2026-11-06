@@ -70,6 +70,23 @@ class YouSearchTest {
         assertEquals("invalid_response", (you(server).search("q", 5) as WebSearchResult.Failure).code)
     }
 
+    @Test fun noHitsIsAnEmptySuccessNotAFailure() = withServer(ok("""{"results":{},"metadata":{"query":"q"}}""")) { server ->
+        // 免费接口零命中时的真实返回:results 里没有 web
+        assertEquals(WebSearchResult.Success(emptyList()), you(server).search("q", 5))
+    }
+
+    @Test fun nullWebIsAlsoNoHits() = withServer(ok("""{"results":{"web":null}}""")) { server ->
+        assertEquals(WebSearchResult.Success(emptyList()), you(server).search("q", 5))
+    }
+
+    @Test fun webThatIsNotAListIsInvalid() = withServer(ok("""{"results":{"web":{}}}""")) { server ->
+        assertEquals("invalid_response", (you(server).search("q", 5) as WebSearchResult.Failure).code)
+    }
+
+    @Test fun missingResultsIsInvalid() = withServer(ok("""{"metadata":{}}""")) { server ->
+        assertEquals("invalid_response", (you(server).search("q", 5) as WebSearchResult.Failure).code)
+    }
+
     @Test fun forbiddenKeyIsAuthenticationFailure() = withServer(MockResponse().setResponseCode(403).setBody("""{"message":"Forbidden"}""")) { server ->
         assertEquals("authentication_failed", (you(server, "bad").search("q", 5) as WebSearchResult.Failure).code)
     }
