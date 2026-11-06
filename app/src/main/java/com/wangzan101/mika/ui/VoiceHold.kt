@@ -132,8 +132,64 @@ internal sealed interface VoiceSheet {
     data class Unavailable(val why: SpeechEngineSpec.Why) : VoiceSheet
 }
 
+/**
+ * 按着时听到的字:定下的深色、还在变的浅色。放不下 [maxLines] 行时按 [VoiceCopy.fitHeard] 去掉前面说完的整句,
+ * 最新的字一直看得见。输入框和悬浮胶囊共用。
+ */
+@Composable
+internal fun HeardText(stable: String, tail: String, style: androidx.compose.ui.text.TextStyle, maxLines: Int, modifier: Modifier = Modifier) {
+    val c = MikaTheme.colors
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+        val width = constraints.maxWidth
+        val (shownStable, shownTail) = remember(stable, tail, width, style, maxLines) {
+            VoiceCopy.fitHeard(stable, tail) { st, tl ->
+                measurer.measure(
+                    androidx.compose.ui.text.AnnotatedString(st + tl), style,
+                    constraints = androidx.compose.ui.unit.Constraints(maxWidth = width.coerceAtLeast(1)),
+                ).lineCount <= maxLines
+            }
+        }
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = c.ink)) { append(shownStable) }
+                withStyle(SpanStyle(color = c.ink2)) { append(shownTail) }
+            },
+            Modifier.fillMaxWidth(), style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 /** 按住说话时界面上要的文字;不碰界面,单测直接测。 */
 internal object VoiceCopy {
+    /** 一句说完的地方:这些标点之后断开。 */
+    private val sentenceEnd = setOf('。', '！', '？', '；', '!', '?', ';', '.', '…', '\n')
+
+    /**
+     * 按着时听到的字太多、卡片里放不下时:从前面去掉已经说完的整句([stable] 里句号、问号等之后断开),前面加「…」,
+     * 留下最近的几句和还在说的 [tail];只剩还在说的那句也放不下时,留它的末尾。[fits] 量一段字(定下的、还在变的)放不放得下。
+     * 只改显示,交出去的文字不变。
+     */
+    fun fitHeard(stable: String, tail: String, fits: (String, String) -> Boolean): Pair<String, String> {
+        if (fits(stable, tail)) return stable to tail
+        val cuts = stable.indices.filter { stable[it] in sentenceEnd && it + 1 < stable.length }.map { it + 1 }
+        for (cut in cuts) {
+            val rest = ELLIPSIS + stable.substring(cut).trimStart()
+            if (fits(rest, tail)) return rest to tail
+        }
+        if (fits(ELLIPSIS, tail)) return ELLIPSIS to tail
+        // 还在说的那句自己就放不下:找能放下的最长末尾
+        var lo = 0
+        var hi = tail.length
+        while (lo < hi) {
+            val mid = (lo + hi + 1) / 2
+            if (fits(ELLIPSIS, tail.takeLast(mid))) lo = mid else hi = mid - 1
+        }
+        return ELLIPSIS to tail.takeLast(lo)
+    }
+
+    private const val ELLIPSIS = "…"
+
     /** 卡片顶上的小标签:用的是哪个转文字。 */
     fun engine(spec: SpeechEngineSpec): String = when (spec) {
         is SpeechEngineSpec.Doubao -> tr(R.string.speech_doubao_model)
@@ -499,24 +555,16 @@ private fun ListenCard(s: HoldToTalk.State.Listening, title: String, engine: Str
                 Text(ChatCopy.clock(s.elapsedMs), style = TimeText, color = c.ink3)
             }
             val heard = s.stable + s.tail
-            val words = if (heard.isEmpty()) {
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = c.ink3)) {
-                        append(stringResource(if (s.live) R.string.voice_say_now else R.string.voice_recording))
-                    }
-                }
+            val style = if (s.cancelArmed) ListenText.copy(textDecoration = TextDecoration.LineThrough) else ListenText
+            val modifier = Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 54.dp).alpha(if (s.cancelArmed) 0.4f else 1f)
+            if (heard.isEmpty()) {
+                Text(
+                    stringResource(if (s.live) R.string.voice_say_now else R.string.voice_recording), modifier,
+                    style = style, color = c.ink3, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                )
             } else {
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = c.ink)) { append(s.stable) }
-                    withStyle(SpanStyle(color = c.ink2)) { append(s.tail) }
-                }
+                HeardText(s.stable, s.tail, style, maxLines = 6, modifier)
             }
-            Text(
-                words,
-                Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 54.dp).alpha(if (s.cancelArmed) 0.4f else 1f),
-                style = if (s.cancelArmed) ListenText.copy(textDecoration = TextDecoration.LineThrough) else ListenText,
-                maxLines = 6, overflow = TextOverflow.Ellipsis,
-            )
             Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 Text(
                     stringResource(if (s.live) R.string.voice_foot_live else R.string.voice_foot_convert),
