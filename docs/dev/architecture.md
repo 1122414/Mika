@@ -393,6 +393,8 @@
 
 原生豆包流式语音识别 2.0 可在语音转文字页单独配置，实时上传 PCM 并返回中间全文；凭据独立加密，不经方舟聊天模型路径。协议、生命周期与测试限制见 [doubao-asr.md](doubao-asr.md)。
 
+「Fun-ASR实时语音识别」也在同一组里配置（设置页三个分页：自建服务、百炼·北京、百炼·新加坡），共用 `LiveSpeech`（`voice/LiveAsr.kt`）：文字控制消息加二进制 PCM，按住时边传边出字，松开后等服务端的结束事件（`stopped` / `task-finished`）才交出最终文字，断开或超时算失败，不把中间结果当最终文字发给模型。自建服务只填地址，百炼的 API Key 按地域独立加密，可选填业务空间 ID；保存前试连一次，不送音频。见 [live-asr.md](live-asr.md)。
+
 按住说话有两处入口:对话页输入框和悬浮胶囊。两处只经 `VoiceSource`(`voice/VoiceInput.kt`,App 里是 `VoiceInput`)拿会话,界面测试换成假的;识别和转写的逻辑都在 `app/voice/`,界面只管手势、画面和接线。
 
 - **`voice/` 包的职责**:`SpeechChoice` 是用户的选择(自动、手机自带、不用、某服务商的某个模型)和它在设置里的存取(`SpeechSettings`,一个键一段 JSON,读不出来当自动)。`SpeechResolver` 把选择、手机能力(`SystemCapability`)、现有服务商对起来,得出这次的引擎 `SpeechEngineSpec`。`SpeechSession` 是一次会话的接口,只发 `SpeechEvent`(音量、中间结果、转文字中、最终结果、失败);两种实现:`SystemSpeech`(手机自带识别,边说边出字)和 `ProviderSpeech`(用 `PcmRecorder` 录音,松开后把整段 `Wav` 交给 `Transcriber`)。`HoldToTalk` 是按住说话的状态机(按下、上滑取消、松开、到点收尾),不碰界面和手势,输入框和胶囊共用。手还按着时会话自己先结束了(自带识别一段说完不再重开、中途出错但已听到字),结果先留着、界面照旧显示听到的字,等手指离开按那时的落点处理:停在取消上就丢掉,否则才交出去,所以想取消时不会把字填进去或发出去;按着时出错不等松开就提示,只有停在取消上时才先留着、松开在取消上就不提示。`Segments` 把识别服务按段结束又重开的各段拼起来,`Restarts` 决定空段后要不要重开、隔多久。
