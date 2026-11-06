@@ -53,7 +53,7 @@ class RestoreWishSync(
             on
         }
         val wishes = combine(capsuleMode, taskRunning, consent, accessibilityOn, quit) { mode, busy, c, on, quit ->
-            RestoreWish.of(mode == CapsuleMode.Always && !quit, busy && !quit, c.wants(RecoveryCapability.Accessibility), on)
+            RestoreWish.of(mode == CapsuleMode.Always && !quit, busy && !quit, c.wants(RecoveryCapability.Accessibility), on, quit)
         }.distinctUntilChanged()
         scope.launch { combine(hub.shell, wishes, ::Pair).collect { (shell, wish) -> sender.update(shell, wish) } }
     }
