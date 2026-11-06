@@ -1274,12 +1274,14 @@ class AndroidScreen(
     @Volatile private var tapWatch: Job? = null
     @Volatile private var tapWatchUntil = 0L
 
-    /** 不算开到主屏上的:Mika 自己、桌面 App(按 HOME 解析,不写死)。 */
-    private val notSpills: Set<String> by lazy {
+    /** 用户回主屏桌面的导航证据；桌面 App 按 HOME 解析，不写死。 */
+    private val homeApps: Set<String> by lazy {
         val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        runCatching { a11y.packageManager.queryIntentActivities(home, 0).map { it.activityInfo.packageName } }.getOrDefault(emptyList())
-            .toSet() + a11y.packageName
+        runCatching { a11y.packageManager.queryIntentActivities(home, 0).map { it.activityInfo.packageName } }.getOrDefault(emptyList()).toSet()
     }
+
+    /** 不算开到主屏上的:Mika 自己、桌面 App。 */
+    private val notSpills: Set<String> by lazy { homeApps + a11y.packageName }
 
     /** 动作之前:请内置助手盯着主屏,记下此刻两块屏最上面的任务;没有屏、接管中或助手不支持时为 null(不盯)。 */
     private fun armSpillWatch(): Watch? {
@@ -1329,7 +1331,7 @@ class AndroidScreen(
         val arrivals = parseArrivals(b)
         arrivals.maxOfOrNull { it.at }?.let { consumed = maxOf(consumed, it) }
         var last: Spill? = null
-        for (v in MainScreenSpill.decide(arrivals, w.since, SPILL_WINDOW_MS, w.topBefore, notSpills, userTaps.toList())) {
+        for (v in MainScreenSpill.decide(arrivals, w.since, SPILL_WINDOW_MS, w.topBefore, notSpills, userTaps.toList(), homeApps)) {
             val a = v.arrival
             val pkg = a.packageName ?: continue
             // 开到用户主屏上的不在应用访问边界看的那块屏上:被禁用的不挪、不读
@@ -1477,7 +1479,7 @@ class AndroidScreen(
             val deadline = gone + PICK_WAIT_MS
             while (true) {
                 val arrivals = runCatching { shell.mainArrivals(p.since) }.getOrNull()?.let(::parseArrivals).orEmpty()
-                val opened = MainScreenSpill.picked(arrivals, p.taskId, gone, PICK_SLACK_MS, PICK_WAIT_MS, p.topBefore, notSpills)
+                val opened = MainScreenSpill.picked(arrivals, p.taskId, gone, PICK_SLACK_MS, PICK_WAIT_MS, p.topBefore, notSpills, homeApps)
                 arrivals.maxOfOrNull { it.at }?.let { consumed = maxOf(consumed, it) }
                 if (opened != null) {
                     val pkg = opened.packageName!!

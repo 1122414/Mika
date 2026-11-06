@@ -9,7 +9,7 @@ import android.view.accessibility.AccessibilityEvent
  *
  * 只看动作开始之后一小段时间里主屏最上面换上来的任务(内置助手记下的,见 MainScreenLog)。不算:
  * 不在这段时间里的;桌面、最近任务一类的页面,Mika 自己,桌面 App([excluded]);从别的屏挪过来的(接管、别的任务的接管);
- * 此刻已不在主屏上的;这段时间里用户在主屏上点过东西(说不清是谁打开的,当作用户自己开的);
+ * 此刻已不在主屏上的;这段时间里用户在主屏上点过东西,或先回过桌面再从桌面/通知栏打开(当作用户自己开的);
  * 动作之前就在主屏最上面的那个任务又回到最上面(挪走开出来的那个后露出来的)。
  * 动作之前主屏最上面的任务里换了页面:是用户正在用的那个 App 被打开了,开在了用户眼前,不去动它([InUse])。
  * 冒出来的任务用户已经在点了(点的那个窗口属于它):也是用户在用,不挪。
@@ -61,10 +61,13 @@ internal object MainScreenSpill {
         topBefore: Int,
         excluded: Set<String>,
         userTaps: List<Tap>,
+        homePackages: Set<String> = emptySet(),
     ): List<Verdict> {
+        val ordered = arrivals.sortedBy { it.at }
+        val homeReturns = ordered.filter { it.packageName in homePackages }.map { it.at }
         val out = LinkedHashMap<Int, Verdict>()
-        for (a in arrivals.sortedBy { it.at }) {
-            val v = verdict(a, since, windowMs, topBefore, excluded, userTaps) ?: continue
+        for (a in ordered) {
+            val v = verdict(a, since, windowMs, topBefore, excluded, userTaps, homeReturns) ?: continue
             out.remove(a.taskId)
             out[a.taskId] = v
         }
@@ -90,8 +93,17 @@ internal object MainScreenSpill {
      * 和它出来前主屏最上面的 [topBefore]);用户刚点过选项,不按「用户点过」排除。看选择框关没关是隔一会儿看一次的,
      * 关掉之前 [slackMs] 内冒出来的也算。没有为 null。
      */
-    fun picked(arrivals: List<Arrival>, chooserTask: Int, gone: Long, slackMs: Long, waitMs: Long, topBefore: Int, excluded: Set<String>): Arrival? =
-        decide(arrivals.filter { it.taskId != chooserTask }, gone - slackMs, waitMs + slackMs, topBefore, excluded, emptyList())
+    fun picked(
+        arrivals: List<Arrival>,
+        chooserTask: Int,
+        gone: Long,
+        slackMs: Long,
+        waitMs: Long,
+        topBefore: Int,
+        excluded: Set<String>,
+        homePackages: Set<String> = emptySet(),
+    ): Arrival? =
+        decide(arrivals.filter { it.taskId != chooserTask }, gone - slackMs, waitMs + slackMs, topBefore, excluded, emptyList(), homePackages)
             .filterIsInstance<PullBack>().lastOrNull()?.arrival
 
     /**
@@ -108,12 +120,22 @@ internal object MainScreenSpill {
     fun authenticatorUi(pkg: String, authenticators: Set<String>, hasLauncher: Boolean): Boolean =
         pkg in authenticators && !hasLauncher
 
-    private fun verdict(a: Arrival, since: Long, windowMs: Long, topBefore: Int, excluded: Set<String>, userTaps: List<Tap>): Verdict? {
+    private fun verdict(
+        a: Arrival,
+        since: Long,
+        windowMs: Long,
+        topBefore: Int,
+        excluded: Set<String>,
+        userTaps: List<Tap>,
+        homeReturns: List<Long>,
+    ): Verdict? {
         if (a.at < since || a.at > since + windowMs) return null
         val pkg = a.packageName ?: return null
         if (!a.standard || pkg in excluded) return null
         if (a.from != NEW && a.from != MAIN) return null
         if (a.now != MAIN) return null
+        // 用户先回主屏桌面，再从桌面或通知栏打开 App：这条导航链不依赖控件是否另发点击事件
+        if (homeReturns.any { it in since..a.at }) return null
         if (userTaps.any { it.at in since..a.at }) return null
         // 用户已经在点它了(出现之后点在这一个 App 的窗口上):留给用户,不挪
         if (userTaps.any { it.at >= a.at && it.packageName == pkg }) return InUse(a)
