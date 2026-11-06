@@ -40,6 +40,10 @@
     <string name="plans_never_run">還沒執行過</string>
     <string name="plans_delivered">已送達</string>
     <string name="plans_unchanged">條件未變化</string>
+    <string name="plans_not_met">條件未滿足</string>
+    <string name="plans_cooldown">冷卻期內</string>
+    <string name="plans_condition_each">每次滿足都執行：%1$s · %2$s</string>
+    <string name="plans_last_value">上次 %1$s · %2$s · %3$s</string>
     <string name="plans_running_now">執行中</string>
     <string name="trigger_deleted">定時任務已刪除</string>
     <string name="trigger_busy">這條任務仍在執行</string>

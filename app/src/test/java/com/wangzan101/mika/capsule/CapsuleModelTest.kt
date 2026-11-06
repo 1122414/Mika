@@ -445,6 +445,16 @@ class CapsuleModelTest {
         assertEquals(1f, CapsuleFade.alpha(CapsuleKind.HandedOver, 0, pill = false, idleFor = 60_000))
     }
 
+    @Test fun configuredIdleOpacityNeverDimsAttentionStates() {
+        for (opacity in CapsuleIdleOpacity.entries) {
+            assertEquals(opacity.alpha, CapsuleFade.alpha(CapsuleKind.Idle, 0, false, 60_000, opacity.alpha))
+            assertEquals(opacity.alpha, CapsuleFade.alpha(CapsuleKind.Running, 0, false, 60_000, opacity.alpha))
+            assertEquals(1f, CapsuleFade.alpha(CapsuleKind.NeedConfirm, 1, false, 60_000, opacity.alpha))
+            assertEquals(1f, CapsuleFade.alpha(CapsuleKind.NeedAnswer, 0, true, 60_000, opacity.alpha))
+            assertEquals(1f, CapsuleFade.alpha(CapsuleKind.HandedOver, 0, false, 60_000, opacity.alpha))
+        }
+    }
+
     // ---------- 读屏 ----------
 
     @Test fun ballDescribesItsStatus() {

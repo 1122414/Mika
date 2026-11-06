@@ -40,6 +40,10 @@
     <string name="plans_never_run">아직 실행된 적 없어요</string>
     <string name="plans_delivered">전달됨</string>
     <string name="plans_unchanged">조건 변화 없음</string>
+    <string name="plans_not_met">조건 미충족</string>
+    <string name="plans_cooldown">쿨다운 기간 내</string>
+    <string name="plans_condition_each">조건이 맞을 때마다 실행: %1$s · %2$s</string>
+    <string name="plans_last_value">마지막 %1$s · %2$s · %3$s</string>
     <string name="plans_running_now">실행 중</string>
     <string name="trigger_deleted">예약 작업이 삭제되었어요</string>
     <string name="trigger_busy">이 작업이 아직 실행 중이에요</string>

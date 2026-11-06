@@ -42,6 +42,10 @@
     <string name="plans_never_run">Aún no se ha ejecutado</string>
     <string name="plans_delivered">Entregada</string>
     <string name="plans_unchanged">La condición no cambió</string>
+    <string name="plans_not_met">La condición no se cumplió</string>
+    <string name="plans_cooldown">Dentro del intervalo mínimo</string>
+    <string name="plans_condition_each">Se ejecuta cada vez que: %1$s · %2$s</string>
+    <string name="plans_last_value">Última %1$s · %2$s · %3$s</string>
     <string name="plans_running_now">En ejecución</string>
     <string name="trigger_deleted">Se eliminó la tarea programada</string>
     <string name="trigger_busy">Esta tarea sigue en ejecución</string>

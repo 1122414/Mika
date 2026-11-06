@@ -43,6 +43,10 @@
     <string name="plans_never_run">Ещё не запускалась</string>
     <string name="plans_delivered">Доставлено</string>
     <string name="plans_unchanged">Условие не изменилось</string>
+    <string name="plans_not_met">Условие не выполнено</string>
+    <string name="plans_cooldown">Интервал ещё не прошёл</string>
+    <string name="plans_condition_each">Запускается каждый раз, когда: %1$s · %2$s</string>
+    <string name="plans_last_value">Последний раз: %1$s · %2$s · %3$s</string>
     <string name="plans_running_now">Выполняется</string>
     <string name="trigger_deleted">Задача по расписанию удалена</string>
     <string name="trigger_busy">Эта задача ещё выполняется</string>
