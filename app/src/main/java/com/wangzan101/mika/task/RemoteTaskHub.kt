@@ -35,6 +35,8 @@ class RemoteTaskHub(
 ) : McpTaskHost, RemoteTasks, RemoteRunIndex {
     private val receipts by lazy { RemoteTaskReceipts(context) }
     private val buses = HashMap<RunId, RunEventBus>()
+    /** 同一 request_id 的附件任务必须把查重和单次消费放在同一把稳定锁里;scope() 每次返回新包装,不能拿它当锁。 */
+    private val fileStartLock = Any()
     private data class PendingEnd(val state: TaskState.Terminal, val steers: List<RemoteSteer>, val runId: String?, val files: List<SharedFile>)
     private val unsaved = mutableMapOf<String, PendingEnd>()
 
@@ -86,8 +88,8 @@ class RemoteTaskHub(
     private fun startWithFiles(owner: String?, id: String, goal: String, conversation: String?, attachments: List<String>): RemoteTask {
         val access = requireNotNull(if (owner == null) fileAccess else fileAccess.scope(owner))
         val request = JSONArray(listOf(goal) + attachments).toString()
-        return synchronized(access) {
-            synchronized(this) { receipts.find(id, goal, conversation, request, owner)?.let { return current(it) } }
+        return synchronized(fileStartLock) {
+            receipts.findFileRequest(id, conversation, request, owner)?.let { return synchronized(this) { current(it) } }
             val target = conversation ?: RemoteTaskService.newConversation()
             access.uploads.consume(attachments) { uploads ->
                 access.start(target, goal, uploads) { withPaths ->

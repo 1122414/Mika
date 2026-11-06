@@ -84,12 +84,18 @@ internal class RemoteTaskReceipts(
             val entry = cursor.entry()
             val task = entry.task
             val originalChat = if (entry.newChat) null else task.conversation
-            if (goal != null && (goal != task.goal || requestedChat != originalChat || fileRequest != entry.fileRequest)) {
+            if ((goal != null && goal != task.goal) ||
+                ((goal != null || fileRequest != null) && requestedChat != originalChat) ||
+                (fileRequest != null && fileRequest != entry.fileRequest)) {
                 throw RemoteTaskError.General(RemoteTaskError.Code.CONFLICT, "This request_id was already used for a different task.")
             }
             task
         }
     }
+
+    /** 附件任务落库的目标已附加文件路径;重试应按原始目标、会话和附件组成的请求签名核验。 */
+    fun findFileRequest(id: String, requestedChat: String?, fileRequest: String, owner: String?): RemoteTask? =
+        find(id, goal = null, requestedChat, fileRequest, owner)
 
     fun recent(limit: Int, owner: String? = null): List<RemoteTask> {
         claimLegacy(owner)

@@ -352,16 +352,17 @@ class CapsuleCardContentTest {
     }
 
     @Test fun taskCardWrapsItsContentAndTheChatCardDoesNot() {
+        val height = 520.dp
         val frame = Bitmap.createBitmap(36, 80, Bitmap.Config.ARGB_8888)
         val r = run("a", TaskState.Running(3, "n", "tap"), CapsuleKind.Running, "在搜")
         var card by mutableStateOf<CardView>(CardView.Detail(r, CardContent.Working(listOf("打开购物", "搜索牙膏", "选第一个"))))
         compose.setContent {
-            MikaTheme(dark = false, reduceMotion = true) { CapsuleCard(card, frame, false, actions, { null }, thread = history(1), height = 420.dp) }
+            MikaTheme(dark = false, reduceMotion = true) { CapsuleCard(card, frame, false, actions, { null }, thread = history(1), height = height) }
         }
         val task = compose.onNodeWithTag("capsule-card").fetchSemanticsNode().size.height
         val screen = compose.onNodeWithTag("capsule-screen").fetchSemanticsNode().size.height
-        val full = with(compose.density) { 420.dp.roundToPx() }
-        // 小画面加三步:比对话卡片矮,下面不留空,中间那段至少是整张小画面
+        val full = with(compose.density) { height.roundToPx() }
+        // 留出引导/排队控件的高度,让本例低于上限:验证任务卡片按内容收拢,对话卡片仍固定高
         assertTrue("wraps: $task < $full", task < full)
         assertTrue("fits the preview: $task > $screen", task > screen)
         compose.onNodeWithTag("capsule-screen").assertIsDisplayed()
@@ -369,7 +370,7 @@ class CapsuleCardContentTest {
         // 换成对话卡片:固定高
         card = chat(run("a", TaskState.Succeeded("好了"), CapsuleKind.Done))
         compose.waitForIdle()
-        compose.onNodeWithTag("capsule-card").assertHeightIsEqualTo(420.dp)
+        compose.onNodeWithTag("capsule-card").assertHeightIsEqualTo(height)
     }
 
     @Test fun longTaskCardIsCappedAndScrollsWhileButtonsStay() {
@@ -397,17 +398,18 @@ class CapsuleCardContentTest {
     )
 
     @Test fun manyStepsFitThePreviewHeightNewestAtTheBottom() {
+        val height = 520.dp
         val frame = Bitmap.createBitmap(36, 80, Bitmap.Config.ARGB_8888)
         var card by mutableStateOf<CardView>(working(30))
         compose.setContent {
-            MikaTheme(dark = false, reduceMotion = true) { CapsuleCard(card, frame, false, actions, { null }, height = 420.dp) }
+            MikaTheme(dark = false, reduceMotion = true) { CapsuleCard(card, frame, false, actions, { null }, height = height) }
         }
         val steps = compose.onNodeWithTag("capsule-steps").fetchSemanticsNode().size.height
         val screen = compose.onNodeWithTag("capsule-screen").fetchSemanticsNode().size.height
         val cardHeight = compose.onNodeWithTag("capsule-card").fetchSemanticsNode().size.height
-        // 步骤再多也和小画面一样高,卡片不被撑高
+        // 步骤再多也和小画面一样高;高度上限给固定控件留足空间,卡片不被步骤撑到上限
         assertTrue("steps fit the preview: $steps <= $screen", steps <= screen + 1)
-        assertTrue("card not stretched: $cardHeight < ${with(compose.density) { 420.dp.roundToPx() }}", cardHeight < with(compose.density) { 420.dp.roundToPx() })
+        assertTrue("card not stretched: $cardHeight < ${with(compose.density) { height.roundToPx() }}", cardHeight < with(compose.density) { height.roundToPx() })
         compose.onNodeWithText("第 30 步").assertIsDisplayed()
         offScreen("第 1 步")
         // 在底部时来了新的一步:跟到它
