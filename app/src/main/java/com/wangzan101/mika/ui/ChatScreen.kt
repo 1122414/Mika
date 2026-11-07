@@ -62,6 +62,7 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -130,6 +131,7 @@ import com.wangzan101.mika.ui.components.GlassBackdrop
 import com.wangzan101.mika.ui.components.GlassBar
 import com.wangzan101.mika.ui.components.MikaButton
 import com.wangzan101.mika.ui.components.MikaCard
+import com.wangzan101.mika.ui.components.MikaDialog
 import com.wangzan101.mika.ui.components.PageBackground
 import com.wangzan101.mika.ui.components.TopBar
 import com.wangzan101.mika.ui.components.cardSurface
@@ -207,6 +209,8 @@ fun ChatScreen(
         restore = { saved -> vm.also { it.restoreDraftTexts(saved) } },
     )) { vm }
     val input = ui.input
+    // 推荐任务可以直接填进空输入框;已有内容时先确认,不能因误触把草稿换掉。
+    var pendingExample by remember { mutableStateOf<String?>(null) }
     var voiceHolding by remember { mutableStateOf(false) }
     var editRequest by remember { mutableIntStateOf(0) }
     var composerHeight by rememberSaveable { mutableIntStateOf(0) }
@@ -308,7 +312,11 @@ fun ChatScreen(
                 },
             ) {
                 if (ui.exchanges.isEmpty() && ui.blocked == null) {
-                    item("empty") { EmptyState(ui.conversationId) { vm.input(it) } }
+                    item("empty") {
+                        EmptyState(ui.conversationId) { example ->
+                            if (input.isEmpty()) vm.input(example) else pendingExample = example
+                        }
+                    }
                 }
                 ui.exchanges.forEachIndexed { i, ex ->
                     val backgroundNote = i == ui.exchanges.lastIndex && ui.operatingPhone
@@ -489,6 +497,21 @@ fun ChatScreen(
                 onWithdraw = pending?.let { n -> ({ closeMenu { vm.withdrawSteer(n.id) } }) },
             )
         }
+    }
+
+    pendingExample?.let { example ->
+        MikaDialog(
+            onDismissRequest = { pendingExample = null },
+            title = { Text(stringResource(R.string.chat_example_replace_title)) },
+            text = { Text(stringResource(R.string.chat_example_replace_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = { vm.input(example); pendingExample = null },
+                    Modifier.testTag("confirm-replace-draft"),
+                ) { Text(stringResource(R.string.chat_example_replace_action)) }
+            },
+            dismissButton = { TextButton({ pendingExample = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 

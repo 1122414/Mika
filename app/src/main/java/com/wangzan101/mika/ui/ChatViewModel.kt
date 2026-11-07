@@ -331,6 +331,35 @@ private fun ChatUi.draft() = ComposerDraft(input, attachments, quote, followUpMo
     importing, rejectedAttachments, overLimit)
 
 /**
+ * 换对话时统一重建界面:任务和输入内容属于各自对话,附件按钮能力属于设备,不随对话重建丢掉。
+ * 每条切换路径都从这里走,再恢复目标对话自己的草稿。系统分享可以显式填入它自己的文字和附件。
+ */
+private fun ChatUi.rebuildForConversation(
+    conversationId: String?,
+    exchanges: List<Exchange> = emptyList(),
+    takeoverStage: Takeover.Stage = Takeover.Stage.None,
+    input: String = "",
+    sharedDraft: SharedDraft? = null,
+    attachments: List<PendingAttachment> = emptyList(),
+) = copy(
+    conversationId = conversationId,
+    exchanges = exchanges,
+    blocked = null,
+    pip = PipUi(),
+    composer = ComposerMode.Idle,
+    input = input,
+    followUpMode = FollowUpMode.Steer,
+    queued = emptyList(),
+    takeoverStage = takeoverStage,
+    attachments = attachments,
+    importing = false,
+    rejectedAttachments = emptyList(),
+    overLimit = 0,
+    sharedDraft = sharedDraft,
+    quote = null,
+)
+
+/**
  * 聊天界面的状态。步骤列表来自运行事件里实际做过的事(活动);进展那一行是模型这一步的话,
  * 等待模型时仅显示状态。任务在跑时输入框发的话交给这个任务(插话)。
  * 整个进程只用一个实例,界面关掉再打开时正在跑的任务的步骤还在。
@@ -626,7 +655,7 @@ class ChatViewModel(
         }
         val current = store.currentChat() as? CurrentChat.Open
         if (current != null && current.id in drafts.value) {
-            _ui.value = restoreDraft(_ui.value.copy(conversationId = current.id))
+            _ui.value = restoreDraft(_ui.value.rebuildForConversation(conversationId = current.id))
         }
     }
 
@@ -1080,10 +1109,8 @@ class ChatViewModel(
         if (conversationId != _ui.value.conversationId) parkLive()
         val past = saved(conversationId)
         liveIndex = -1
-        // 没有任务的对话不带别的任务的接管进度
-        // 附件按钮看的是设备能力,不是对话的内容:重建 ChatUi 时要带过去,不然切一次对话就没了(状态流不会重发)
-        _ui.value = restoreDraft(ChatUi(conversationId = conversationId, exchanges = past,
-            takeoverStage = Takeover.Stage.None, attachEnabled = _ui.value.attachEnabled))
+        // 没有任务的对话不带别的任务的接管进度;输入内容只恢复目标对话自己的草稿。
+        _ui.update { restoreDraft(it.rebuildForConversation(conversationId = conversationId, exchanges = past)) }
         markCurrent(CurrentChat.Open(conversationId))
         if (conversationId !in activeConversations.value) { unpark(conversationId); actions.drainFollowUps(conversationId); return }
         follow(conversationId, unpark(conversationId))
@@ -1285,13 +1312,11 @@ class ChatViewModel(
         screenSeen = false
         pipClosed = false
         _ui.update {
-            ChatUi(
+            it.rebuildForConversation(
                 conversationId = id,
                 sharedDraft = draft,
                 input = draft.text,
                 attachments = attachments,
-                takeoverStage = Takeover.Stage.None,
-                attachEnabled = it.attachEnabled,
             )
         }
         markCurrent(CurrentChat.Open(id))
@@ -1300,8 +1325,15 @@ class ChatViewModel(
 
     private fun discardSharedDraft() {
         val draft = _ui.value.sharedDraft ?: return
+        val imageUri = draft.image?.let { image -> runCatching { sharedDraftUri(image.fileName) }.getOrNull() }
         sharedDrafts?.clear(draft.conversationId)
-        _ui.update { if (it.sharedDraft == draft) it.copy(sharedDraft = null) else it }
+        _ui.update { current ->
+            if (current.sharedDraft == draft) current.copy(
+                sharedDraft = null,
+                // 私有分享图片随草稿一起删掉;普通待发附件仍属于全局输入框。
+                attachments = current.attachments.filterNot { it.uri == imageUri },
+            ) else current
+        }
     }
 
     /** 切到某个对话;任务在跑时不切。 */
@@ -1313,8 +1345,9 @@ class ChatViewModel(
         keepDraft()
         val past = saved(id)
         liveIndex = -1
-        _ui.value = restoreDraft(ChatUi(conversationId = id, exchanges = past,
-            takeoverStage = _ui.value.takeoverStage, attachEnabled = _ui.value.attachEnabled))
+        _ui.update {
+            restoreDraft(it.rebuildForConversation(conversationId = id, exchanges = past, takeoverStage = it.takeoverStage))
+        }
         markCurrent(CurrentChat.Open(id))
         // 这个对话的任务是别处开始的(悬浮胶囊、定时任务):打开就接上它
         if (id in activeConversations.value) follow(id) else {
@@ -1339,7 +1372,7 @@ class ChatViewModel(
             lingerJob?.cancel()
             parkLive()
             liveIndex = -1
-            _ui.update { ChatUi(conversationId = store.newConversation(), takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
+            _ui.update { it.rebuildForConversation(conversationId = store.newConversation()) }
             // 还没说过话:胶囊上是一张新对话卡片(编号等说出来再定,见 begin)
             markCurrent(CurrentChat.Fresh)
             return
@@ -1347,7 +1380,7 @@ class ChatViewModel(
         if (busy()) return
         keepDraft()
         liveIndex = -1
-        _ui.update { ChatUi(takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
+        _ui.update { it.rebuildForConversation(conversationId = null, takeoverStage = it.takeoverStage) }
         markCurrent(CurrentChat.Fresh)
     }
 
@@ -1457,7 +1490,7 @@ class ChatViewModel(
         screenSeen = false
         pipClosed = false
         val fresh = if (parallel()) store.newConversation() else null
-        _ui.update { ChatUi(conversationId = fresh, takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
+        _ui.update { it.rebuildForConversation(conversationId = fresh) }
         // 屏上换成了一个新的空对话:胶囊不再接着删掉的那个
         markCurrent(CurrentChat.Fresh)
     }

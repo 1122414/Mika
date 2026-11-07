@@ -817,6 +817,24 @@ class ChatViewModelTest {
         assertEquals(listOf(first), drafts.readAll().map { it.conversationId })
     }
 
+    @Test fun restoringSharedDraftKeepsAlreadyReadAttachmentCapability() = runTest {
+        val conversations = ConversationStore(tmp.newFolder())
+        val drafts = SharedDraftStore(tmp.newFolder())
+        val initial = ChatViewModel(backgroundScope, state, stage, actions, conversations, sharedDrafts = drafts).also { runCurrent() }
+        assertTrue(initial.openSharedDraft(SharedDraft("", "分享草稿")))
+
+        // 真机主线程会立即收下 sandboxReady 的初值,随后恢复草稿;恢复不能把已经读到的能力覆盖掉。
+        val immediate = kotlinx.coroutines.CoroutineScope(
+            backgroundScope.coroutineContext + kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler),
+        )
+        val restored = ChatViewModel(
+            immediate, state, stage, actions, conversations,
+            sandboxReady = MutableStateFlow(true), sharedDrafts = drafts,
+        )
+        assertEquals("分享草稿", restored.ui.value.sharedDraft?.text)
+        assertTrue(restored.ui.value.attachEnabled)
+    }
+
     @Test fun sharedDraftImageUsesTheExistingAttachmentImportAndSendPath() = runTest {
         val conversations = ConversationStore(tmp.newFolder())
         val drafts = SharedDraftStore(tmp.newFolder())
@@ -1146,6 +1164,39 @@ class ChatViewModelTest {
         summarizing.value = emptySet()
         runCurrent()
         assertEquals(ExchangeStatus.Cancelled(), vm.ui.value.exchanges.single().status)
+    }
+
+    @Test fun conversationSwitchesKeepOwnAttachmentsAndCapability() = runTest {
+        for (parallel in listOf(false, true)) {
+            val store = ConversationStore(tmp.newFolder())
+            store.append("a", Turn("第一件事", "好了", "succeeded"))
+            store.append("b", Turn("第二件事", "好了", "succeeded"))
+            val vm = ChatViewModel(
+                backgroundScope, state, stage, actions, store,
+                sandboxReady = MutableStateFlow(true),
+                parallelFlag = { parallel }, shownTask = shown, activeConversations = active,
+            ).also { runCurrent() }
+            vm.openConversation("a")
+            vm.attach(listOf("content://draft/$parallel"))
+            runCurrent()
+            val pending = vm.ui.value.attachments
+            assertEquals("parallel=$parallel", listOf("content://draft/$parallel"), pending.map { it.uri })
+
+            vm.openConversation("b")
+            assertTrue("parallel=$parallel", vm.ui.value.attachEnabled)
+            assertTrue("parallel=$parallel", vm.ui.value.attachments.isEmpty())
+            vm.openConversation("a")
+            assertTrue("parallel=$parallel", vm.ui.value.attachEnabled)
+            assertEquals("parallel=$parallel", pending, vm.ui.value.attachments)
+
+            // 新对话有自己的空输入框;设备能力和原对话的待发附件都不能丢。
+            vm.newConversation()
+            assertTrue("parallel=$parallel", vm.ui.value.attachEnabled)
+            assertTrue("parallel=$parallel", vm.ui.value.attachments.isEmpty())
+            vm.openConversation("a")
+            assertTrue("parallel=$parallel", vm.ui.value.attachEnabled)
+            assertEquals("parallel=$parallel", pending, vm.ui.value.attachments)
+        }
     }
 
     @Test fun attachmentsGoWithTheNextMessage() = runTest {
