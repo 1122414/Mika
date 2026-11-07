@@ -10,8 +10,11 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.imePadding
@@ -34,14 +37,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wangzan101.mika.browser.BrowserFavorites
+import com.wangzan101.mika.browser.RecentPages
 import com.wangzan101.mika.browser.SiteLooks
 import com.wangzan101.mika.browser.StartPageModel
 import com.wangzan101.mika.browser.UserBrowser
@@ -68,12 +79,20 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val recentPages by browser.recent.entries.collectAsState()
     val edits by browser.favorites.edits.collectAsState()
     val looks by browser.looks.entries.collectAsState()
+    val tabs by browser.tabs.collectAsState()
+    val find by browser.find.collectAsState()
+    val fullscreen by browser.fullscreen.collectAsState()
     val activity = remember(context) { context.findActivity() }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    var tabsOpen by rememberSaveable { mutableStateOf(false) }
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
+    var clearOpen by rememberSaveable { mutableStateOf(false) }
 
     val face = remember(looks) { { host: String -> SiteLooks.faceOf(host, looks, browser.looks::iconFile) } }
     val favorites = remember(edits, registry) { BrowserFavorites.combine(edits, registry) }
-    val recent = remember(recentPages, looks) { StartPageModel.recentRows(recentPages) { face(it).name } }
+    val allRecent = remember(recentPages, looks) { StartPageModel.recentRows(recentPages) { face(it).name } }
+    val recent = remember(allRecent) { allRecent.take(RecentPages.START_LIMIT) }
     val toast: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     val scope = rememberCoroutineScope()
     val chat = remember(browser) { PageChat(context.applicationContext, browser, scope) }
@@ -94,7 +113,8 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
             browser.closeHost(place, keepPage = activity?.isChangingConfigurations == true)
         }
     }
-    BackHandler(enabled = page != null) { browser.systemBack() }
+    BackHandler(enabled = page != null || tabs.isNotEmpty()) { browser.systemBack() }
+    BackHandler(enabled = find.active) { browser.stopFind() }
     LaunchedEffect(notice) {
         notice?.let {
             toast(it)
@@ -117,7 +137,9 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                     toast(tr(R.string.browser_removed, face(site.host).name))
                 },
                 onAddHint = { toast(BROWSER_ADD_HINT) },
-                onClearRecent = browser.recent::clear,
+                tabsCount = tabs.size,
+                onMenu = { menuOpen = true },
+                onHistory = { historyOpen = true },
             )
         } else {
             val host = WebUrlPolicy.host(p.url)
@@ -125,10 +147,16 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
             Column(Modifier.fillMaxSize()) {
                 BrowserPageBar(
                     p, host?.let(face),
-                    onClose = browser::closePage,
+                    onClose = browser::closeActiveTab,
                     onSubmit = { input -> browser.submit(input)?.let(toast) },
                     onReload = browser::reload, onStop = browser::stop,
                 )
+                if (find.active) {
+                    BrowserFindBar(
+                        find, browser::setFindQuery,
+                        onPrev = { browser.findNext(false) }, onNext = { browser.findNext(true) }, onClose = browser::stopFind,
+                    )
+                }
                 if (loginBanner) LoginBanner(desktop = p.desktop, onDone = browser::confirmLogin)
                 val mode = chat.mode
                 Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -149,7 +177,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 }
                 if (mode == PageAskMode.Bar && p.loginFor == null) PageAskBar(chat, Modifier.imePadding())
                 BrowserToolbar(
-                    p, onBackPage = browser::back, onForward = browser::forward, onHome = browser::closePage,
+                    p, onBackPage = browser::back, onForward = browser::forward, onHome = browser::closeActiveTab,
                     onShare = { share(context, p.url, p.title)?.let(toast) },
                     onMore = { moreOpen = true },
                 )
@@ -179,6 +207,73 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                         browser.setDesktop(!p.desktop)
                         toast(if (p.desktop) tr(R.string.browser_switched_mobile) else tr(R.string.browser_switched_desktop))
                     },
+                    onTabs = { tabsOpen = true },
+                    tabsCount = tabs.size,
+                    onHistory = { historyOpen = true },
+                    onFind = browser::startFind,
+                    onClearData = { clearOpen = true },
+                )
+            }
+        }
+    }
+
+    if (menuOpen) {
+        BrowserMenuSheet(
+            tabsCount = tabs.size,
+            onDismiss = { menuOpen = false },
+            onTabs = { menuOpen = false; tabsOpen = true },
+            onHistory = { menuOpen = false; historyOpen = true },
+            onClearData = { menuOpen = false; clearOpen = true },
+        )
+    }
+    if (tabsOpen) {
+        TabsSheet(
+            tabs = tabs,
+            onDismiss = { tabsOpen = false },
+            onSelect = { id -> tabsOpen = false; browser.selectTab(id) },
+            onClose = browser::closeTab,
+            onNew = { tabsOpen = false; browser.newTab() },
+        )
+    }
+    if (historyOpen) {
+        HistorySheet(
+            pages = allRecent, now = System.currentTimeMillis(),
+            onDismiss = { historyOpen = false },
+            onOpen = { r -> historyOpen = false; browser.open(r.url)?.let(toast) },
+            onRemove = { r -> browser.recent.remove(r.url) },
+            onClear = browser.recent::clear,
+        )
+    }
+    if (clearOpen) {
+        ClearDataSheet(onDismiss = { clearOpen = false }) { history, siteData, cache ->
+            browser.clearBrowsingData(history, siteData, cache)
+            clearOpen = false
+            toast(tr(R.string.browser_data_cleared))
+        }
+    }
+
+    fullscreen?.let { f ->
+        Dialog(
+            onDismissRequest = { browser.exitFullscreen() },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            val view = LocalView.current
+            val controller = remember(view) { ViewCompat.getWindowInsetsController(view) }
+            DisposableEffect(view) {
+                controller?.hide(WindowInsetsCompat.Type.systemBars())
+                controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+            }
+            Box(Modifier.fillMaxSize().background(Color.Black)) {
+                AndroidView(
+                    factory = { ctx ->
+                        FrameLayout(ctx).also {
+                            (f.view.parent as? ViewGroup)?.removeView(f.view)
+                            it.addView(f.view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    onRelease = { it.removeView(f.view) },
                 )
             }
         }

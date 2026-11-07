@@ -23,7 +23,10 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.wangzan101.mika.browser.AddressInput
 import com.wangzan101.mika.browser.BrowserPage
+import com.wangzan101.mika.browser.BrowserTab
 import com.wangzan101.mika.browser.FavoriteSite
+import com.wangzan101.mika.browser.FindState
+import com.wangzan101.mika.browser.RecentItem
 import com.wangzan101.mika.browser.RecentPage
 import com.wangzan101.mika.browser.SiteLook
 import com.wangzan101.mika.browser.SiteLooks
@@ -65,7 +68,9 @@ class BrowserScreenTest {
                     onOpenSite = { calls += "site ${it.host}" },
                     onRemoveSite = { calls += "remove ${it.host}" },
                     onAddHint = { calls += "add" },
-                    onClearRecent = { calls += "clear" },
+                    tabsCount = 2,
+                    onMenu = { calls += "menu" },
+                    onHistory = { calls += "history" },
                     now = 3_000,
                 )
             }
@@ -99,9 +104,9 @@ class BrowserScreenTest {
         compose.onNodeWithText("最近打开").assertIsDisplayed()
         compose.onNodeWithText("搜索：周末去哪玩").assertIsDisplayed()
         compose.onNodeWithText("使用指南").performClick()
-        compose.onNodeWithText("清除").performClick()
+        compose.onNodeWithText("全部").performClick()
         compose.onNodeWithText("添加").performClick()
-        assertEquals(listOf("open https://docs.example.net/guide", "clear", "add"), calls)
+        assertEquals(listOf("open https://docs.example.net/guide", "history", "add"), calls)
     }
 
     @Test
@@ -183,6 +188,51 @@ class BrowserScreenTest {
         compose.onNodeWithText("这个网站下次也用电脑版").assertIsDisplayed()
         compose.onNodeWithText("换成电脑版").performClick()
         assertEquals(listOf("dismiss", "desktop"), calls)
+    }
+
+    @Test
+    fun tabsSheetSelectsClosesAndOpensNew() {
+        compose.setContent {
+            MikaTheme {
+                TabsSheet(
+                    listOf(BrowserTab("t1", "A", "https://a.example.com/", "a.example.com", active = true)),
+                    onDismiss = {}, onSelect = { calls += "select $it" }, onClose = { calls += "close $it" }, onNew = { calls += "new" },
+                )
+            }
+        }
+        compose.onNodeWithText("A").performClick()
+        compose.onNodeWithContentDescription("关闭标签页", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("新建标签页").performClick()
+        assertEquals(listOf("select t1", "close t1", "new"), calls)
+    }
+
+    @Test
+    fun historySheetRemovesInEditMode() {
+        val pages = listOf(RecentItem("https://a.example.com/", "A", "a.example.com", null, false, 1_000))
+        compose.setContent {
+            MikaTheme {
+                HistorySheet(
+                    pages, now = 2_000, onDismiss = {}, onOpen = { calls += "open ${it.url}" },
+                    onRemove = { calls += "remove ${it.url}" }, onClear = { calls += "clear" },
+                )
+            }
+        }
+        compose.onNodeWithText("整理").performClick()
+        compose.onNodeWithContentDescription("移除A", useUnmergedTree = true).performClick()
+        assertEquals(listOf("remove https://a.example.com/"), calls)
+    }
+
+    @Test
+    fun clearDataSheetClearsTheSelectedKinds() {
+        compose.setContent { MikaTheme { ClearDataSheet({}) { h, s, c -> calls += "clear $h $s $c" } } }
+        compose.onNodeWithText("清除").performClick()
+        assertEquals(listOf("clear true true true"), calls)
+    }
+
+    @Test
+    fun findBarShowsTheCurrentMatch() {
+        compose.setContent { MikaTheme { BrowserFindBar(FindState(active = true, query = "a", matches = 3, index = 2), {}, {}, {}, {}) } }
+        compose.onNodeWithText("2/3").assertIsDisplayed()
     }
 
     @Test

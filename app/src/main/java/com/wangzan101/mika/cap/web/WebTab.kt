@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.http.SslError
 import android.os.Message
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.net.Uri
@@ -75,6 +76,10 @@ class WebTab(
         fun onDialog(tab: WebTab) {}
         /** 收到了当前页面的网站图标。 */
         fun onIcon(tab: WebTab, icon: Bitmap) {}
+        /** 网页要全屏播放视频:由界面把 [view] 盖到整屏上,并把回调留着,退出时交给调用方。返回 true 表示接下。 */
+        fun onFullscreen(tab: WebTab, view: View, callback: WebChromeClient.CustomViewCallback): Boolean = false
+        /** 网页要退出全屏。 */
+        fun onExitFullscreen(tab: WebTab) {}
     }
 
     /**
@@ -319,6 +324,16 @@ class WebTab(
 
             override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
                 callback?.invoke(origin, false, false)
+            }
+
+            // 全屏视频:交给看得见的标签那一侧盖到整屏;没人接就立刻退出
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                if (listener?.onFullscreen(this@WebTab, view, callback) == true) return
+                callback.onCustomViewHidden()
+            }
+
+            override fun onHideCustomView() {
+                listener?.onExitFullscreen(this@WebTab)
             }
 
             // 文件选择框:只交 web_upload 事先放好的工作区文件,取走即清;没有就取消,不弹系统选择器

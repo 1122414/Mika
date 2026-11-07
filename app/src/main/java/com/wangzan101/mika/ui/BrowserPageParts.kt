@@ -17,16 +17,19 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -287,6 +290,11 @@ fun BrowserMoreSheet(
     onOpenOutside: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleDesktop: () -> Unit,
+    onTabs: () -> Unit = {},
+    tabsCount: Int = 0,
+    onHistory: () -> Unit = {},
+    onFind: () -> Unit = {},
+    onClearData: () -> Unit = {},
 ) {
     val c = MikaTheme.colors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface, shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)) {
@@ -305,17 +313,26 @@ fun BrowserMoreSheet(
                 }
             }
             fun act(f: () -> Unit): () -> Unit = { onDismiss(); f() }
-            ListRow(MikaIcons.Refresh, tr(R.string.refresh), first = true, onClick = act(onReload))
-            ListRow(MikaIcons.Copy, tr(R.string.browser_copy_link), onClick = act(onCopy))
-            ListRow(MikaIcons.External, tr(R.string.browser_open_outside), onClick = act(onOpenOutside))
-            if (host != null) {
-                ListRow(MikaIcons.Star, if (favorite) tr(R.string.browser_unfavorite) else tr(R.string.browser_favorite), onClick = act(onToggleFavorite))
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                ListRow(MikaIcons.Refresh, tr(R.string.refresh), first = true, onClick = act(onReload))
+                ListRow(MikaIcons.Search, tr(R.string.browser_find), onClick = act(onFind))
+                ListRow(MikaIcons.Copy, tr(R.string.browser_copy_link), onClick = act(onCopy))
+                ListRow(MikaIcons.External, tr(R.string.browser_open_outside), onClick = act(onOpenOutside))
                 ListRow(
-                    if (desktop) MikaIcons.Phone else MikaIcons.Desktop,
-                    if (desktop) tr(R.string.browser_to_mobile) else tr(R.string.browser_to_desktop),
-                    subtitle = if (desktop) tr(R.string.browser_keep_mobile) else tr(R.string.browser_keep_desktop),
-                    onClick = act(onToggleDesktop),
+                    MikaIcons.Apps, tr(R.string.browser_tabs), detail = tabsCount.takeIf { it > 0 }?.toString(),
+                    onClick = act(onTabs),
                 )
+                ListRow(MikaIcons.Clock, tr(R.string.browser_history), onClick = act(onHistory))
+                if (host != null) {
+                    ListRow(MikaIcons.Star, if (favorite) tr(R.string.browser_unfavorite) else tr(R.string.browser_favorite), onClick = act(onToggleFavorite))
+                    ListRow(
+                        if (desktop) MikaIcons.Phone else MikaIcons.Desktop,
+                        if (desktop) tr(R.string.browser_to_mobile) else tr(R.string.browser_to_desktop),
+                        subtitle = if (desktop) tr(R.string.browser_keep_mobile) else tr(R.string.browser_keep_desktop),
+                        onClick = act(onToggleDesktop),
+                    )
+                }
+                ListRow(MikaIcons.Trash, tr(R.string.browser_clear_data), onClick = act(onClearData))
             }
             Spacer(Modifier.height(4.dp))
         }
