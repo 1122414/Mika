@@ -91,7 +91,7 @@ class OnboardingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch("webbrowser.open") as browser, \
                 contextlib.redirect_stdout(io.StringIO()):
             page = qr_page({"url": "https://accounts.feishu.cn/oauth/fake?code=test", "expire_in": 600}, directory, False)
-            content = page.read_text()
+            content = page.read_text(encoding="utf-8")
             self.assertIn("data:image/svg+xml;base64,", content)
             self.assertIn("default-src 'none'", content)
             self.assertNotIn("client_secret", content)
