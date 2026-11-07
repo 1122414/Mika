@@ -201,11 +201,12 @@ fun ChatScreen(
     }
     val frame = live ?: lastFrame.takeIf { ui.pip.visible && ui.pip.mode == PipMode.Done }
     val webContent = if (ui.pip.mode == PipMode.Done) lastFrameWasWeb else webLive
-    var input by rememberSaveable { mutableStateOf("") }
-    // 系统分享仍走这个输入框:只预填,不发送;进程恢复后同一份草稿也不会重复执行。
-    LaunchedEffect(ui.sharedDraft?.conversationId) {
-        ui.sharedDraft?.let { input = it.text }
-    }
+    // 注册文字的 Android 状态保存;平时由进程内的 ViewModel 管理完整会话草稿。
+    rememberSaveable(vm, saver = androidx.compose.runtime.saveable.listSaver(
+        save = { model: ChatViewModel -> model.saveDraftTexts() },
+        restore = { saved -> vm.also { it.restoreDraftTexts(saved) } },
+    )) { vm }
+    val input = ui.input
     var voiceHolding by remember { mutableStateOf(false) }
     var editRequest by remember { mutableIntStateOf(0) }
     var composerHeight by rememberSaveable { mutableIntStateOf(0) }
@@ -307,7 +308,7 @@ fun ChatScreen(
                 },
             ) {
                 if (ui.exchanges.isEmpty() && ui.blocked == null) {
-                    item("empty") { EmptyState(ui.conversationId) { input = it } }
+                    item("empty") { EmptyState(ui.conversationId) { vm.input(it) } }
                 }
                 ui.exchanges.forEachIndexed { i, ex ->
                     val backgroundNote = i == ui.exchanges.lastIndex && ui.operatingPhone
@@ -361,10 +362,11 @@ fun ChatScreen(
             Modifier.align(Alignment.BottomCenter).behindMenu(menuOpen) { lift.value }.onSizeChanged { composerHeight = it.height },
             backdrop = backdrop,
             text = input,
-            onText = { input = it },
+            draftKey = ui.conversationId,
+            onText = vm::input,
             mode = ui.composer,
             hasHistory = ui.exchanges.isNotEmpty(),
-            onSend = { if (vm.send(input, check)) input = "" },
+            onSend = { vm.send(input, check) },
             onTeach = if (ui.composer == ComposerMode.Idle) ({ onOpenTeach(input.trim()) }) else null,
             onStop = vm::cancel,
             followUpMode = ui.followUpMode,
@@ -373,12 +375,14 @@ fun ChatScreen(
             onCancelQueued = { id ->
                 if (!vm.cancelQueued(id)) Toast.makeText(context, context.getString(R.string.follow_up_already_started), Toast.LENGTH_SHORT).show()
             },
-            onEditQueued = { id -> vm.editQueued(id)?.let { input = it; editRequest++ } },
+            onEditQueued = { id -> vm.editQueued(id)?.let { editRequest++ } },
             onStartQueued = vm::startQueued,
             followUpStatus = last?.status?.takeIf { it.isActive() },
             attachPanel = if (ui.attachEnabled && (ui.composer == ComposerMode.Idle ||
                     (ui.composer == ComposerMode.Busy && ui.followUpMode == FollowUpMode.Queue))) ({
-                AttachPanelHost(ui.attachments, onPicked = vm::attach, onToggle = vm::toggleAttachment)
+                androidx.compose.runtime.key(ui.conversationId) {
+                    AttachPanelHost(ui.attachments, onPicked = { vm.attach(it, ui.conversationId) }, onToggle = vm::toggleAttachment)
+                }
             }) else null,
             attachments = ui.attachments,
             importing = ui.importing,
@@ -391,11 +395,12 @@ fun ChatScreen(
             onRemoveQuote = vm::clearQuote,
             voice = voice,
             // 说的话接在已有的字后面;任务在跑时发出去就是插话
-            onVoiceText = { input = HoldToTalk.join(input, it) },
+            onVoiceText = { vm.input(HoldToTalk.join(vm.ui.value.input, it)) },
             // 松开在「在听」卡片里:接上已有的字直接发出;发不出去(比如还在导入附件)就留在输入框里
             onVoiceSend = {
-                input = HoldToTalk.join(input, it)
-                if (vm.send(input, check)) input = ""
+                val text = HoldToTalk.join(vm.ui.value.input, it)
+                vm.input(text)
+                vm.send(text, check)
             },
             onPickSpeech = openSpeechModel,
             steerTarget = if (ui.followUpMode == FollowUpMode.Steer) last?.goal?.let(ChatCopy::plainTitle) else null,
@@ -457,7 +462,6 @@ fun ChatScreen(
                                 copy?.truncated == true -> R.string.chat_branch_attachments_skipped
                                 else -> R.string.chat_branch_done
                             }
-                            if (id != null) input = ""
                             Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
                             vm.clearBranchCopy()
                         }
@@ -473,14 +477,14 @@ fun ChatScreen(
                                 vm.branchCopy.value?.truncated == true -> R.string.chat_branch_attachments_skipped
                                 else -> R.string.chat_branch_done
                             }
-                            if (result != null) input = result.prefill
+                            if (result != null && vm.ui.value.conversationId == result.conversationId) vm.input(result.prefill)
                             Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
                             vm.clearBranchCopy()
                         }
                     }
                 } },
                 onEdit = if (pending != null && canEdit && editableSteer(pending.text)) ({ closeMenu {
-                    vm.editSteer(pending.id)?.let { input = it; editRequest++ }
+                    vm.editSteer(pending.id)?.let { editRequest++ }
                 } }) else null,
                 onWithdraw = pending?.let { n -> ({ closeMenu { vm.withdrawSteer(n.id) } }) },
             )
@@ -1227,6 +1231,7 @@ internal fun Composer(
     steerTarget: String? = null,
     /** 按着说话时为 true:对话内容跟着虚化。 */
     onVoiceHolding: (Boolean) -> Unit = {},
+    draftKey: String? = null,
 ) {
     val c = MikaTheme.colors
     var fieldFocused by remember { mutableStateOf(false) }
@@ -1241,7 +1246,7 @@ internal fun Composer(
     val nav = WindowInsets.navigationBars
     var panel by rememberSaveable { mutableStateOf(Panel.Closed) }
     // 「松开 发送」和发送键一样先收起附件面板
-    val vh = rememberVoiceHold(voice, onVoiceText, onVoiceSend?.let { send -> { text -> panel = Panel.Closed; send(text) } })
+    val vh = androidx.compose.runtime.key(draftKey) { rememberVoiceHold(voice, onVoiceText, onVoiceSend?.let { send -> { text -> panel = Panel.Closed; send(text) } }) }
     val vState = voiceState(vh)
     val voiceHolding = vh?.holding == true
     LaunchedEffect(voiceHolding) { onVoiceHolding(voiceHolding) }
