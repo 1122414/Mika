@@ -8,6 +8,7 @@ import android.webkit.URLUtil
 import com.wangzan101.mika.cap.web.WebTab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /** 浏览器下载列表里的一项:[status] 是系统 DownloadManager 的状态码。 */
 data class BrowserDownload(
@@ -34,10 +35,12 @@ data class BrowserDownload(
  * 用户浏览器里的下载:交给系统 [DownloadManager],文件落在系统「下载」目录,通知栏显示进度。
  * 下载的链接只收 http/https(blob:、data: 这类网页自己生成的链接系统下载不了,开始失败)。
  * User-Agent 和 Cookie 从标签带过去;重名时在扩展名前加「 (2)」。列表、取消、删除、打开都问系统要。
+ * 只列浏览器自己排队的下载(记下 id),不会把关于页的更新包等别的下载混进来。
  */
-class BrowserDownloads(context: Context) {
+class BrowserDownloads(context: Context, dir: File) {
     private val app = context.applicationContext
     private val manager = app.getSystemService(DownloadManager::class.java)
+    private val ids = DownloadIds(File(dir, IDS_FILE))
 
     /** 开始下载;返回保存的文件名。链接不支持、开始失败或系统没有下载服务时为 null。 */
     fun enqueue(url: String, userAgent: String, contentDisposition: String?, mime: String?): String? {
@@ -53,14 +56,18 @@ class BrowserDownloads(context: Context) {
         mime?.takeIf { it.isNotBlank() }?.let(request::setMimeType)
         userAgent.takeIf { it.isNotBlank() }?.let { request.addRequestHeader("User-Agent", it) }
         WebTab.cookieManager().getCookie(url)?.takeIf { it.isNotBlank() }?.let { request.addRequestHeader("Cookie", it) }
-        return runCatching { m.enqueue(request) }.getOrNull()?.let { name }
+        val id = runCatching { m.enqueue(request) }.getOrNull() ?: return null
+        ids.add(id)
+        return name
     }
 
-    /** 这个 App 的下载,最新的在前,至多 [limit] 条。 */
+    /** 浏览器自己的下载,最新的在前,至多 [limit] 条。 */
     suspend fun list(limit: Int = LIMIT): List<BrowserDownload> = withContext(Dispatchers.IO) {
         val m = manager ?: return@withContext emptyList()
+        val wanted = ids.all()
+        if (wanted.isEmpty()) return@withContext emptyList()
         runCatching {
-            m.query(DownloadManager.Query()).use { c ->
+            m.query(DownloadManager.Query().setFilterById(*wanted)).use { c ->
                 val id = c.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
                 val title = c.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE)
                 val status = c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
@@ -80,6 +87,7 @@ class BrowserDownloads(context: Context) {
                         reason = c.getInt(reason),
                     )
                 }
+                ids.retain(out.map { it.id }.toSet())
                 out.sortedByDescending { it.id }.take(limit)
             }
         }.getOrDefault(emptyList())
@@ -88,6 +96,7 @@ class BrowserDownloads(context: Context) {
     /** 取消下载或删掉记录(系统会把已下载的文件一起删掉)。 */
     fun remove(id: Long) {
         runCatching { manager?.remove(id) }
+        ids.remove(id)
     }
 
     /** 已下载文件的 content:// 地址;没有完成时为 null。 */
@@ -106,7 +115,52 @@ class BrowserDownloads(context: Context) {
 
     companion object {
         const val LIMIT = 50
+        private const val IDS_FILE = "browser_download_ids.txt"
         private const val DOWNLOAD = "download"
+    }
+}
+
+/** 浏览器自己排队的下载 id,只列这些,不会混进更新包等别的下载。存在 App 私有目录的一个小文件里。 */
+internal class DownloadIds(private val file: File, private val limit: Int = 200) {
+    private val ids = LinkedHashSet<Long>()
+
+    init {
+        runCatching {
+            if (file.isFile) file.readLines().mapNotNull { it.trim().toLongOrNull() }.forEach { ids += it }
+        }
+    }
+
+    @Synchronized
+    fun add(id: Long) {
+        ids += id
+        while (ids.size > limit) ids.remove(ids.first())
+        save()
+    }
+
+    @Synchronized
+    fun remove(id: Long) {
+        if (ids.remove(id)) save()
+    }
+
+    @Synchronized
+    fun retain(all: Set<Long>) {
+        if (ids.retainAll(all)) save()
+    }
+
+    @Synchronized
+    fun all(): LongArray = ids.toLongArray()
+
+    private fun save() {
+        runCatching {
+            file.parentFile?.mkdirs()
+            // 先写临时文件再改名,写到一半被杀不会留下半个文件
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            tmp.writeText(ids.joinToString("\n"))
+            if (!tmp.renameTo(file)) {
+                file.writeText(tmp.readText())
+                tmp.delete()
+            }
+        }
     }
 }
 

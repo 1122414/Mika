@@ -66,7 +66,7 @@ class UserBrowser private constructor(private val app: Context) {
     val favorites = BrowserFavorites(dir)
     val looks = SiteLooks(dir)
     /** 用户浏览器的下载:交给系统下载,列表也问系统要。 */
-    val downloads = BrowserDownloads(app)
+    val downloads = BrowserDownloads(app, dir)
     private val modes = UserSiteModes(dir)
     /** 看着的这一页借给任务(见 [PageLoans])。 */
     val loans = PageLoans<WebTab>()
