@@ -83,37 +83,35 @@ internal fun UpdateReadyCapsule(
         }
     }
 
-    Row(
+    Box(
         modifier.testTag("update-ready-capsule")
             .graphicsLayer {
                 alpha = reveal.value
                 translationY = if (reduceMotion) 0f else -52.dp.toPx() * (1f - reveal.value)
             }
             .onFocusChanged { focused = it.hasFocus }.focusGroup()
-            .shadow(
-                18.dp, CircleShape, clip = false,
-                ambientColor = colors.floatShadow.copy(alpha = 0.65f),
-                spotColor = colors.floatShadow,
-            )
-            .clip(CircleShape)
-            .background(Brush.verticalGradient(listOf(colors.surface, lerp(colors.bg, colors.ink, 0.055f))))
-            .border(
-                1.5.dp,
-                Brush.verticalGradient(listOf(
-                    colors.thumb.copy(alpha = if (colors.isDark) 0.22f else 0.95f),
-                    colors.edge,
-                    colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.16f),
-                )),
-                CircleShape,
-            )
-            .hoverable(interaction)
-            .padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .hoverable(interaction),
     ) {
         Row(
-            Modifier.clip(CircleShape)
+            Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp)
+                .shadow(
+                    18.dp, CircleShape, clip = false,
+                    ambientColor = colors.floatShadow.copy(alpha = 0.65f),
+                    spotColor = colors.floatShadow,
+                )
+                .clip(CircleShape)
+                .background(Brush.verticalGradient(listOf(colors.surface, lerp(colors.bg, colors.ink, 0.055f))))
+                .border(
+                    1.5.dp,
+                    Brush.verticalGradient(listOf(
+                        colors.thumb.copy(alpha = if (colors.isDark) 0.22f else 0.95f),
+                        colors.edge,
+                        colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.16f),
+                    )),
+                    CircleShape,
+                )
                 .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onInstall)
-                .padding(start = 8.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = 11.dp, end = 18.dp, top = 9.dp, bottom = 9.dp),
             horizontalArrangement = Arrangement.spacedBy(9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -140,10 +138,17 @@ internal fun UpdateReadyCapsule(
             )
         }
         Box(
-            Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onDisable),
+            Modifier.align(Alignment.TopStart).size(44.dp).clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onDisable),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(MikaIcons.Close, stringResource(R.string.about_auto_update_disable), Modifier.size(14.dp), tint = colors.ink3)
+            Box(
+                Modifier.size(22.dp).shadow(4.dp, CircleShape, clip = false)
+                    .background(colors.surface, CircleShape).border(1.dp, colors.edge, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(MikaIcons.Close, stringResource(R.string.about_auto_update_disable), Modifier.size(12.dp), tint = colors.ink2)
+            }
         }
     }
 }
