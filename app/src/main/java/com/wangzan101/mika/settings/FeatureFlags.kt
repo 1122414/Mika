@@ -191,8 +191,32 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     fun capsuleMode(): CapsuleMode = CapsuleMode.parse(prefs.getString(CAPSULE_MODE, null))
 
     fun setCapsuleMode(mode: CapsuleMode) {
-        prefs.edit().putString(CAPSULE_MODE, mode.name).commit()
+        val previous = capsuleMode()
+        val edit = prefs.edit().putString(CAPSULE_MODE, mode.name)
+        val resume = if (mode != CapsuleMode.Off) mode else previous
+        if (resume != CapsuleMode.Off) edit.putString(CAPSULE_RESUME_MODE, resume.name)
+        edit.commit()
     }
+
+    /** Quick Settings restores the user's previous non-off mode. */
+    fun toggleCapsule() {
+        val saved = CapsuleMode.parse(prefs.getString(CAPSULE_RESUME_MODE, null))
+        setCapsuleMode(if (capsuleMode() == CapsuleMode.Off) saved.takeIf { it != CapsuleMode.Off } ?: CapsuleMode.Always else CapsuleMode.Off)
+    }
+
+    fun capsuleEdgeDocked(): Boolean = prefs.getBoolean(CAPSULE_EDGE_DOCKED, false)
+    fun setCapsuleEdgeDocked(on: Boolean) { prefs.edit().putBoolean(CAPSULE_EDGE_DOCKED, on).commit() }
+
+    fun capsuleHideFullscreen(): Boolean = prefs.getBoolean(CAPSULE_HIDE_FULLSCREEN, false)
+    fun setCapsuleHideFullscreen(on: Boolean) { prefs.edit().putBoolean(CAPSULE_HIDE_FULLSCREEN, on).commit() }
+    fun capsuleHideFullscreenChanges(): Flow<Boolean> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == CAPSULE_HIDE_FULLSCREEN) trySend(capsuleHideFullscreen())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(capsuleHideFullscreen())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
 
     /** 胶囊开关的当前值,之后每次改动再发一次。 */
     fun capsuleModeChanges(): Flow<CapsuleMode> = callbackFlow {
@@ -311,6 +335,9 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val SKIN_HUE = "skin_hue"
         private val SKIN_KEYS = setOf(SKIN_VERSION, SKIN_SCRIM, SKIN_BLUR, SKIN_FOCUS, SKIN_ACCENT_FOLLOW, SKIN_HUE)
         private const val CAPSULE_MODE = "capsule_mode"
+        private const val CAPSULE_RESUME_MODE = "capsule_resume_mode"
+        private const val CAPSULE_EDGE_DOCKED = "capsule_edge_docked"
+        private const val CAPSULE_HIDE_FULLSCREEN = "capsule_hide_fullscreen"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
         private const val CAPSULE_CARD_SCALE = "capsule_card_scale"
         private const val QUIT_REQUESTED = "quit_requested"

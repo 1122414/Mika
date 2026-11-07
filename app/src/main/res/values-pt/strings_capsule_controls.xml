@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capsule_edge_reveal">Mostrar cápsula</string>
+    <string name="capsule_edge_detail">Ao arrastar para uma borda, a cápsula inativa fica esmaecida em um semicírculo. Toque para mostrá-la. Solicitações que precisam de você continuam totalmente visíveis.</string>
+    <string name="capsule_hide_fullscreen">Ocultar cápsula em tela cheia</string>
+    <string name="capsule_hide_fullscreen_detail">Oculta quando o aplicativo preenche a tela e esconde a barra de status; restaura ao sair. Tarefas e notificações continuam. Desativado por padrão.</string>
+    <string name="capsule_tile_setup">Abra o Mika e configure o controle do telefone para usar a cápsula flutuante.</string>
+    <string name="capsule_tile_add">Adicionar às configurações rápidas</string>
+    <string name="capsule_tile_manual">Nas configurações rápidas do Android, toque em Editar e adicione Cápsula flutuante para ativar ou desativar. Você também pode usar Configurações do Mika › Cápsula flutuante.</string>
+    <string name="pip_size_smaller">Reduzir prévia</string>
+    <string name="pip_size_larger">Ampliar prévia</string>
+    <string name="pip_size_reset">Redefinir tamanho</string>
+</resources>

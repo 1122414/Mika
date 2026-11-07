@@ -151,6 +151,20 @@ class ManifestProvidersTest {
         assertEquals("", a.getAttributeNS(androidNs, "taskAffinity"))
     }
 
+    @Test fun capsuleTileIsBoundOnlyByAndroidQuickSettings() {
+        val doc = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+            .newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
+        val services = doc.getElementsByTagName("service")
+        val tile = (0 until services.length).map { services.item(it) as Element }
+            .single { it.getAttributeNS(androidNs, "name") == ".capsule.CapsuleTileService" }
+        assertEquals("true", tile.getAttributeNS(androidNs, "exported"))
+        assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE", tile.getAttributeNS(androidNs, "permission"))
+        val actions = tile.getElementsByTagName("action")
+        assertEquals(1, actions.length)
+        assertEquals("android.service.quicksettings.action.QS_TILE",
+            (actions.item(0) as Element).getAttributeNS(androidNs, "name"))
+    }
+
     /** 内置助手进程按这个全名启动。 */
     @Test
     fun helperEntryClassExists() {

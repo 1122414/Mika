@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capsule_edge_reveal">캡슐 표시</string>
+    <string name="capsule_edge_detail">가장자리로 끌면 유휴 캡슐이 흐린 반원으로 줄어듭니다. 탭하면 다시 표시됩니다. 사용자의 처리가 필요한 요청은 전체가 표시됩니다.</string>
+    <string name="capsule_hide_fullscreen">전체 화면에서 캡슐 숨기기</string>
+    <string name="capsule_hide_fullscreen_detail">앞의 앱이 화면을 채우고 상태 표시줄을 숨기면 캡슐을 숨깁니다. 전체 화면을 종료하면 복원됩니다. 작업과 알림은 계속됩니다. 기본값은 꺼짐입니다.</string>
+    <string name="capsule_tile_setup">Mika를 열고 휴대전화 제어를 설정한 후 플로팅 캡슐을 사용하세요.</string>
+    <string name="capsule_tile_add">빠른 설정에 추가</string>
+    <string name="capsule_tile_manual">Android 빠른 설정에서 편집을 탭하고 플로팅 캡슐을 추가하여 켜거나 끌 수 있습니다. Mika 설정 › 플로팅 캡슐에서도 제어할 수 있습니다.</string>
+    <string name="pip_size_smaller">미리보기 축소</string>
+    <string name="pip_size_larger">미리보기 확대</string>
+    <string name="pip_size_reset">크기 초기화</string>
+</resources>

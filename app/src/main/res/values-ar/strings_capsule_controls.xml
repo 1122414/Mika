@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capsule_edge_reveal">إظهار الكبسولة</string>
+    <string name="capsule_edge_detail">بعد سحبها إلى الحافة، تصبح الكبسولة الخاملة نصف دائرة باهتة. انقر لإظهارها. تبقى الطلبات التي تحتاج إليك ظاهرة بالكامل.</string>
+    <string name="capsule_hide_fullscreen">إخفاء الكبسولة في وضع ملء الشاشة</string>
+    <string name="capsule_hide_fullscreen_detail">إخفاء الكبسولة عندما يملأ التطبيق الشاشة ويخفي شريط الحالة، واستعادتها عند الخروج. تستمر المهام والإشعارات. معطّل افتراضيًا.</string>
+    <string name="capsule_tile_setup">افتح Mika وأعدّ التحكم بالهاتف لاستخدام الكبسولة العائمة.</string>
+    <string name="capsule_tile_add">إضافة إلى الإعدادات السريعة</string>
+    <string name="capsule_tile_manual">في إعدادات Android السريعة، اضغط على تعديل وأضف الكبسولة العائمة لتشغيلها أو إيقافها. يمكنك أيضًا استخدام إعدادات Mika › الكبسولة العائمة.</string>
+    <string name="pip_size_smaller">تصغير المعاينة</string>
+    <string name="pip_size_larger">تكبير المعاينة</string>
+    <string name="pip_size_reset">إعادة ضبط حجم المعاينة</string>
+</resources>

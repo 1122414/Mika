@@ -93,6 +93,7 @@ data class CapsuleInputs(
     val serviceAvailable: Boolean,
     val cardOpen: Boolean = false,
     val kept: KeptPage? = null,
+    val fullscreen: Boolean = false,
 )
 
 /** 胶囊的状态,按优先级从高到低排([ordinal] 小的先显示);[Idle] 是「一直显示」时没任务的图标。 */
@@ -204,7 +205,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         seen.retainAll(marks)
         if (inputs.cardOpen) seen += marks
 
-        if (inputs.mode == CapsuleMode.Off || !inputs.serviceAvailable || inputs.mikaInForeground || !inputs.screenInteractive) {
+        if (inputs.mode == CapsuleMode.Off || !inputs.serviceAvailable || inputs.fullscreen || inputs.mikaInForeground || !inputs.screenInteractive) {
             // 再出现时直接显示最新的那句,不接着上次的节流
             shownIdentity = null
             shownText = null

@@ -456,6 +456,9 @@ fun CapsuleScreen(
     cardScale: CapsuleCardScale = CapsuleCardScale.DEFAULT,
     onCardScale: (CapsuleCardScale) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val flags = remember { FeatureFlags.get(context) }
+    val hideFullscreen by remember(flags) { flags.capsuleHideFullscreenChanges() }.collectAsState(flags.capsuleHideFullscreen())
     PageScaffold(CapsuleSettingsCopy.TITLE, onBack) {
         GroupCard {
             CapsuleMode.entries.forEachIndexed { i, m ->
@@ -505,6 +508,19 @@ fun CapsuleScreen(
                 )
             }
         }
+        GroupCard {
+            ListRow(MikaIcons.Screens, stringResource(R.string.capsule_hide_fullscreen),
+                stringResource(R.string.capsule_hide_fullscreen_detail), first = true,
+                onClick = { flags.setCapsuleHideFullscreen(!hideFullscreen) }) {
+                MikaSwitch(hideFullscreen, flags::setCapsuleHideFullscreen, Modifier.testTag("capsule-hide-fullscreen"))
+            }
+        }
+        FooterNote(stringResource(R.string.capsule_edge_detail))
+        if (android.os.Build.VERSION.SDK_INT >= 33) GroupCard {
+            ListRow(MikaIcons.Plus, stringResource(R.string.capsule_tile_add), first = true,
+                onClick = { com.wangzan101.mika.capsule.CapsuleTileService.requestAdd(context) }) { RowChevron() }
+        }
+        FooterNote(stringResource(R.string.capsule_tile_manual))
         FooterNote(CapsuleSettingsCopy.FOOTNOTE)
         FooterNote(CapsuleSettingsCopy.BACKGROUND)
     }
