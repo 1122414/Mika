@@ -1032,10 +1032,11 @@ class ChatViewModelTest {
     private fun TestScope.parallelVm(
         store: ConversationStore,
         files: MutableStateFlow<List<com.wangzan101.mika.chat.SharedFile>> = MutableStateFlow(emptyList()),
+        sandbox: MutableStateFlow<Boolean> = MutableStateFlow(false),
     ) = ChatViewModel(
         backgroundScope, state, stage, actions, store, serviceBusy = MutableStateFlow(true),
         parallelFlag = { true }, shownTask = shown, activeConversations = active, runGoal = { if (it == "b") "查快递" else null },
-        sharedFiles = files,
+        sharedFiles = files, sandboxReady = sandbox,
     ).also { runCurrent() }
 
     private fun TestScope.show(conversationId: String, s: TaskState) {
@@ -1177,6 +1178,27 @@ class ChatViewModelTest {
         assertEquals(ComposerMode.Idle, vm.ui.value.composer)
         assertTrue(vm.send("新建闹钟", ok))
         assertEquals("start:新建闹钟", calls.last())
+    }
+
+    /** 并行时换对话整块重建 ChatUi:设备支持附件是能力、不随对话变,切一次对话加号不能就没了。 */
+    @Test fun switchToKeepsAttachmentsEnabled() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        store.append("b", Turn("查天气", "晴", "succeeded"))
+        val vm = parallelVm(store, sandbox = MutableStateFlow(true))
+        assertTrue(vm.ui.value.attachEnabled)
+
+        // 空闲对话之间来回切
+        vm.switchTo("a")
+        assertTrue(vm.ui.value.attachEnabled)
+        vm.switchTo("b")
+        assertTrue(vm.ui.value.attachEnabled)
+
+        // 一条对话的任务跑着时切到另一条
+        vm.switchTo("a")
+        assertTrue(vm.send("设置版本号", ok))
+        show("a", TaskState.Running(1, "打开设置"))
+        vm.switchTo("b")
+        assertTrue(vm.ui.value.attachEnabled)
     }
 
     private val learnCalls = mutableListOf<String>()
