@@ -133,7 +133,15 @@ class UserBrowser private constructor(private val app: Context) {
     fun answerPagePermission(grant: Boolean) {
         val r = _pagePermission.value ?: return
         _pagePermission.value = null
-        if (grant) r.request.grant(r.request.resources) else r.request.deny()
+        if (grant) {
+            // 只授摄像头和麦克风,请求里夹带的 MIDI、受保护媒体不放行
+            val allowed = r.request.resources
+                .filter { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE || it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }
+                .toTypedArray()
+            r.request.grant(allowed)
+        } else {
+            r.request.deny()
+        }
     }
 
     /** 用户同意或拒绝网页用定位。 */
@@ -436,6 +444,7 @@ class UserBrowser private constructor(private val app: Context) {
         /** 用户自己看的这个标签要选文件:交给界面弹系统选择器。 */
         override fun onFileChooser(tab: WebTab, callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
             if (tab !== this@UserBrowser.tab) return false
+            _filePick.value?.callback?.onReceiveValue(null)
             _filePick.value = FilePickRequest(callback, params)
             return true
         }
@@ -453,6 +462,7 @@ class UserBrowser private constructor(private val app: Context) {
         /** 用户自己看的这个标签要定位:交给界面问用户。 */
         override fun onGeolocationRequest(tab: WebTab, origin: String?, callback: GeolocationPermissions.Callback): Boolean {
             if (tab !== this@UserBrowser.tab) return false
+            _geoPermission.value?.let { it.callback.invoke(it.origin, false, false) }
             _geoPermission.value = GeoPermissionRequest(origin, callback)
             return true
         }

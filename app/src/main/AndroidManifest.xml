@@ -50,6 +50,14 @@
         android:name="android.hardware.microphone"
         android:required="false" />
 
+    <!-- 网页定位用到位置权限,但不是必需:没有定位硬件的设备照常安装,只是网页拿不到位置 -->
+    <uses-feature
+        android:name="android.hardware.location"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
+
     <!-- list_apps 列出可启动的 App;解析系统权限框所在的包,用于判断「被切走」 -->
     <queries>
         <intent>
