@@ -14,6 +14,13 @@
     <string name="browser_external_link">Tautan ini membuka aplikasi lain, jadi browser tidak akan membukanya.</string>
     <string name="browser_bad_scheme">Alamat ini tidak bisa dibuka: browser hanya membuka halaman web (http, https).</string>
     <string name="browser_blocked_app_link">Tautan yang membuka aplikasi lain diblokir.</string>
+    <string name="browser_permission_ask">Situs ini meminta akses:</string>
+    <string name="browser_permission_camera">Kamera</string>
+    <string name="browser_permission_microphone">Mikrofon</string>
+    <string name="browser_permission_camera_mic">Kamera dan mikrofon</string>
+    <string name="browser_permission_location">Lokasi</string>
+    <string name="browser_permission_allow">Izinkan</string>
+    <string name="browser_permission_block">Blokir</string>
     <string name="browser_no_download">Browser belum bisa mengunduh berkas.</string>
     <string name="browser_crashed">Halaman mengalami masalah dan ditutup. Anda bisa membukanya lagi.</string>
     <string name="browser_logged_in">Sudah masuk — Mika juga bisa memakainya untuk tugas.</string>

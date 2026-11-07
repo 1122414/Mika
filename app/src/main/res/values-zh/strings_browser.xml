@@ -14,6 +14,13 @@
     <string name="browser_external_link">这是打开其他应用的链接，浏览器里不打开。</string>
     <string name="browser_bad_scheme">这个地址打不开：浏览器只打开网页（http、https）。</string>
     <string name="browser_blocked_app_link">已拦下一个打开其他应用的链接。</string>
+    <string name="browser_permission_ask">这个网站请求使用：</string>
+    <string name="browser_permission_camera">摄像头</string>
+    <string name="browser_permission_microphone">麦克风</string>
+    <string name="browser_permission_camera_mic">摄像头和麦克风</string>
+    <string name="browser_permission_location">位置</string>
+    <string name="browser_permission_allow">允许</string>
+    <string name="browser_permission_block">阻止</string>
     <string name="browser_no_download">浏览器里暂时不能下载文件。</string>
     <string name="browser_crashed">网页出了问题，已经关掉，可以重新打开。</string>
     <string name="browser_logged_in">已登录，Mika 办事时也能用了。</string>

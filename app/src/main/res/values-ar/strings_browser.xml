@@ -19,6 +19,13 @@
     <string name="browser_external_link">يفتح هذا الرابط تطبيقًا آخر، لذا لن يفتحه المتصفح.</string>
     <string name="browser_bad_scheme">تعذّر فتح هذا العنوان: يفتح المتصفح صفحات الويب فقط (http, https).</string>
     <string name="browser_blocked_app_link">حُظر رابط يفتح تطبيقًا آخر.</string>
+    <string name="browser_permission_ask">يطلب هذا الموقع الوصول إلى:</string>
+    <string name="browser_permission_camera">الكاميرا</string>
+    <string name="browser_permission_microphone">الميكروفون</string>
+    <string name="browser_permission_camera_mic">الكاميرا والميكروفون</string>
+    <string name="browser_permission_location">الموقع</string>
+    <string name="browser_permission_allow">السماح</string>
+    <string name="browser_permission_block">الحظر</string>
     <string name="browser_no_download">لا يمكن للمتصفح تنزيل الملفات بعد.</string>
     <string name="browser_crashed">واجهت الصفحة مشكلة وأُغلقت. يمكنك فتحها مجددًا.</string>
     <string name="browser_logged_in">تم تسجيل الدخول — يمكن لـMika استخدامه للمهام أيضًا.</string>

@@ -14,6 +14,13 @@
     <string name="browser_external_link">このリンクは別のアプリを開くため、ブラウザでは開きません。</string>
     <string name="browser_bad_scheme">このアドレスは開けません。ブラウザで開けるのはウェブページ(http、https)だけです。</string>
     <string name="browser_blocked_app_link">別のアプリを開くリンクをブロックしました。</string>
+    <string name="browser_permission_ask">このサイトが使用を求めています：</string>
+    <string name="browser_permission_camera">カメラ</string>
+    <string name="browser_permission_microphone">マイク</string>
+    <string name="browser_permission_camera_mic">カメラとマイク</string>
+    <string name="browser_permission_location">位置情報</string>
+    <string name="browser_permission_allow">許可</string>
+    <string name="browser_permission_block">ブロック</string>
     <string name="browser_no_download">ブラウザはまだファイルをダウンロードできません。</string>
     <string name="browser_crashed">ページで問題が発生したため閉じました。もう一度開けます。</string>
     <string name="browser_logged_in">ログインしました — Mika もタスクで使えます。</string>

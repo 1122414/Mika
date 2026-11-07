@@ -16,6 +16,13 @@
     <string name="browser_external_link">Este enlace abre otra app, así que el navegador no lo abrirá.</string>
     <string name="browser_bad_scheme">No se puede abrir esta dirección: el navegador solo abre páginas web (http, https).</string>
     <string name="browser_blocked_app_link">Se bloqueó un enlace que abre otra app.</string>
+    <string name="browser_permission_ask">Este sitio solicita acceso a:</string>
+    <string name="browser_permission_camera">Cámara</string>
+    <string name="browser_permission_microphone">Micrófono</string>
+    <string name="browser_permission_camera_mic">Cámara y micrófono</string>
+    <string name="browser_permission_location">Ubicación</string>
+    <string name="browser_permission_allow">Permitir</string>
+    <string name="browser_permission_block">Bloquear</string>
     <string name="browser_no_download">El navegador aún no puede descargar archivos.</string>
     <string name="browser_crashed">La página tuvo un problema y se cerró. Puedes volver a abrirla.</string>
     <string name="browser_logged_in">Sesión iniciada: Mika también puede usarla en sus tareas.</string>

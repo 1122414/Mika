@@ -17,6 +17,13 @@
     <string name="browser_external_link">Эта ссылка открывается в другом приложении, поэтому браузер её не откроет.</string>
     <string name="browser_bad_scheme">Не удаётся открыть этот адрес: браузер открывает только веб-страницы (http, https).</string>
     <string name="browser_blocked_app_link">Заблокирована ссылка, которая открывает другое приложение.</string>
+    <string name="browser_permission_ask">Этот сайт запрашивает доступ:</string>
+    <string name="browser_permission_camera">Камера</string>
+    <string name="browser_permission_microphone">Микрофон</string>
+    <string name="browser_permission_camera_mic">Камера и микрофон</string>
+    <string name="browser_permission_location">Геолокация</string>
+    <string name="browser_permission_allow">Разрешить</string>
+    <string name="browser_permission_block">Заблокировать</string>
     <string name="browser_no_download">Браузер пока не умеет скачивать файлы.</string>
     <string name="browser_crashed">На странице возникла проблема, и она была закрыта. Её можно открыть снова.</string>
     <string name="browser_logged_in">Вход выполнен: Mika тоже может пользоваться им в задачах.</string>

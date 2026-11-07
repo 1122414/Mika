@@ -3,8 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 按住说话时录音，转成文字。 -->
+    <!-- 按住说话时录音，转成文字；用户浏览器里的网页要麦克风时也用它。 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 用户浏览器里的网页要摄像头（Mika 自己拍照走系统相机，不用这个权限）；网页请求时先弹框问用户。 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 用户浏览器里的网页要定位；网页请求时先弹框问用户。 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- 用户在关于页下载新版后，交给系统安装器确认覆盖安装。 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 沙箱联网时读当前网络的 DNS 服务器 -->
