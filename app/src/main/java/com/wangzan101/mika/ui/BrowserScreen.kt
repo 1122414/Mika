@@ -109,6 +109,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val tabs by browser.tabs.collectAsState()
     val find by browser.find.collectAsState()
     val fullscreen by browser.fullscreen.collectAsState()
+    val searchEngines by browser.searchEngine.choices.collectAsState()
     val activity = remember(context) { context.findActivity() }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     var bookmarksOpen by rememberSaveable { mutableStateOf(false) }
@@ -120,7 +121,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
 
     val face = remember(looks) { { host: String -> SiteLooks.faceOf(host, looks, browser.looks::iconFile) } }
     val favorites = remember(edits, registry) { BrowserFavorites.combine(edits, registry) }
-    val allRecent = remember(recentPages, looks) { StartPageModel.recentRows(recentPages) { face(it).name } }
+    val allRecent = remember(recentPages, looks, searchEngines) { StartPageModel.recentRows(recentPages, { face(it).name }, searchEngines.all) }
     val recent = remember(allRecent) { allRecent.take(RecentPages.START_LIMIT) }
     val toast: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     val scope = rememberCoroutineScope()
@@ -182,6 +183,11 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 tabsCount = tabs.size,
                 onMenu = { menuOpen = true },
                 onHistory = { historyOpen = true },
+                engine = searchEngines.selected,
+                custom = searchEngines.custom,
+                onPickEngine = browser.searchEngine::set,
+                onAddEngine = browser.searchEngine::addCustom,
+                onRemoveEngine = { browser.searchEngine.removeCustom(it.id) },
             )
         } else {
             val host = WebUrlPolicy.host(p.url)
@@ -192,6 +198,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                     onClose = browser::closeActiveTab,
                     onSubmit = { input -> browser.submit(input)?.let(toast) },
                     onReload = browser::reload, onStop = browser::stop,
+                    engines = searchEngines.all,
                 )
                 if (find.active) {
                     BrowserFindBar(

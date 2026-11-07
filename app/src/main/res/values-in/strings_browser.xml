@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="browser_engine">Bing</string>
+    <string name="browser_engine_bing">Bing</string>
+    <string name="browser_engine_google">Google</string>
+    <string name="browser_engine_duckduckgo">DuckDuckGo</string>
+    <string name="browser_engine_baidu">Baidu</string>
+    <string name="browser_engine_choose">Mesin pencari</string>
+    <string name="browser_engine_custom_add">Mesin pencari khusus</string>
+    <string name="browser_engine_custom_name">Nama</string>
+    <string name="browser_engine_custom_url">URL pencarian</string>
+    <string name="browser_engine_custom_hint" formatted="false">Letakkan %s di tempat kata pencarian, misalnya https://example.com/search?q=%s</string>
+    <string name="browser_engine_custom_invalid" formatted="false">Masukkan nama dan URL http(s) dengan tepat satu %s</string>
+    <string name="browser_engine_custom_remove">Hapus %1$s</string>
     <string name="browser_recent_source">Baru dibuka</string>
     <string name="browser_search_colon">Cari: %1$s</string>
     <string name="browser_search_q">Cari “%1$s”</string>
@@ -69,8 +79,8 @@
     <string name="browser_leave_body">Perubahan yang Anda buat di halaman ini mungkin tidak tersimpan.</string>
     <string name="browser_leave">Tinggalkan</string>
     <string name="browser_search_hint">Cari atau ketik URL</string>
-    <string name="browser_engine_note">Cari dengan Bing</string>
-    <string name="browser_typing_note">URL langsung dibuka; selain itu dicari dengan Bing</string>
+    <string name="browser_engine_note">Cari dengan %1$s</string>
+    <string name="browser_typing_note">URL langsung dibuka; selain itu dicari dengan %1$s</string>
     <string name="browser_login_legend">Sudah masuk — Mika bisa langsung memakainya untuk tugas</string>
     <string name="browser_add_hint">Buka sebuah situs, lalu ketuk “Tambah ke favorit” di bawah “Lainnya”</string>
     <string name="browser_edit_favorites">Ubah favorit</string>
