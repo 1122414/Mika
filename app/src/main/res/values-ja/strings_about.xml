@@ -60,7 +60,7 @@
     <string name="diagnostics_copied">コピーしました</string>
     <string name="diagnostics_loading">収集中…</string>
     <string name="about_auto_update">自動更新</string>
-    <string name="about_auto_update_detail">バックグラウンドで新版をダウンロードし、インストール前に確認します</string>
+    <string name="about_auto_update_detail">Wi-Fi 接続時にのみ新版をバックグラウンドでダウンロードし、インストール前に確認します</string>
     <string name="about_auto_update_ready">Mika %1$s をインストールできます</string>
     <string name="about_auto_update_disable">自動更新をオフにする</string>
 </resources>

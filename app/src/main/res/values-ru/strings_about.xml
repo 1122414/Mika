@@ -60,7 +60,7 @@
     <string name="diagnostics_copied">Скопировано</string>
     <string name="diagnostics_loading">Сбор данных…</string>
     <string name="about_auto_update">Автообновление</string>
-    <string name="about_auto_update_detail">Скачивать новые версии в фоне и запрашивать подтверждение перед установкой</string>
+    <string name="about_auto_update_detail">Скачивать новые версии в фоне только по Wi-Fi и запрашивать подтверждение перед установкой</string>
     <string name="about_auto_update_ready">Mika %1$s готов к установке</string>
     <string name="about_auto_update_disable">Выключить автообновление</string>
 </resources>

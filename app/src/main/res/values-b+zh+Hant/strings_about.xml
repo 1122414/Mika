@@ -60,7 +60,7 @@
     <string name="about_update_not_newer">下載的安裝包不比已安裝的 Mika 新，已刪除。</string>
     <string name="about_update_bad_signer">這個安裝包的簽名和已安裝的 Mika 不同，不能覆蓋安裝，已刪除。自己編譯的版本請先解除安裝，再裝官方版本。</string>
     <string name="about_auto_update">自動更新</string>
-    <string name="about_auto_update_detail">在背景下載新版本，安裝前會詢問</string>
+    <string name="about_auto_update_detail">僅在連上 Wi-Fi 時於背景下載新版本，安裝前會詢問</string>
     <string name="about_auto_update_ready">Mika %1$s 已下載，點選安裝</string>
     <string name="about_auto_update_disable">關閉自動更新</string>
 </resources>
