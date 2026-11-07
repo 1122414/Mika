@@ -63,6 +63,7 @@ import com.wangzan101.mika.browser.RecentItem
 import com.wangzan101.mika.browser.SiteFace
 import com.wangzan101.mika.browser.StartPageModel
 import com.wangzan101.mika.browser.Suggestion
+import com.wangzan101.mika.ui.components.BarIconButton
 import com.wangzan101.mika.ui.components.GroupCard
 import com.wangzan101.mika.ui.components.Hairline
 import com.wangzan101.mika.ui.components.TopBar
@@ -82,7 +83,7 @@ val BROWSER_ADD_HINT: String get() = tr(R.string.browser_add_hint)
 private const val COLUMNS = 4
 
 /**
- * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
+ * 浏览器的起始页:顶栏只有返回、下载和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
  * 「常用网站」一行四个(图标、名字,登录着的带小绿点,最后一格「＋」),「整理」或长按进整理(图标轻轻抖,× 移除,「完成」退出);
  * 「最近打开」(搜索写成「搜索：…」,右边是时间,标题右边「清除」)。整理和输入中按返回先退出它们。
  */
@@ -98,6 +99,7 @@ fun BrowserStart(
     onRemoveSite: (FavoriteSite) -> Unit,
     onAddHint: () -> Unit,
     onClearRecent: () -> Unit,
+    onDownloads: () -> Unit = {},
     now: Long = System.currentTimeMillis(),
 ) {
     val c = MikaTheme.colors
@@ -115,7 +117,9 @@ fun BrowserStart(
                 )
             })
         } else {
-            TopBar(tr(R.string.drawer_browser), MikaIcons.Back, onBack, tr(R.string.back))
+            TopBar(tr(R.string.drawer_browser), MikaIcons.Back, onBack, tr(R.string.back), right = {
+                BarIconButton(MikaIcons.Download, tr(R.string.browser_downloads), onDownloads)
+            })
         }
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())

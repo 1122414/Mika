@@ -287,6 +287,7 @@ fun BrowserMoreSheet(
     onOpenOutside: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleDesktop: () -> Unit,
+    onDownloads: () -> Unit = {},
 ) {
     val c = MikaTheme.colors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface, shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)) {
@@ -308,6 +309,7 @@ fun BrowserMoreSheet(
             ListRow(MikaIcons.Refresh, tr(R.string.refresh), first = true, onClick = act(onReload))
             ListRow(MikaIcons.Copy, tr(R.string.browser_copy_link), onClick = act(onCopy))
             ListRow(MikaIcons.External, tr(R.string.browser_open_outside), onClick = act(onOpenOutside))
+            ListRow(MikaIcons.Download, tr(R.string.browser_downloads), onClick = act(onDownloads))
             if (host != null) {
                 ListRow(MikaIcons.Star, if (favorite) tr(R.string.browser_unfavorite) else tr(R.string.browser_favorite), onClick = act(onToggleFavorite))
                 ListRow(
