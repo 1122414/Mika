@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -75,7 +76,7 @@ internal fun UpdateReadyCapsule(
         if (reduceMotion) reveal.snapTo(1f)
         else reveal.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
         if (!held) {
-            delay(3000)
+            delay(5000)
             if (reduceMotion) reveal.snapTo(0f)
             else reveal.animateTo(0f, tween(230, easing = FastOutLinearInEasing))
             dismiss()
@@ -89,12 +90,22 @@ internal fun UpdateReadyCapsule(
                 translationY = if (reduceMotion) 0f else -52.dp.toPx() * (1f - reveal.value)
             }
             .onFocusChanged { focused = it.hasFocus }.focusGroup()
-            .shadow(12.dp, CircleShape, clip = false,
-                ambientColor = colors.floatShadow.copy(alpha = 0.22f),
-                spotColor = colors.floatShadow.copy(alpha = 0.32f))
+            .shadow(
+                18.dp, CircleShape, clip = false,
+                ambientColor = colors.floatShadow.copy(alpha = 0.65f),
+                spotColor = colors.floatShadow,
+            )
             .clip(CircleShape)
-            .background(Brush.verticalGradient(listOf(colors.surface, colors.bg)))
-            .border(1.dp, Brush.verticalGradient(listOf(colors.glassEdge, colors.edge)), CircleShape)
+            .background(Brush.verticalGradient(listOf(colors.surface, lerp(colors.bg, colors.ink, 0.055f))))
+            .border(
+                1.5.dp,
+                Brush.verticalGradient(listOf(
+                    colors.thumb.copy(alpha = if (colors.isDark) 0.22f else 0.95f),
+                    colors.edge,
+                    colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.16f),
+                )),
+                CircleShape,
+            )
             .hoverable(interaction)
             .padding(2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -107,10 +118,18 @@ internal fun UpdateReadyCapsule(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(29.dp).background(colors.accentSoft, CircleShape),
+                Modifier.size(29.dp)
+                    .background(
+                        Brush.verticalGradient(listOf(
+                            lerp(colors.surface, colors.ok, 0.10f),
+                            lerp(colors.surface, colors.ok, 0.22f),
+                        )),
+                        CircleShape,
+                    )
+                    .border(1.dp, colors.ok.copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(MikaIcons.Check, null, Modifier.size(15.dp), tint = colors.accent)
+                Icon(MikaIcons.Check, null, Modifier.size(15.dp), tint = colors.ok)
             }
             Text(
                 stringResource(R.string.about_auto_update_ready, release.version),
