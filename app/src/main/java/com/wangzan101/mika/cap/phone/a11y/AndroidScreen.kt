@@ -1365,6 +1365,9 @@ class AndroidScreen(
         )
     }
 
+    override suspend fun bulkCalendarInsert(events: List<SystemAction.AddCalendarEvent>): SystemActionResult =
+        withContext(Dispatchers.IO) { CalendarBulkWriter.insert(a11y, events) }
+
     private fun hintNotInFront(top: String?, expected: String) =
         "$expected took the action, but the screen shows ${top ?: "no app yet"}. Observe before acting."
 

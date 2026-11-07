@@ -312,6 +312,10 @@ fun ChatScreen(
                     exchange(
                         i, ex, ui.conversationId, ui.takeoverStage, vm, reduceMotion, backgroundNote, openRun, loadSource, openSource, kept,
                         tokens = ConversationTokens.turn(ex.runId?.let(runMetrics::get)),
+                        recover = { resume ->
+                            val label = if (resume) R.string.chat_resume_request else R.string.chat_restart_request
+                            vm.send(context.getString(label, ex.goal), check)
+                        },
                     )
                 }
                 if (phoneSetupNeeded && ui.exchanges.isNotEmpty()) item("phone-setup") { PhoneSetupLine(openPhoneSetup) }
@@ -540,6 +544,8 @@ private fun LazyListScope.exchange(
     kept: KeptPage? = null,
     /** 这一轮用了多少 token(结束后、读到运行小结时才有)。 */
     tokens: Long? = null,
+    /** 终态后的两个新运行入口:true 从摘要断点继续,false 按原目标重新开始。 */
+    recover: (Boolean) -> Unit = {},
 ) {
     if (ex.goal.isNotEmpty()) item("u$index") { UserBubble(ex.goal, conversationId, key = "u$index") }
     val paused = ex.status is ExchangeStatus.Paused || ex.status is ExchangeStatus.WaitingUnlock ||
@@ -564,7 +570,7 @@ private fun LazyListScope.exchange(
     joined.forEach(::steer)
     ex.draft?.takeIf(String::isNotBlank)?.let { draft -> item("d$index") { DraftText(draft, ex.waitingForModel) } }
     waiting.forEach(::steer)
-    item("r$index") { StatusCard(ex.status, stage, vm, ex.runId, loadSource, openSource, "r$index") }
+    item("r$index") { StatusCard(ex.status, stage, vm, ex.runId, loadSource, openSource, "r$index", recover) }
     // 这一轮结束后留在后台运行的那一页:还开着是绿色一行(能关),关了是一句原因
     keptPageRow(index, ex, kept, vm::closeKeptPage)
     if (ex.files.isNotEmpty()) item("f$index") { FileCards(ex.files) }
@@ -959,6 +965,7 @@ private fun StatusCard(
     loadSource: suspend (String) -> EvidenceSource?, openSource: (String?, String?) -> Unit,
     /** 回答的长按菜单认这一条用的(见 [MessageArea])。 */
     key: String,
+    recover: (Boolean) -> Unit = {},
 ) {
     when (status) {
         ExchangeStatus.Working -> Unit
@@ -1029,6 +1036,7 @@ private fun StatusCard(
                 Text(stringResource(R.string.chat_not_done), style = MikaType.BodyStrong, color = MikaTheme.colors.ink)
             }
             Text(status.reason, Modifier.padding(top = 4.dp), style = CardBody, color = MikaTheme.colors.ink2)
+            RecoveryActions(runId, recover)
         }
         // 停止后补上的交代当作这一轮的回答,排在「已停止」下面;还在写时一行小字
         is ExchangeStatus.Cancelled -> Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
@@ -1043,7 +1051,18 @@ private fun StatusCard(
                     }
                 }
             }
+            RecoveryActions(runId, recover)
         }
+    }
+}
+
+/** 终态后旧现场已经释放:两个按钮都开新运行,区别只是是否沿用摘要里的已确认进度。 */
+@Composable
+private fun RecoveryActions(runId: String?, recover: (Boolean) -> Unit) {
+    if (runId == null) return
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CardButton(stringResource(R.string.chat_restart_task), onClick = { recover(false) })
+        CardButton(stringResource(R.string.chat_resume_checkpoint), primary = true, onClick = { recover(true) })
     }
 }
 

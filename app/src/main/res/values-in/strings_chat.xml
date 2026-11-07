@@ -42,6 +42,10 @@
     <string name="chat_continue">Lanjutkan</string>
     <string name="chat_not_done">Belum selesai</string>
     <string name="chat_stopped">Dihentikan.</string>
+    <string name="chat_resume_checkpoint">Lanjutkan dari titik terakhir</string>
+    <string name="chat_restart_task">Mulai ulang</string>
+    <string name="chat_resume_request">Lanjutkan dari titik terakhir: %1$s</string>
+    <string name="chat_restart_request">Mulai ulang dari awal: %1$s</string>
     <string name="chat_view_source">Lihat sumber</string>
     <string name="chat_open">Buka</string>
     <string name="chat_attach_rejected">Gagal menambahkan: %1$s (setiap berkas harus di bawah 200 MB)</string>

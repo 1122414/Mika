@@ -47,6 +47,10 @@
     <string name="chat_continue">متابعة</string>
     <string name="chat_not_done">لم يكتمل</string>
     <string name="chat_stopped">تم الإيقاف.</string>
+    <string name="chat_resume_checkpoint">المتابعة من نقطة التوقف</string>
+    <string name="chat_restart_task">البدء من جديد</string>
+    <string name="chat_resume_request">تابع من نقطة التوقف: %1$s</string>
+    <string name="chat_restart_request">ابدأ من جديد: %1$s</string>
     <string name="chat_view_source">عرض المصدر</string>
     <string name="chat_open">فتح</string>
     <string name="chat_attach_rejected">تعذّر الإضافة: %1$s (يجب أن يكون حجم كل ملف أقل من 200 MB)</string>

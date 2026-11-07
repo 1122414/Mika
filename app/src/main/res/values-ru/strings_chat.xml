@@ -45,6 +45,10 @@
     <string name="chat_continue">Продолжить</string>
     <string name="chat_not_done">Не завершено</string>
     <string name="chat_stopped">Остановлено.</string>
+    <string name="chat_resume_checkpoint">Продолжить с места остановки</string>
+    <string name="chat_restart_task">Начать заново</string>
+    <string name="chat_resume_request">Продолжи с места остановки: %1$s</string>
+    <string name="chat_restart_request">Начни заново: %1$s</string>
     <string name="chat_view_source">Показать источник</string>
     <string name="chat_open">Открыть</string>
     <string name="chat_attach_rejected">Не удалось добавить: %1$s (каждый файл должен быть меньше 200 МБ)</string>
