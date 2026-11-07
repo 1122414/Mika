@@ -63,4 +63,5 @@
     <string name="about_auto_update_detail">僅在連上 Wi-Fi 時於背景下載新版本，安裝前會詢問</string>
     <string name="about_auto_update_ready">Mika %1$s 已下載，點選安裝</string>
     <string name="about_auto_update_disable">關閉自動更新</string>
+    <string name="about_auto_update_confirm_disable">要關閉自動更新嗎？</string>
 </resources>

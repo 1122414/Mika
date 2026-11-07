@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.wangzan101.mika.R
 import com.wangzan101.mika.about.ReleaseInfo
+import com.wangzan101.mika.ui.components.MikaDialog
 import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
@@ -65,12 +67,13 @@ internal fun UpdateReadyCapsule(
     val pressed by interaction.collectIsPressedAsState()
     var focused by remember { mutableStateOf(false) }
     var resumed by remember { mutableStateOf(false) }
+    var confirmDisable by remember(release.apkUrl) { mutableStateOf(false) }
     LifecycleResumeEffect(Unit) {
         resumed = true
         onPauseOrDispose { resumed = false }
     }
     val dismiss by rememberUpdatedState(onTimeout)
-    val held = hovered || pressed || focused
+    val held = hovered || pressed || focused || confirmDisable
     LaunchedEffect(reveal, held, resumed, reduceMotion) {
         if (!resumed) return@LaunchedEffect
         if (reduceMotion) reveal.snapTo(1f)
@@ -83,35 +86,37 @@ internal fun UpdateReadyCapsule(
         }
     }
 
-    Box(
+    Row(
         modifier.testTag("update-ready-capsule")
             .graphicsLayer {
                 alpha = reveal.value
                 translationY = if (reduceMotion) 0f else -52.dp.toPx() * (1f - reveal.value)
             }
             .onFocusChanged { focused = it.hasFocus }.focusGroup()
+            .padding(horizontal = 12.dp)
+            .shadow(
+                18.dp, CircleShape, clip = false,
+                ambientColor = colors.floatShadow.copy(alpha = 0.65f),
+                spotColor = colors.floatShadow,
+            )
+            .clip(CircleShape)
+            .background(Brush.verticalGradient(listOf(colors.surface, lerp(colors.bg, colors.ink, 0.055f))))
+            .border(
+                1.5.dp,
+                Brush.verticalGradient(listOf(
+                    colors.thumb.copy(alpha = if (colors.isDark) 0.22f else 0.95f),
+                    colors.edge,
+                    colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.16f),
+                )),
+                CircleShape,
+            )
             .hoverable(interaction),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp)
-                .shadow(
-                    18.dp, CircleShape, clip = false,
-                    ambientColor = colors.floatShadow.copy(alpha = 0.65f),
-                    spotColor = colors.floatShadow,
-                )
-                .clip(CircleShape)
-                .background(Brush.verticalGradient(listOf(colors.surface, lerp(colors.bg, colors.ink, 0.055f))))
-                .border(
-                    1.5.dp,
-                    Brush.verticalGradient(listOf(
-                        colors.thumb.copy(alpha = if (colors.isDark) 0.22f else 0.95f),
-                        colors.edge,
-                        colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.16f),
-                    )),
-                    CircleShape,
-                )
+            Modifier
                 .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onInstall)
-                .padding(start = 11.dp, end = 18.dp, top = 9.dp, bottom = 9.dp),
+                .padding(start = 11.dp, end = 4.dp, top = 9.dp, bottom = 9.dp),
             horizontalArrangement = Arrangement.spacedBy(9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -138,17 +143,32 @@ internal fun UpdateReadyCapsule(
             )
         }
         Box(
-            Modifier.align(Alignment.TopStart).size(44.dp).clip(CircleShape)
-                .clickable(role = Role.Button, onClick = onDisable),
-            contentAlignment = Alignment.Center,
+            Modifier.align(Alignment.Top).size(44.dp).clip(CircleShape)
+                .clickable(role = Role.Button, onClick = { confirmDisable = true })
+                .padding(top = 8.dp, end = 4.dp),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Box(
-                Modifier.size(22.dp).shadow(4.dp, CircleShape, clip = false)
-                    .background(colors.surface, CircleShape).border(1.dp, colors.edge, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(MikaIcons.Close, stringResource(R.string.about_auto_update_disable), Modifier.size(12.dp), tint = colors.ink2)
-            }
+            Icon(MikaIcons.Close, stringResource(R.string.about_auto_update_disable), Modifier.size(13.dp), tint = colors.ink2)
         }
+    }
+
+    if (confirmDisable) {
+        MikaDialog(
+            onDismissRequest = { confirmDisable = false },
+            title = { Text(stringResource(R.string.about_auto_update_confirm_disable)) },
+            dismissButton = {
+                TextButton(onClick = { confirmDisable = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDisable = false
+                    onDisable()
+                }) {
+                    Text(stringResource(R.string.about_auto_update_disable))
+                }
+            },
+        )
     }
 }

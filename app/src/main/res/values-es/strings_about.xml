@@ -63,4 +63,5 @@
     <string name="about_auto_update_detail">Descarga nuevas versiones en segundo plano solo por Wi-Fi y pide confirmación antes de instalar</string>
     <string name="about_auto_update_ready">Mika %1$s está listo para instalar</string>
     <string name="about_auto_update_disable">Desactivar la actualización automática</string>
+    <string name="about_auto_update_confirm_disable">¿Desactivar la actualización automática?</string>
 </resources>

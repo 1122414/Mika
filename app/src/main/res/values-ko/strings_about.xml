@@ -63,4 +63,5 @@
     <string name="about_auto_update_detail">Wi-Fi 연결 시에만 새 버전을 백그라운드에서 다운로드하고 설치 전에 확인합니다</string>
     <string name="about_auto_update_ready">Mika %1$s 설치 준비 완료</string>
     <string name="about_auto_update_disable">자동 업데이트 끄기</string>
+    <string name="about_auto_update_confirm_disable">자동 업데이트를 끌까요?</string>
 </resources>

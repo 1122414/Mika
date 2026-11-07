@@ -63,4 +63,5 @@
     <string name="about_auto_update_detail">Unduh versi baru di latar belakang hanya melalui Wi-Fi dan minta konfirmasi sebelum memasang</string>
     <string name="about_auto_update_ready">Mika %1$s siap dipasang</string>
     <string name="about_auto_update_disable">Matikan pembaruan otomatis</string>
+    <string name="about_auto_update_confirm_disable">Matikan pembaruan otomatis?</string>
 </resources>

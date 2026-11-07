@@ -63,4 +63,5 @@
     <string name="about_auto_update_detail">Download new versions in the background on Wi-Fi only. Mika asks before installing.</string>
     <string name="about_auto_update_ready">Mika %1$s is ready to install</string>
     <string name="about_auto_update_disable">Turn off auto-update</string>
+    <string name="about_auto_update_confirm_disable">Turn off auto-update?</string>
 </resources>
