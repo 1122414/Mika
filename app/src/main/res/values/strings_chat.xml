@@ -43,6 +43,10 @@
     <string name="chat_continue">Continue</string>
     <string name="chat_not_done">Not finished</string>
     <string name="chat_stopped">Stopped.</string>
+    <string name="chat_resume_checkpoint">Resume from checkpoint</string>
+    <string name="chat_restart_task">Start over</string>
+    <string name="chat_resume_request">Continue from the checkpoint: %1$s</string>
+    <string name="chat_restart_request">Restart from the beginning: %1$s</string>
     <string name="chat_view_source">View source</string>
     <string name="chat_open">Open</string>
     <string name="chat_attach_rejected">Couldn’t add: %1$s (each file must be under 200 MB)</string>

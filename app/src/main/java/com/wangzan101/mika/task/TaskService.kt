@@ -115,6 +115,7 @@ class TaskService : Service() {
 
     internal val clipLock get() = center.clipLock
     internal val takeoverQueue get() = center.takeoverQueue
+    internal fun rememberRecord(run: TaskRun, recordId: String) = center.markRecord(run, recordId)
     /** 几个任务共用的屏幕常亮锁。 */
     internal val wakeLock by lazy { SharedWakeLock(ScreenWakeLock(this)) }
 
@@ -481,6 +482,7 @@ class TaskService : Service() {
             run.end(end)
             if (!run.conditionCheck) recordTurn(store, run, end, run.runId.value, run.sharedFiles.value, run.joinedSteers(), run.usedGroups, run.joinedInterrupted(), run.joinedFinished())
             stopRunId?.let { summarizeStop(run, it, draft, store) }
+            if (end is TaskState.Failed && !run.conditionCheck) run.runId.value?.let { summarizeFailure(run, it, end.reason, store) }
             if (run.conditionCheck) {
                 val outcome = if (end is TaskState.Succeeded) ConditionOutcome.parse(end.answer)
                     else ConditionOutcome.Error((end as? TaskState.Failed)?.reason ?: tr(R.string.task_condition_interrupted))
@@ -547,6 +549,18 @@ class TaskService : Service() {
                 }
             } finally {
                 taskState._summarizing.update { it - runId }
+            }
+        }
+    }
+
+    /** 失败通知仍只给短原因;对话里补上已确认的进度,下一次「继续」不会把它当成没做过。 */
+    private fun summarizeFailure(run: TaskRun, runId: String, reason: String, store: ConversationStore) {
+        MemoryRuntime.of(this).scope.launch {
+            val text = runCatching { run.checkpointSummary() }
+                .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "failure summary failed", it) }.getOrNull()
+            if (text != null) withContext(Dispatchers.IO) {
+                runCatching { store.updateTurn(run.conversationId, runId) { it.copy(outcome = reason + "\n" + text) } }
+                    .onFailure { Log.w(TAG, "could not save failure summary", it) }
             }
         }
     }

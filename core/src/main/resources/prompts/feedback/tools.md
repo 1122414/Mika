@@ -144,6 +144,18 @@ That app cannot receive shared text (it has no screen for an Android text share)
 ## failure.not_supported
 No app on this phone takes this standard Android action. Do not retry it: open the clock or calendar app with phone_launch_app and do it on its screens instead.
 
+## failure.calendar_permission_required
+Android has not granted Mika calendar access, so no events were written by the bulk tool. Use phone_add_calendar_event and save each event in the calendar app, or ask the user to grant calendar access in Android's app settings before trying the bulk tool again.
+
+## failure.no_writable_calendar
+The calendar provider has no visible writable calendar, so no events were written. Use phone_add_calendar_event and save in the calendar app, or ask the user to add or enable a writable calendar.
+
+## failure.calendar_unavailable
+The Android calendar provider could not be read, so no events were written. Use phone_add_calendar_event and save in the calendar app instead.
+
+## failure.calendar_write_unconfirmed
+The calendar write did not return a valid result for every requested event. Some events may already have been saved. Do not retry the batch or switch to another insertion path automatically; check the calendar first to avoid duplicates.
+
 ## failure.not_a_wheel
 That element is not a wheel picker, and none contains it. Observe and pass the ref of the wheel (or of the item it shows); for other lists use phone_scroll or phone_tap.
 

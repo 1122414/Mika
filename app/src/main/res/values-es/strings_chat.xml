@@ -44,6 +44,10 @@
     <string name="chat_continue">Continuar</string>
     <string name="chat_not_done">Sin terminar</string>
     <string name="chat_stopped">Detenida.</string>
+    <string name="chat_resume_checkpoint">Continuar desde el punto de interrupción</string>
+    <string name="chat_restart_task">Empezar de nuevo</string>
+    <string name="chat_resume_request">Continúa desde el punto de interrupción: %1$s</string>
+    <string name="chat_restart_request">Empieza de nuevo: %1$s</string>
     <string name="chat_view_source">Ver origen</string>
     <string name="chat_open">Abrir</string>
     <string name="chat_attach_rejected">No se pudo añadir: %1$s (cada archivo debe pesar menos de 200 MB)</string>
