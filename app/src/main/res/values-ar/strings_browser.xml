@@ -31,6 +31,14 @@
     <string name="browser_download_delete">حذف</string>
     <string name="browser_download_delete_q">حذف هذا التنزيل؟</string>
     <string name="browser_download_open_failed">لا يوجد تطبيق يمكنه فتح هذا الملف</string>
+    <string name="browser_permission_ask">يطلب هذا الموقع الوصول إلى:</string>
+    <string name="browser_permission_camera">الكاميرا</string>
+    <string name="browser_permission_microphone">الميكروفون</string>
+    <string name="browser_permission_camera_mic">الكاميرا والميكروفون</string>
+    <string name="browser_permission_location">الموقع</string>
+    <string name="browser_permission_allow">السماح</string>
+    <string name="browser_permission_block">الحظر</string>
+    <string name="browser_no_download">لا يمكن للمتصفح تنزيل الملفات بعد.</string>
     <string name="browser_crashed">واجهت الصفحة مشكلة وأُغلقت. يمكنك فتحها مجددًا.</string>
     <string name="browser_logged_in">تم تسجيل الدخول — يمكن لـMika استخدامه للمهام أيضًا.</string>
     <string name="browser_desktop">سطح المكتب</string>

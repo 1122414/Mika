@@ -27,6 +27,14 @@
     <string name="browser_download_delete">Delete</string>
     <string name="browser_download_delete_q">Delete this download?</string>
     <string name="browser_download_open_failed">No app can open this file</string>
+    <string name="browser_permission_ask">This site is requesting access:</string>
+    <string name="browser_permission_camera">Camera</string>
+    <string name="browser_permission_microphone">Microphone</string>
+    <string name="browser_permission_camera_mic">Camera and microphone</string>
+    <string name="browser_permission_location">Location</string>
+    <string name="browser_permission_allow">Allow</string>
+    <string name="browser_permission_block">Block</string>
+    <string name="browser_no_download">The browser can’t download files yet.</string>
     <string name="browser_crashed">The page ran into a problem and was closed. You can open it again.</string>
     <string name="browser_logged_in">Signed in — Mika can use it for tasks too.</string>
     <string name="browser_desktop">Desktop</string>

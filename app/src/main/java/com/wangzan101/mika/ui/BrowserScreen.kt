@@ -2,6 +2,7 @@ package com.wangzan101.mika.ui
 
 import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
+import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -9,9 +10,15 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.webkit.MimeTypeMap
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.imePadding
@@ -38,16 +45,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wangzan101.mika.browser.BrowserFavorites
+import com.wangzan101.mika.browser.ChooserMimeTypes
 import com.wangzan101.mika.browser.SiteLooks
 import com.wangzan101.mika.browser.StartPageModel
 import com.wangzan101.mika.browser.UserBrowser
 import com.wangzan101.mika.core.cap.web.WebUrlPolicy
 import com.wangzan101.mika.core.uistate.PageDialog
 import com.wangzan101.mika.ui.components.PageBackground
+import com.wangzan101.mika.ui.theme.MikaType
 
 /**
  * 浏览器页(侧栏「浏览器」):没有打开的网页时是起始页([BrowserStart]:搜索框、常用网站、最近打开),
@@ -61,9 +71,24 @@ import com.wangzan101.mika.ui.components.PageBackground
 @Composable
 fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val context = LocalContext.current
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        browser.answerFileChooser(uri?.let { listOf(it) })
+    }
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        browser.answerFileChooser(uris)
+    }
+    val askMediaPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        browser.answerPagePermission(granted.isNotEmpty() && granted.values.all { it })
+    }
+    val askLocationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        browser.answerGeolocation(granted.isNotEmpty() && granted.values.any { it })
+    }
     val page by browser.page.collectAsState()
     val dialog by browser.dialog.collectAsState()
     val notice by browser.notice.collectAsState()
+    val filePick by browser.filePick.collectAsState()
+    val pagePermission by browser.pagePermission.collectAsState()
+    val geoPermission by browser.geoPermission.collectAsState()
     val registry by browser.sites.entries.collectAsState()
     val recentPages by browser.recent.entries.collectAsState()
     val edits by browser.favorites.edits.collectAsState()
@@ -83,6 +108,14 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     // 换了一页(还没在这一页上问过时)重新找接着的对话;关了网页回到什么都没有
     val pageUrl = page?.url
     LaunchedEffect(pageUrl) { chat.onPage(pageUrl) }
+    // 网页要选文件:弹系统选择器;转屏后同一个请求不重复弹(request.started)
+    LaunchedEffect(filePick) {
+        val request = filePick ?: return@LaunchedEffect
+        if (request.started) return@LaunchedEffect
+        request.started = true
+        val types = chooserMimeTypes(request.params)
+        if (request.params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) pickFiles.launch(types) else pickFile.launch(types)
+    }
 
     // 这一处浏览器页:进来时登记,回到前台时把网页视图要过来(界面有两个实例时挂在看得见的那个上),
     // 离开时交还;最后一处离开(不是转屏)才关网页
@@ -214,8 +247,67 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     if (downloadsOpen) {
         DownloadsSheet(browser.downloads, onDismiss = { downloadsOpen = false })
     }
+    pagePermission?.let { req ->
+        val site = page?.url?.let { WebUrlPolicy.host(it) }?.let { face(it).name } ?: tr(R.string.drawer_browser)
+        WebPermissionDialog(
+            site = site,
+            what = mediaPermissionText(req.request.resources),
+            onAllow = {
+                val missing = mediaAndroidPermissions(req.request.resources)
+                    .filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+                if (missing.isEmpty()) browser.answerPagePermission(true) else askMediaPermissions.launch(missing.toTypedArray())
+            },
+            onDeny = { browser.answerPagePermission(false) },
+        )
+    }
+    geoPermission?.let { req ->
+        val site = req.origin?.let { WebUrlPolicy.host(it) }?.let { face(it).name } ?: tr(R.string.drawer_browser)
+        WebPermissionDialog(
+            site = site,
+            what = tr(R.string.browser_permission_location),
+            onAllow = {
+                val missing = LOCATION_PERMISSIONS.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+                if (missing.isEmpty()) browser.answerGeolocation(true) else askLocationPermission.launch(missing.toTypedArray())
+            },
+            onDeny = { browser.answerGeolocation(false) },
+        )
+    }
 
     dialog?.let { d -> PageDialogBox(d, browser::answerDialog) }
+}
+
+private val LOCATION_PERMISSIONS = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+private fun mediaAndroidPermissions(resources: Array<String>): List<String> = buildList {
+    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE in resources) add(Manifest.permission.RECORD_AUDIO)
+    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE in resources) add(Manifest.permission.CAMERA)
+}
+
+private fun mediaPermissionText(resources: Array<String>): String = when {
+    PermissionRequest.RESOURCE_AUDIO_CAPTURE in resources && PermissionRequest.RESOURCE_VIDEO_CAPTURE in resources ->
+        tr(R.string.browser_permission_camera_mic)
+    PermissionRequest.RESOURCE_VIDEO_CAPTURE in resources -> tr(R.string.browser_permission_camera)
+    else -> tr(R.string.browser_permission_microphone)
+}
+
+/** 网页给的文件类型换成系统选择器认的 MIME;扩展名查系统表,没有就用全部类型。 */
+private fun chooserMimeTypes(params: WebChromeClient.FileChooserParams): Array<String> =
+    ChooserMimeTypes.of(params.acceptTypes.toList()) { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }.toTypedArray()
+
+@Composable
+private fun WebPermissionDialog(site: String, what: String, onAllow: () -> Unit, onDeny: () -> Unit) {
+    MikaDialog(
+        onDismissRequest = onDeny,
+        title = { Text(site) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(tr(R.string.browser_permission_ask))
+                Text(what, style = MikaType.BodyStrong)
+            }
+        },
+        confirmButton = { TextButton(onClick = onAllow) { Text(tr(R.string.browser_permission_allow)) } },
+        dismissButton = { TextButton(onClick = onDeny) { Text(tr(R.string.browser_permission_block)) } },
+    )
 }
 
 /** 系统分享面板:网址,标题作主题。打不开时返回原因。 */

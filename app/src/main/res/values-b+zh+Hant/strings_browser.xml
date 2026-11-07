@@ -26,6 +26,14 @@
     <string name="browser_download_delete">刪除</string>
     <string name="browser_download_delete_q">刪除這個下載？</string>
     <string name="browser_download_open_failed">沒有能開啟這個檔案的應用程式</string>
+    <string name="browser_permission_ask">這個網站請求使用：</string>
+    <string name="browser_permission_camera">相機</string>
+    <string name="browser_permission_microphone">麥克風</string>
+    <string name="browser_permission_camera_mic">相機和麥克風</string>
+    <string name="browser_permission_location">位置</string>
+    <string name="browser_permission_allow">允許</string>
+    <string name="browser_permission_block">封鎖</string>
+    <string name="browser_no_download">瀏覽器裡暫時不能下載檔案。</string>
     <string name="browser_crashed">網頁出了問題，已經關掉，可以重新開啟。</string>
     <string name="browser_logged_in">已登入，Mika 辦事時也能用了。</string>
     <string name="browser_desktop">電腦版</string>

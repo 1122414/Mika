@@ -5,11 +5,16 @@ import com.wangzan101.mika.i18n.tr
 import android.content.Context
 import android.content.MutableContextWrapper
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.util.Log
 import android.view.ViewGroup
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import com.wangzan101.mika.cap.web.LoginProbe
 import com.wangzan101.mika.cap.web.LoginState
@@ -43,6 +48,17 @@ data class BrowserPage(
     val desktop: Boolean = false,
     val loginFor: String? = null,
 )
+
+/** 用户浏览器里网页弹出的文件选择框:界面弹系统选择器,选好后调 [callback];[started] 防止转屏后重复弹。 */
+class FilePickRequest(val callback: ValueCallback<Array<Uri>>, val params: WebChromeClient.FileChooserParams) {
+    @Volatile var started = false
+}
+
+/** 用户浏览器里网页要的摄像头、麦克风等权限;界面问过用户后 grant 或 deny。 */
+class PagePermissionRequest(val request: PermissionRequest)
+
+/** 用户浏览器里网页要的定位;界面问过用户后回调。 */
+class GeoPermissionRequest(val origin: String?, val callback: GeolocationPermissions.Callback)
 
 /**
  * 用户自己用的浏览器(侧栏「浏览器」):一个看得见的 [WebTab],和 Agent 的标签同一个网页配置(Cookie、网页存储)。
@@ -96,6 +112,56 @@ class UserBrowser private constructor(private val app: Context) {
     private val _notice = MutableStateFlow<String?>(null)
     /** 给用户的一句提示(拦下了什么、页面崩了);显示后调 [noticeShown]。 */
     val notice: StateFlow<String?> = _notice.asStateFlow()
+
+    private val _filePick = MutableStateFlow<FilePickRequest?>(null)
+    /** 网页要选文件,等界面弹系统选择器;选好后调 [answerFileChooser]。 */
+    val filePick: StateFlow<FilePickRequest?> = _filePick.asStateFlow()
+
+    private val _pagePermission = MutableStateFlow<PagePermissionRequest?>(null)
+    /** 网页要摄像头、麦克风等,等界面问用户;回答时调 [answerPagePermission]。 */
+    val pagePermission: StateFlow<PagePermissionRequest?> = _pagePermission.asStateFlow()
+
+    private val _geoPermission = MutableStateFlow<GeoPermissionRequest?>(null)
+    /** 网页要定位,等界面问用户;回答时调 [answerGeolocation]。 */
+    val geoPermission: StateFlow<GeoPermissionRequest?> = _geoPermission.asStateFlow()
+
+    /** 系统选择器回来了:交回网页;取消(空)交 null。 */
+    fun answerFileChooser(uris: List<Uri>?) {
+        val r = _filePick.value ?: return
+        _filePick.value = null
+        r.callback.onReceiveValue(uris?.takeIf { it.isNotEmpty() }?.toTypedArray())
+    }
+
+    /** 用户同意或拒绝网页用摄像头、麦克风。 */
+    fun answerPagePermission(grant: Boolean) {
+        val r = _pagePermission.value ?: return
+        _pagePermission.value = null
+        if (grant) {
+            // 只授摄像头和麦克风,请求里夹带的 MIDI、受保护媒体不放行
+            val allowed = r.request.resources
+                .filter { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE || it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }
+                .toTypedArray()
+            r.request.grant(allowed)
+        } else {
+            r.request.deny()
+        }
+    }
+
+    /** 用户同意或拒绝网页用定位。 */
+    fun answerGeolocation(grant: Boolean) {
+        val r = _geoPermission.value ?: return
+        _geoPermission.value = null
+        r.callback.invoke(r.origin, grant, false)
+    }
+
+    private fun answerPendingRequests() {
+        _filePick.value?.callback?.onReceiveValue(null)
+        _filePick.value = null
+        _pagePermission.value?.request?.deny()
+        _pagePermission.value = null
+        _geoPermission.value?.let { it.callback.invoke(it.origin, false, false) }
+        _geoPermission.value = null
+    }
 
     /**
      * 打开地址栏或搜索框里的一句话(见 [AddressInput])。打不开时返回给用户看的原因,不动当前页面。
@@ -196,6 +262,7 @@ class UserBrowser private constructor(private val app: Context) {
 
     /** 关掉网页回到起始页。借给任务的那个标签交给任务接着用(任务收下了就不销毁)。 */
     fun closePage() {
+        answerPendingRequests()
         probe?.let(main::removeCallbacks)
         probe = null
         loginHost = null
@@ -376,6 +443,32 @@ class UserBrowser private constructor(private val app: Context) {
                 }
                 saved.forEach(looks::iconSaved)
             }
+        }
+
+        /** 用户自己看的这个标签要选文件:交给界面弹系统选择器。 */
+        override fun onFileChooser(tab: WebTab, callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
+            if (tab !== this@UserBrowser.tab) return false
+            _filePick.value?.callback?.onReceiveValue(null)
+            _filePick.value = FilePickRequest(callback, params)
+            return true
+        }
+
+        /** 用户自己看的这个标签要摄像头、麦克风等:交给界面问用户。 */
+        override fun onPermissionRequest(tab: WebTab, request: PermissionRequest): Boolean {
+            if (tab !== this@UserBrowser.tab) return false
+            // 只接摄像头和麦克风;MIDI、受保护媒体这些照旧拒绝
+            if (request.resources.none { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE || it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }) return false
+            _pagePermission.value?.request?.deny()
+            _pagePermission.value = PagePermissionRequest(request)
+            return true
+        }
+
+        /** 用户自己看的这个标签要定位:交给界面问用户。 */
+        override fun onGeolocationRequest(tab: WebTab, origin: String?, callback: GeolocationPermissions.Callback): Boolean {
+            if (tab !== this@UserBrowser.tab) return false
+            _geoPermission.value?.let { it.callback.invoke(it.origin, false, false) }
+            _geoPermission.value = GeoPermissionRequest(origin, callback)
+            return true
         }
 
         override fun onDialog(tab: WebTab) {

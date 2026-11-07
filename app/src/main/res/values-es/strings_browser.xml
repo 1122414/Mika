@@ -28,6 +28,14 @@
     <string name="browser_download_delete">Eliminar</string>
     <string name="browser_download_delete_q">¿Eliminar esta descarga?</string>
     <string name="browser_download_open_failed">Ninguna app puede abrir este archivo</string>
+    <string name="browser_permission_ask">Este sitio solicita acceso a:</string>
+    <string name="browser_permission_camera">Cámara</string>
+    <string name="browser_permission_microphone">Micrófono</string>
+    <string name="browser_permission_camera_mic">Cámara y micrófono</string>
+    <string name="browser_permission_location">Ubicación</string>
+    <string name="browser_permission_allow">Permitir</string>
+    <string name="browser_permission_block">Bloquear</string>
+    <string name="browser_no_download">El navegador aún no puede descargar archivos.</string>
     <string name="browser_crashed">La página tuvo un problema y se cerró. Puedes volver a abrirla.</string>
     <string name="browser_logged_in">Sesión iniciada: Mika también puede usarla en sus tareas.</string>
     <string name="browser_desktop">Escritorio</string>

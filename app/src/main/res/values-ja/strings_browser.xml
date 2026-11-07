@@ -26,6 +26,14 @@
     <string name="browser_download_delete">削除</string>
     <string name="browser_download_delete_q">このダウンロードを削除しますか？</string>
     <string name="browser_download_open_failed">このファイルを開けるアプリがありません</string>
+    <string name="browser_permission_ask">このサイトが使用を求めています：</string>
+    <string name="browser_permission_camera">カメラ</string>
+    <string name="browser_permission_microphone">マイク</string>
+    <string name="browser_permission_camera_mic">カメラとマイク</string>
+    <string name="browser_permission_location">位置情報</string>
+    <string name="browser_permission_allow">許可</string>
+    <string name="browser_permission_block">ブロック</string>
+    <string name="browser_no_download">ブラウザはまだファイルをダウンロードできません。</string>
     <string name="browser_crashed">ページで問題が発生したため閉じました。もう一度開けます。</string>
     <string name="browser_logged_in">ログインしました — Mika もタスクで使えます。</string>
     <string name="browser_desktop">PC 版</string>

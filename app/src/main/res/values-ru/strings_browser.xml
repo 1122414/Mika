@@ -29,6 +29,14 @@
     <string name="browser_download_delete">Удалить</string>
     <string name="browser_download_delete_q">Удалить эту загрузку?</string>
     <string name="browser_download_open_failed">Нет приложения, которое откроет этот файл</string>
+    <string name="browser_permission_ask">Этот сайт запрашивает доступ:</string>
+    <string name="browser_permission_camera">Камера</string>
+    <string name="browser_permission_microphone">Микрофон</string>
+    <string name="browser_permission_camera_mic">Камера и микрофон</string>
+    <string name="browser_permission_location">Геолокация</string>
+    <string name="browser_permission_allow">Разрешить</string>
+    <string name="browser_permission_block">Заблокировать</string>
+    <string name="browser_no_download">Браузер пока не умеет скачивать файлы.</string>
     <string name="browser_crashed">На странице возникла проблема, и она была закрыта. Её можно открыть снова.</string>
     <string name="browser_logged_in">Вход выполнен: Mika тоже может пользоваться им в задачах.</string>
     <string name="browser_desktop">Компьютер</string>
