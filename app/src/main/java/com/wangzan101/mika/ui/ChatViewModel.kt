@@ -516,7 +516,7 @@ class ChatViewModel(
         val draft = sharedDrafts?.read()
         if (draft != null) {
             if (store.currentChat() == CurrentChat.Open(draft.conversationId)) {
-                _ui.value = ChatUi(conversationId = draft.conversationId, sharedDraft = draft, attachments = sharedAttachments(draft))
+                _ui.value = ChatUi(conversationId = draft.conversationId, sharedDraft = draft, attachments = sharedAttachments(draft), attachEnabled = _ui.value.attachEnabled)
             } else sharedDrafts.clear(draft.conversationId)
         }
     }
@@ -960,7 +960,8 @@ class ChatViewModel(
         val past = saved(conversationId)
         liveIndex = -1
         // 没有任务的对话不带别的任务的接管进度
-        _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None) }
+        // 附件按钮看的是设备能力,不是对话的内容:重建 ChatUi 时要带过去,不然切一次对话就没了(状态流不会重发)
+        _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
         markCurrent(CurrentChat.Open(conversationId))
         if (conversationId !in activeConversations.value) { unpark(conversationId); actions.drainFollowUps(conversationId); return }
         follow(conversationId, unpark(conversationId))
