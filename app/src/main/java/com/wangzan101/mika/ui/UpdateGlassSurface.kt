@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.ui.components.GlassBackdrop
+import com.wangzan101.mika.ui.theme.MikaTheme
 
 /** 由调样台导出的参数。网页像素在安卓布局里按 dp 使用。 */
 internal enum class UpdateGlassMaterial(
@@ -45,15 +46,17 @@ internal enum class UpdateGlassMaterial(
     val saturation: Float,
     val brightness: Float,
     val shadow: Float,
-    val backdropColor: Color,
+    val darkBackdrop: Color,
     val scrim: Float = 0f,
 ) {
     Capsule(207, 48, 40, 4, 0.42f, 20, 1.35f, 0.18f, 1.45f, 1.08f, 0.30f, Color(0xFF172C29)),
     Confirmation(236, 178, 35, 12, 0.55f, 31, 1.40f, 0.17f, 1.40f, 1.06f, 0.35f, Color(0xFF202D35), 0.28f),
 }
 
-internal val UpdateGlassInk = Color.White.copy(alpha = 0.94f)
-internal val UpdateGlassSecondaryInk = Color(0xFFEBEBF5).copy(alpha = 0.62f)
+internal val UpdateGlassInk: Color
+    @Composable get() = if (MikaTheme.colors.isDark) Color.White.copy(alpha = 0.94f) else MikaTheme.colors.ink
+internal val UpdateGlassSecondaryInk: Color
+    @Composable get() = if (MikaTheme.colors.isDark) Color(0xFFEBEBF5).copy(alpha = 0.62f) else MikaTheme.colors.ink2
 internal val UpdateGlassScrim = Color(0xFF16221B)
 private val NightTint = Color(0xFF0C1028)
 
@@ -64,6 +67,9 @@ internal fun UpdateGlassSurface(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val dark = MikaTheme.colors.isDark
+    val base = if (dark) material.darkBackdrop else Color(0xFFE9F1E6)
+    val tint = if (dark) NightTint else Color.White
     val shape = RoundedCornerShape(material.radius.dp)
     var origin by remember { mutableStateOf(Offset.Zero) }
     Box(
@@ -72,13 +78,17 @@ internal fun UpdateGlassSurface(
             spotColor = Color.Black.copy(alpha = material.shadow * 2f))
             .clip(shape)
             .onGloballyPositioned { origin = it.positionInRoot() }
-            .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.52f), Color.White.copy(alpha = 0.09f), Color.White.copy(alpha = 0.21f))), shape),
+            .border(1.dp, Brush.linearGradient(listOf(
+                Color.White.copy(alpha = if (dark) 0.52f else 0.96f),
+                Color.White.copy(alpha = 0.09f),
+                if (dark) Color.White.copy(alpha = 0.21f) else Color.Black.copy(alpha = 0.11f),
+            )), shape),
     ) {
         if (backdrop != null) {
             Box(Modifier.matchParentSize()
                 .graphicsLayer {
                     renderEffect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && size.width > 0f && size.height > 0f) {
-                        refractedEffect(material, size.width, size.height, density)
+                        refractedEffect(material, size.width, size.height, density, base, dark)
                     } else {
                         val blur = material.blur.dp.toPx()
                         BlurEffect(blur, blur, TileMode.Clamp)
@@ -90,11 +100,11 @@ internal fun UpdateGlassSurface(
                     translate(delta.x, delta.y) { drawLayer(backdrop.layer) }
                     if (material.scrim > 0f) drawRect(UpdateGlassScrim.copy(alpha = material.scrim))
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                        drawRect(material.backdropColor.copy(alpha = 0.90f))
+                        drawRect(base.copy(alpha = if (dark) 0.90f else 0.67f))
                     }
                 })
         }
-        Box(Modifier.matchParentSize().background(if (backdrop != null) NightTint.copy(alpha = material.tint) else material.backdropColor))
+        Box(Modifier.matchParentSize().background(if (backdrop != null) tint.copy(alpha = material.tint) else base))
         Box(Modifier.matchParentSize().drawBehind {
             drawRect(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.23f), Color.Transparent),
                 center = Offset.Zero, radius = size.width * 0.82f))
@@ -104,13 +114,19 @@ internal fun UpdateGlassSurface(
 }
 
 @RequiresApi(33)
-private fun refractedEffect(material: UpdateGlassMaterial, width: Float, height: Float, density: Float): androidx.compose.ui.graphics.RenderEffect {
+private fun refractedEffect(
+    material: UpdateGlassMaterial,
+    width: Float,
+    height: Float,
+    density: Float,
+    base: Color,
+    dark: Boolean,
+): androidx.compose.ui.graphics.RenderEffect {
     val shader = RuntimeShader(GLASS_SHADER).apply {
         setFloatUniform("extent", width, height)
         setFloatUniform("lens", material.radius * density, material.rim * density, material.refraction, material.dispersion)
         setFloatUniform("filter", material.saturation, material.brightness)
-        val color = material.backdropColor
-        setFloatUniform("darkBackdrop", color.red, color.green, color.blue)
+        setFloatUniform("backdropTone", base.red, base.green, base.blue, if (dark) 0.095f else 0.33f)
     }
     val refraction = RenderEffect.createRuntimeShaderEffect(shader, "image")
     val blur = material.blur * density
@@ -124,7 +140,7 @@ private const val GLASS_SHADER = """
     uniform float2 extent;
     uniform float4 lens;
     uniform float2 filter;
-    uniform float3 darkBackdrop;
+    uniform float4 backdropTone;
 
     half3 sampleAt(float2 p) {
         return image.eval(clamp(p, float2(0.5), extent - 0.5)).rgb;
@@ -152,7 +168,7 @@ private const val GLASS_SHADER = """
         );
         half gray = dot(rgb, half3(0.2126, 0.7152, 0.0722));
         half3 filtered = clamp(mix(half3(gray), rgb, half(filter.x)) * half(filter.y), 0.0, 1.0);
-        // 深色方案以网页背景色为基准，保留少量真实聊天纹理和边缘折射。
-        return half4(mix(half3(darkBackdrop), filtered, 0.095), 1.0);
+        // 用对应主题的底色保持可读性，并保留真实聊天纹理和边缘折射。
+        return half4(mix(half3(backdropTone.rgb), filtered, half(backdropTone.a)), 1.0);
     }
 """

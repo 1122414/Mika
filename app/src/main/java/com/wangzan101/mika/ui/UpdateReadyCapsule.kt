@@ -92,7 +92,7 @@ internal fun BoxScope.UpdateReadyCapsule(
     }
 
     val material = UpdateGlassMaterial.Capsule
-    val success = Color(0xFF80E5A1)
+    val success = if (MikaTheme.colors.isDark) Color(0xFF80E5A1) else Color(0xFF237B42)
     UpdateGlassSurface(
         material, backdrop,
         modifier.size(material.width.dp, material.height.dp)
@@ -172,12 +172,19 @@ private fun UpdateGlassClose(label: String, onClick: () -> Unit, modifier: Modif
 
 @Composable
 private fun UpdateGlassAction(label: String, primary: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val dark = MikaTheme.colors.isDark
+    val fill = when {
+        primary && dark -> Color(0xFFB4DBB3)
+        primary -> Color(0xFF294332)
+        dark -> Color.White.copy(alpha = 0.13f)
+        else -> Color.White.copy(alpha = 0.48f)
+    }
     Box(modifier.height(36.dp).clip(RoundedCornerShape(12.dp))
-        .background(if (primary) Color(0xFFB4DBB3) else Color.White.copy(alpha = 0.13f))
+        .background(fill)
         .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = if (primary) Color(0xFF172E21) else UpdateGlassInk,
+        Text(label, color = if (primary) (if (dark) Color(0xFF172E21) else Color.White) else UpdateGlassInk,
             fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
