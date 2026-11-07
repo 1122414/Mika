@@ -63,9 +63,9 @@
     <string name="drawer_delete_body">Se eliminarán “%1$s” y los archivos que contiene.</string>
     <string name="drawer_delete_running">Se detendrá su tarea en ejecución.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="one">También se eliminará %1$d tarea programada de este chat.</item>
-        <item quantity="many">También se eliminarán %1$d tareas programadas de este chat.</item>
-        <item quantity="other">También se eliminarán %1$d tareas programadas de este chat.</item>
+        <item quantity="one">Se conservará %1$d tarea programada de este chat.</item>
+        <item quantity="many">Se conservarán %1$d tareas programadas de este chat.</item>
+        <item quantity="other">Se conservarán %1$d tareas programadas de este chat.</item>
     </plurals>
     <string name="drawer_actions">Opciones del chat</string>
     <string name="drawer_rename">Cambiar nombre</string>

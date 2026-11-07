@@ -677,6 +677,7 @@ class TaskRun(
                         val result = (service.application as MikaApp).deviceAccess.access.unlock()
                         states.refresh()
                         Log.i(TAG, "scheduled unlock finished: ${result.status}")
+                        result.status
                     }
                 } else null,
             ) {

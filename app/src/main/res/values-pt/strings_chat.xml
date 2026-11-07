@@ -63,9 +63,9 @@
     <string name="drawer_delete_body">“%1$s” e os arquivos dela serão excluídos.</string>
     <string name="drawer_delete_running">A tarefa em andamento será interrompida.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="one">%1$d tarefa agendada desta conversa também será excluída.</item>
-        <item quantity="many">%1$d tarefas agendadas desta conversa também serão excluídas.</item>
-        <item quantity="other">%1$d tarefas agendadas desta conversa também serão excluídas.</item>
+        <item quantity="one">%1$d tarefa agendada desta conversa será mantida.</item>
+        <item quantity="many">%1$d tarefas agendadas desta conversa serão mantidas.</item>
+        <item quantity="other">%1$d tarefas agendadas desta conversa serão mantidas.</item>
     </plurals>
     <string name="drawer_actions">Opções da conversa</string>
     <string name="drawer_rename">Renomear</string>

@@ -61,7 +61,7 @@
     <string name="drawer_delete_body">“%1$s”과(와) 그 안의 파일이 삭제돼요.</string>
     <string name="drawer_delete_running">실행 중인 작업도 중지돼요.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="other">이 채팅의 예약 작업 %1$d개도 함께 삭제돼요.</item>
+        <item quantity="other">이 채팅의 예약 작업 %1$d개는 유지돼요.</item>
     </plurals>
     <string name="drawer_actions">채팅 옵션</string>
     <string name="drawer_rename">이름 바꾸기</string>

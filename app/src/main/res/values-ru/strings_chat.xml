@@ -64,10 +64,10 @@
     <string name="drawer_delete_body">Чат «%1$s» и файлы в нём будут удалены.</string>
     <string name="drawer_delete_running">Выполняемая в нём задача будет остановлена.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="one">Также будет удалена %1$d задача по расписанию из этого чата.</item>
-        <item quantity="few">Также будут удалены %1$d задачи по расписанию из этого чата.</item>
-        <item quantity="many">Также будут удалены %1$d задач по расписанию из этого чата.</item>
-        <item quantity="other">Также будет удалена %1$d задачи по расписанию из этого чата.</item>
+        <item quantity="one">В этом чате будет сохранена %1$d задача по расписанию.</item>
+        <item quantity="few">В этом чате будут сохранены %1$d задачи по расписанию.</item>
+        <item quantity="many">В этом чате будут сохранены %1$d задач по расписанию.</item>
+        <item quantity="other">В этом чате будет сохранена %1$d задача по расписанию.</item>
     </plurals>
     <string name="drawer_actions">Действия с чатом</string>
     <string name="drawer_rename">Переименовать</string>

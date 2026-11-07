@@ -62,8 +62,8 @@
     <string name="drawer_delete_body">“%1$s” and the files in it will be deleted.</string>
     <string name="drawer_delete_running">Its running task will be stopped.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="one">%1$d scheduled task in this chat will be deleted too.</item>
-        <item quantity="other">%1$d scheduled tasks in this chat will be deleted too.</item>
+        <item quantity="one">%1$d scheduled task in this chat will be kept.</item>
+        <item quantity="other">%1$d scheduled tasks in this chat will be kept.</item>
     </plurals>
     <string name="drawer_actions">Chat options</string>
     <string name="drawer_rename">Rename</string>

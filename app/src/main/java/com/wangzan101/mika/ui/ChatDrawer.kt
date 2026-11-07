@@ -443,7 +443,7 @@ internal fun RenameConversationDialog(title: String, onSave: (String) -> Unit, o
 }
 
 /**
- * 删对话前的确认:写明删的是哪个对话;有任务在跑、绑着定时任务时也写明会停掉、一起删掉。
+ * 删对话前的确认:写明删的是哪个对话;有任务在跑会停掉,绑着定时任务则写明计划会保留。
  * 和别处删东西的确认一样:右边红字「删除」,左边「取消」。
  */
 @Composable

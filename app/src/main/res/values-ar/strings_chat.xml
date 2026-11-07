@@ -66,12 +66,12 @@
     <string name="drawer_delete_body">سيتم حذف «%1$s» والملفات الموجودة فيها.</string>
     <string name="drawer_delete_running">سيتم إيقاف المهمة قيد التشغيل فيها.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="zero">لن تُحذف مهام مجدولة أخرى في هذه المحادثة (%1$d).</item>
-        <item quantity="one">سيتم أيضًا حذف مهمة مجدولة واحدة (%1$d) في هذه المحادثة.</item>
-        <item quantity="two">سيتم أيضًا حذف مهمتين مجدولتين (%1$d) في هذه المحادثة.</item>
-        <item quantity="few">سيتم أيضًا حذف %1$d من المهام المجدولة في هذه المحادثة.</item>
-        <item quantity="many">سيتم أيضًا حذف %1$d مهمة مجدولة في هذه المحادثة.</item>
-        <item quantity="other">سيتم أيضًا حذف %1$d مهمة مجدولة في هذه المحادثة.</item>
+        <item quantity="zero">لن تُحذف أي مهام مجدولة في هذه المحادثة (%1$d).</item>
+        <item quantity="one">سيتم الاحتفاظ بمهمة مجدولة واحدة (%1$d) في هذه المحادثة.</item>
+        <item quantity="two">سيتم الاحتفاظ بمهمتين مجدولتين (%1$d) في هذه المحادثة.</item>
+        <item quantity="few">سيتم الاحتفاظ بـ %1$d مهام مجدولة في هذه المحادثة.</item>
+        <item quantity="many">سيتم الاحتفاظ بـ %1$d مهمة مجدولة في هذه المحادثة.</item>
+        <item quantity="other">سيتم الاحتفاظ بـ %1$d مهمة مجدولة في هذه المحادثة.</item>
     </plurals>
     <string name="drawer_actions">خيارات المحادثة</string>
     <string name="drawer_rename">إعادة تسمية</string>

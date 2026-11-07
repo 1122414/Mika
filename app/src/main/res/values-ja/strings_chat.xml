@@ -61,7 +61,7 @@
     <string name="drawer_delete_body">「%1$s」とその中のファイルが削除されます。</string>
     <string name="drawer_delete_running">実行中のタスクは停止します。</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="other">このチャットのスケジュールされたタスク %1$d 件も削除されます。</item>
+        <item quantity="other">このチャットのスケジュールされたタスク %1$d 件は保持されます。</item>
     </plurals>
     <string name="drawer_actions">チャットのオプション</string>
     <string name="drawer_rename">名前を変更</string>

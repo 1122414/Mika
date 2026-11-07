@@ -220,7 +220,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     /** 最近一次系统分享尚未发送的草稿和它的私有图片副本。 */
     val sharedDrafts: SharedDraftStore by lazy { SharedDraftStore(java.io.File(filesDir, "shared-drafts")) }
 
-    /** 删对话(侧栏长按):连带它的任务、定时任务和工作区。 */
+    /** 删对话(侧栏长按):停掉它的当前任务并删工作区,保留定时任务。 */
     val conversationDeleter: ConversationDeleter by lazy {
         val app = this
         ConversationDeleter(
@@ -230,7 +230,6 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             },
             cancelTasks = { id -> taskState.runs.value.filter { it.conversationId == id }.forEach { TaskService.cancel(app, it.key) } },
             schedulesOf = { id -> TriggerRuntime.list(app).filter { it.threadId == id }.map { it.id } },
-            removeSchedule = { TriggerRuntime.remove(app, it) },
             deleteWorkspace = { id ->
                 // 工作区里有附件、用户发来的屏幕、任务写的文件;沙箱里的命令碰得到这里,和命令、导入、重置互斥着删
                 SandboxDirs(app).deleteWorkspace(id)

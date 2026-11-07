@@ -61,7 +61,7 @@
     <string name="drawer_delete_body">“%1$s” dan berkas di dalamnya akan dihapus.</string>
     <string name="drawer_delete_running">Tugasnya yang sedang berjalan akan dihentikan.</string>
     <plurals name="drawer_delete_schedules">
-        <item quantity="other">%1$d tugas terjadwal di obrolan ini juga akan dihapus.</item>
+        <item quantity="other">%1$d tugas terjadwal di obrolan ini akan dipertahankan.</item>
     </plurals>
     <string name="drawer_actions">Opsi obrolan</string>
     <string name="drawer_rename">Ganti nama</string>
