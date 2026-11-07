@@ -59,4 +59,8 @@
     <string name="diagnostics_share">مشاركة</string>
     <string name="diagnostics_copied">تم النسخ</string>
     <string name="diagnostics_loading">جارٍ الجمع…</string>
+    <string name="about_auto_update">التحديث التلقائي</string>
+    <string name="about_auto_update_detail">تنزيل الإصدارات الجديدة في الخلفية وطلب التأكيد قبل التثبيت</string>
+    <string name="about_auto_update_ready">الإصدار %1$s من Mika جاهز للتثبيت</string>
+    <string name="about_auto_update_disable">إيقاف التحديث التلقائي</string>
 </resources>

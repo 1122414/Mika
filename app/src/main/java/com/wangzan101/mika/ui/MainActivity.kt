@@ -1,7 +1,12 @@
 package com.wangzan101.mika.ui
 
 import com.wangzan101.mika.i18n.AppLanguage
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import com.wangzan101.mika.ui.components.KeyboardDismissArea
 import android.Manifest
@@ -50,6 +55,7 @@ import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.about.Diagnostics
 import com.wangzan101.mika.about.DiagnosticsCollector
 import com.wangzan101.mika.about.MikaLinks
+import com.wangzan101.mika.about.ReleaseInfo
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.chat.CurrentChat
 import com.wangzan101.mika.chat.SharedDraft
@@ -173,13 +179,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var updateWatch: Job? = null
+
     override fun onStart() {
         super.onStart()
         // 用户先前点了「完全退出」:打开 Mika 就回来,胶囊和退出时略过的启动工作在这里补上
         com.wangzan101.mika.quit.MikaQuit.resume(this)
         monitor.start()
         // 每次打开都悄悄查一次新版本(两分钟内连着打开的只查一次),失败不吭声
-        (application as MikaApp).updates.autoCheckInBackground()
+        val app = application as MikaApp
+        val check = app.updates.autoCheckInBackground()
+        updateWatch = lifecycleScope.launch {
+            check.join()
+            app.automaticUpdates.watch(app.updates.state)
+        }
         // 电脑连接开着、服务却不在(被系统停过、从后台没能起来):界面在前台时补起来
         (application as MikaApp).mcp.ensureRunning()
     }
@@ -190,6 +203,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        updateWatch?.cancel()
         monitor.stop()
         super.onStop()
     }
@@ -322,6 +336,8 @@ private fun MikaRoot(
     val app = context.applicationContext as MikaApp
     // 查到的新版本:侧栏、设置首页、关于页的红点都看它
     val updateState by app.updates.state.collectAsState()
+    val autoUpdate by app.automaticUpdates.enabled.collectAsState()
+    val readyUpdate by app.automaticUpdates.ready.collectAsState()
     LaunchedEffect(requestedConversation) {
         if (requestedConversation != null) {
             app.chat.openConversation(requestedConversation)
@@ -412,28 +428,47 @@ private fun MikaRoot(
                 reopen = nav.reopenDrawer,
                 onReopened = nav::drawerReopened,
             ) { openDrawer ->
-                ChatScreen(
-                    vm = app.chat,
-                    check = check,
-                    frames = app.taskState.frames,
-                    webOpen = app.tasks.webScreenOpen,
-                    reduceMotion = MikaTheme.reduceMotion,
-                    onOpenDrawer = openDrawer,
-                    openSettings = { nav.push(Route.Settings) },
-                    openRun = { runId = it; nav.push(Route.Run) },
-                    phoneSetupNeeded = phoneSetupNeeded && status.builtinShell != BuiltinShellStatus.Running,
-                    openPhoneSetup = { onFix(Fix.OpenPhoneSetup) },
-                    loadSource = { id ->
-                        withContext(Dispatchers.IO) { evidenceSource(RunStore(context).events(id)) { ConfirmationNotifier.appLabel(context, it) } }
-                    },
-                    openSource = { id, legacy ->
-                        sourceRunId = id
-                        sourceLegacyText = legacy
-                        nav.push(Route.Source)
-                    },
-                    voice = app.voice,
-                    openSpeechModel = { nav.push(Route.SpeechModel) },
-                )
+                Box(Modifier.fillMaxSize()) {
+                    ChatScreen(
+                        vm = app.chat,
+                        check = check,
+                        frames = app.taskState.frames,
+                        webOpen = app.tasks.webScreenOpen,
+                        reduceMotion = MikaTheme.reduceMotion,
+                        onOpenDrawer = openDrawer,
+                        openSettings = { nav.push(Route.Settings) },
+                        openRun = { runId = it; nav.push(Route.Run) },
+                        phoneSetupNeeded = phoneSetupNeeded && status.builtinShell != BuiltinShellStatus.Running,
+                        openPhoneSetup = { onFix(Fix.OpenPhoneSetup) },
+                        loadSource = { id ->
+                            withContext(Dispatchers.IO) { evidenceSource(RunStore(context).events(id)) { ConfirmationNotifier.appLabel(context, it) } }
+                        },
+                        openSource = { id, legacy ->
+                            sourceRunId = id
+                            sourceLegacyText = legacy
+                            nav.push(Route.Source)
+                        },
+                        voice = app.voice,
+                        openSpeechModel = { nav.push(Route.SpeechModel) },
+                    )
+                    var installUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
+                    readyUpdate?.takeIf { autoUpdate && it.apkUrl == updateState.update?.apkUrl }?.let { release ->
+                        UpdateReadyCapsule(
+                            release,
+                            onInstall = {
+                                installUpdate = release
+                                app.automaticUpdates.dismiss(release)
+                            },
+                            onTimeout = { app.automaticUpdates.dismiss(release) },
+                            onDisable = { app.automaticUpdates.setEnabled(false) },
+                            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 54.dp),
+                        )
+                    }
+                    installUpdate?.let { release ->
+                        UpdateSheet(release, BuildConfig.VERSION_NAME, BuildConfig.BETA,
+                            onOpenUrl = { openInBrowser(context, it) }, onDismiss = { installUpdate = null })
+                    }
+                }
             }
         }
         Route.Settings -> {
@@ -459,6 +494,8 @@ private fun MikaRoot(
                 )
             },
             onCheck = app.updates::checkInBackground,
+            autoUpdate = autoUpdate,
+            onAutoUpdate = app.automaticUpdates::setEnabled,
             onOpenUrl = { openInBrowser(context, it) },
             onOpenLicense = { nav.push(Route.License) },
             onBack = back,

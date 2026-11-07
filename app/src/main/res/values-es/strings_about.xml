@@ -59,4 +59,8 @@
     <string name="diagnostics_share">Compartir</string>
     <string name="diagnostics_copied">Copiado</string>
     <string name="diagnostics_loading">Recopilando…</string>
+    <string name="about_auto_update">Actualización automática</string>
+    <string name="about_auto_update_detail">Descarga versiones en segundo plano y pide confirmación antes de instalar</string>
+    <string name="about_auto_update_ready">Mika %1$s está listo para instalar</string>
+    <string name="about_auto_update_disable">Desactivar la actualización automática</string>
 </resources>

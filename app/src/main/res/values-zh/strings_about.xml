@@ -59,4 +59,8 @@
     <string name="diagnostics_share">分享</string>
     <string name="diagnostics_copied">已复制</string>
     <string name="diagnostics_loading">正在收集…</string>
+    <string name="about_auto_update">自动更新</string>
+    <string name="about_auto_update_detail">后台下载新版本，安装前会询问</string>
+    <string name="about_auto_update_ready">Mika %1$s 已下载，点击安装</string>
+    <string name="about_auto_update_disable">关闭自动更新</string>
 </resources>

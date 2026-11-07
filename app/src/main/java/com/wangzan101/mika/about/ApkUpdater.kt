@@ -38,6 +38,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
     /** 这一份是 Mika 自己经代理下的(不是系统下载服务)。 */
     private val viaApp: Boolean get() = prefs.getBoolean("viaApp", false)
 
+    @Synchronized
     fun state(release: ReleaseInfo): ApkDownloadState =
         if (prefs.getString("url", null) != release.apkUrl) ApkDownloadState() else recorded()
 
@@ -60,6 +61,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
         return ApkDownloadState(DownloadPhase.Failed)
     }
 
+    @Synchronized
     fun download(release: ReleaseInfo) {
         val url = requireNotNull(release.apkUrl)
         ApkIntegrity.requireOfficialUrl(url)
@@ -90,6 +92,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
         }
     }
 
+    @Synchronized
     fun cancel() {
         if (viaApp) proxied.cancel()
         val id = prefs.getLong("id", -1)
@@ -100,6 +103,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
     }
 
     /** 已经装上(或装了更新的版本)后,下好的安装包没用了:启动时清掉。下载中、暂停、失败的留给关于页处理。 */
+    @Synchronized
     fun dropInstalled() {
         val target = file ?: return
         if (recorded().phase != DownloadPhase.Ready) return
@@ -112,6 +116,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
      * 只接受本应用、更高版本、同一签名的完整附件;没通过就删掉文件并抛 [ApkRejected]。
      * 系统安装器之后还会再验签名并要求用户确认。
      */
+    @Synchronized
     fun installIntent(release: ReleaseInfo): Intent {
         check(state(release).phase == DownloadPhase.Ready)
         ApkIntegrity.requireOfficialUrl(requireNotNull(release.apkUrl))
