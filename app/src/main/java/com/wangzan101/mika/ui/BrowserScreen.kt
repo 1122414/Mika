@@ -72,6 +72,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val activity = remember(context) { context.findActivity() }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     var bookmarksOpen by rememberSaveable { mutableStateOf(false) }
+    var downloadsOpen by rememberSaveable { mutableStateOf(false) }
 
     val face = remember(looks) { { host: String -> SiteLooks.faceOf(host, looks, browser.looks::iconFile) } }
     val favorites = remember(edits, registry) { BrowserFavorites.combine(edits, registry) }
@@ -123,6 +124,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 bookmarks = bookmarks,
                 onOpenBookmark = { b -> browser.open(b.url)?.let(toast) },
                 onShowBookmarks = { bookmarksOpen = true },
+                onDownloads = { downloadsOpen = true },
             )
         } else {
             val host = WebUrlPolicy.host(p.url)
@@ -180,6 +182,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                             toast(tr(R.string.browser_bookmarked))
                         }
                     },
+                    onDownloads = { downloadsOpen = true },
                     onToggleFavorite = {
                         if (host == null) return@BrowserMoreSheet
                         if (favorite) {
@@ -207,6 +210,9 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
             onRemove = { b -> browser.bookmarks.remove(b.url); toast(tr(R.string.browser_unbookmarked)) },
             onRename = { b, title -> browser.bookmarks.rename(b.url, title) },
         )
+    }
+    if (downloadsOpen) {
+        DownloadsSheet(browser.downloads, onDismiss = { downloadsOpen = false })
     }
 
     dialog?.let { d -> PageDialogBox(d, browser::answerDialog) }

@@ -163,6 +163,8 @@ object MikaIcons {
     )
     /** 分享:向上的箭头出盒子。 */
     val Share = stroke("share", "M12 15 V3.5 M7.5 8 L12 3.5 L16.5 8", "M8 11 H6 v9 h12 v-9 h-2")
+    /** 下载:一个向下箭头落进托盘。 */
+    val Download = stroke("download", "M12 4 v11", "M7 10.5 l5 5 l5 -5", "M5 19.5 h14")
     /** 用其他应用打开:斜向外的箭头出方框。 */
     val External = stroke("external", "M14 4 h6 v6 M20 4 l-9 9", "M18 14 v5 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V7 a1 1 0 0 1 1 -1 h5")
     /** 房子:浏览器的起始页。 */

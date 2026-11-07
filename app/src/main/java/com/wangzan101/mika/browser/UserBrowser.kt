@@ -66,6 +66,8 @@ class UserBrowser private constructor(private val app: Context) {
     val favorites = BrowserFavorites(dir)
     val bookmarks = PageBookmarks(dir)
     val looks = SiteLooks(dir)
+    /** 用户浏览器的下载:交给系统下载,列表也问系统要。 */
+    val downloads = BrowserDownloads(app, dir)
     private val modes = UserSiteModes(dir)
     /** 看着的这一页借给任务(见 [PageLoans])。 */
     val loans = PageLoans<WebTab>()
@@ -385,7 +387,10 @@ class UserBrowser private constructor(private val app: Context) {
         }
 
         override fun onDownload(tab: WebTab, url: String, userAgent: String, contentDisposition: String?, mime: String?) {
-            _notice.value = tr(R.string.browser_no_download)
+            scope.launch {
+                val name = withContext(Dispatchers.IO) { downloads.enqueue(url, userAgent, contentDisposition, mime) }
+                _notice.value = if (name != null) tr(R.string.browser_download_started, name) else tr(R.string.browser_download_failed_start)
+            }
         }
 
         override fun onCrashed(tab: WebTab) {
