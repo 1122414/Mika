@@ -1,8 +1,7 @@
 package com.wangzan101.mika.core.search
 
 import com.wangzan101.mika.core.net.NetProxy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.wangzan101.mika.core.net.awaitBody
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -39,7 +38,7 @@ class HttpWebSearch(
     private val endpoint = requireNotNull(parseEndpoint(endpoint)) { "Invalid web search endpoint" }
     private val authorization = apiKey?.trim()?.takeIf(String::isNotEmpty)?.let { "Bearer $it" }
 
-    override suspend fun search(query: String, count: Int): WebSearchResult = withContext(Dispatchers.IO) {
+    override suspend fun search(query: String, count: Int): WebSearchResult {
         val url = endpoint.newBuilder()
             .addQueryParameter("query", query)
             .addQueryParameter("count", count.coerceIn(1, MAX_COUNT).toString())
@@ -48,20 +47,20 @@ class HttpWebSearch(
             .header("Accept", "application/json")
             .apply { authorization?.let { header("Authorization", it) } }
             .build()
-        try {
-            client.newCall(request).execute().use { response ->
+        return try {
+            client.newCall(request).awaitBody { response ->
                 when (response.code) {
-                    401, 403 -> return@use WebSearchResult.Failure("authentication_failed", "The search endpoint rejected the configured API key.")
-                    402 -> return@use WebSearchResult.Failure("quota_exhausted", "The search endpoint reports that its paid quota is exhausted.")
-                    429 -> return@use WebSearchResult.Failure(
+                    401, 403 -> return@awaitBody WebSearchResult.Failure("authentication_failed", "The search endpoint rejected the configured API key.")
+                    402 -> return@awaitBody WebSearchResult.Failure("quota_exhausted", "The search endpoint reports that its paid quota is exhausted.")
+                    429 -> return@awaitBody WebSearchResult.Failure(
                         "rate_limited", "The search endpoint is rate limiting requests; retry later or use the browser.",
                         response.header("Retry-After")?.toLongOrNull()?.coerceAtLeast(0),
                     )
-                    !in 200..299 -> return@use WebSearchResult.Failure("service_unavailable", "The search endpoint returned HTTP ${response.code}.")
+                    !in 200..299 -> return@awaitBody WebSearchResult.Failure("service_unavailable", "The search endpoint returned HTTP ${response.code}.")
                 }
                 val body = response.body?.string().orEmpty()
                 if (body.length > MAX_RESPONSE_CHARS) {
-                    return@use WebSearchResult.Failure("invalid_response", "The search endpoint response is too large.")
+                    return@awaitBody WebSearchResult.Failure("invalid_response", "The search endpoint response is too large.")
                 }
                 parse(body, count)
             }
