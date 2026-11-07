@@ -88,10 +88,10 @@ private const val COLUMNS = 4
 private const val MAX_BOOKMARKS = 5
 
 /**
- * 浏览器的起始页:顶栏只有返回、下载和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
+ * 浏览器的起始页:顶栏是返回、下载、更多和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
  * 「常用网站」一行四个(图标、名字,登录着的带小绿点,最后一格「＋」),「整理」或长按进整理(图标轻轻抖,× 移除,「完成」退出);
  * 「书签」最近加入的几条,「全部」打开书签页;
- * 「最近打开」(搜索写成「搜索：…」,右边是时间,标题右边「清除」)。整理和输入中按返回先退出它们。
+ * 「最近打开」最近 10 条(右边是时间,标题右边「全部」打开完整历史)。整理和输入中按返回先退出它们。
  */
 @Composable
 fun BrowserStart(
@@ -104,11 +104,14 @@ fun BrowserStart(
     onOpenSite: (FavoriteSite) -> Unit,
     onRemoveSite: (FavoriteSite) -> Unit,
     onAddHint: () -> Unit,
-    onClearRecent: () -> Unit,
+    onClearRecent: () -> Unit = {},
     bookmarks: List<PageBookmark> = emptyList(),
     onOpenBookmark: (PageBookmark) -> Unit = {},
     onShowBookmarks: () -> Unit = {},
     onDownloads: () -> Unit = {},
+    tabsCount: Int = 0,
+    onMenu: () -> Unit = {},
+    onHistory: () -> Unit = {},
     now: Long = System.currentTimeMillis(),
 ) {
     val c = MikaTheme.colors
@@ -128,6 +131,7 @@ fun BrowserStart(
         } else {
             TopBar(tr(R.string.drawer_browser), MikaIcons.Back, onBack, tr(R.string.back), right = {
                 BarIconButton(MikaIcons.Download, tr(R.string.browser_downloads), onDownloads)
+                BarIconButton(MikaIcons.More, tr(R.string.more), onMenu, badge = tabsCount > 0)
             })
         }
         Column(
@@ -154,7 +158,7 @@ fun BrowserStart(
                     if (sites.any { it.loggedIn }) Legend(BROWSER_LOGIN_LEGEND, dot = true)
                     SectionHeader(tr(R.string.browser_bookmarks), if (bookmarks.isEmpty()) null else tr(R.string.browser_all), onShowBookmarks)
                     BookmarkCard(bookmarks, face, onOpenBookmark)
-                    SectionHeader(tr(R.string.browser_recent_source), if (recent.isEmpty()) null else tr(R.string.clear), onClearRecent)
+                    SectionHeader(tr(R.string.browser_recent_source), if (recent.isEmpty()) null else tr(R.string.browser_all), onHistory)
                     RecentCard(recent, face, now, onOpenUrl)
                 } else {
                     val suggestions = remember(query, recent) { StartPageModel.suggestions(query, recent) }

@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.http.SslError
 import android.os.Message
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.net.Uri
@@ -82,6 +83,10 @@ class WebTab(
         fun onPermissionRequest(tab: WebTab, request: PermissionRequest): Boolean = false
         /** 用户自己看的标签要定位:由界面问用户,[callback] 由界面回话。返回 true 表示接下。 */
         fun onGeolocationRequest(tab: WebTab, origin: String?, callback: GeolocationPermissions.Callback): Boolean = false
+        /** 网页要全屏播放视频:由界面把 [view] 盖到整屏上,并把回调留着,退出时交给调用方。返回 true 表示接下。 */
+        fun onFullscreen(tab: WebTab, view: View, callback: WebChromeClient.CustomViewCallback): Boolean = false
+        /** 网页要退出全屏。 */
+        fun onExitFullscreen(tab: WebTab) {}
     }
 
     /**
@@ -331,6 +336,17 @@ class WebTab(
             }
 
             // 文件选择框:agent 先用 web_upload 事先放好的工作区文件(取走即清);用户自己看的标签交界面弹系统选择器
+            // 全屏视频:交给看得见的标签那一侧盖到整屏;没人接就立刻退出
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                if (listener?.onFullscreen(this@WebTab, view, callback) == true) return
+                callback.onCustomViewHidden()
+            }
+
+            override fun onHideCustomView() {
+                listener?.onExitFullscreen(this@WebTab)
+            }
+
+            // 文件选择框:只交 web_upload 事先放好的工作区文件,取走即清;没有就取消,不弹系统选择器
             override fun onShowFileChooser(v: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 val files = pendingUpload
                 pendingUpload = null

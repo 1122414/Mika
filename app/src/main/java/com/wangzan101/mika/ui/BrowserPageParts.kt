@@ -301,6 +301,11 @@ fun BrowserMoreSheet(
     bookmarked: Boolean = false,
     onToggleBookmark: () -> Unit = {},
     onDownloads: () -> Unit = {},
+    onTabs: () -> Unit = {},
+    tabsCount: Int = 0,
+    onHistory: () -> Unit = {},
+    onFind: () -> Unit = {},
+    onClearData: () -> Unit = {},
 ) {
     val c = MikaTheme.colors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface, shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)) {
@@ -319,23 +324,32 @@ fun BrowserMoreSheet(
                 }
             }
             fun act(f: () -> Unit): () -> Unit = { onDismiss(); f() }
-            ListRow(MikaIcons.Refresh, tr(R.string.refresh), first = true, onClick = act(onReload))
-            ListRow(MikaIcons.Copy, tr(R.string.browser_copy_link), onClick = act(onCopy))
-            ListRow(MikaIcons.External, tr(R.string.browser_open_outside), onClick = act(onOpenOutside))
-            ListRow(
-                MikaIcons.Bookmark,
-                if (bookmarked) tr(R.string.browser_bookmark_remove) else tr(R.string.browser_bookmark_add),
-                onClick = act(onToggleBookmark),
-            )
-            ListRow(MikaIcons.Download, tr(R.string.browser_downloads), onClick = act(onDownloads))
-            if (host != null) {
-                ListRow(MikaIcons.Star, if (favorite) tr(R.string.browser_unfavorite) else tr(R.string.browser_favorite), onClick = act(onToggleFavorite))
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                ListRow(MikaIcons.Refresh, tr(R.string.refresh), first = true, onClick = act(onReload))
+                ListRow(MikaIcons.Search, tr(R.string.browser_find), onClick = act(onFind))
+                ListRow(MikaIcons.Copy, tr(R.string.browser_copy_link), onClick = act(onCopy))
+                ListRow(MikaIcons.External, tr(R.string.browser_open_outside), onClick = act(onOpenOutside))
                 ListRow(
-                    if (desktop) MikaIcons.Phone else MikaIcons.Desktop,
-                    if (desktop) tr(R.string.browser_to_mobile) else tr(R.string.browser_to_desktop),
-                    subtitle = if (desktop) tr(R.string.browser_keep_mobile) else tr(R.string.browser_keep_desktop),
-                    onClick = act(onToggleDesktop),
+                    MikaIcons.Bookmark,
+                    if (bookmarked) tr(R.string.browser_bookmark_remove) else tr(R.string.browser_bookmark_add),
+                    onClick = act(onToggleBookmark),
                 )
+                ListRow(MikaIcons.Download, tr(R.string.browser_downloads), onClick = act(onDownloads))
+                ListRow(
+                    MikaIcons.Apps, tr(R.string.browser_tabs), detail = tabsCount.takeIf { it > 0 }?.toString(),
+                    onClick = act(onTabs),
+                )
+                ListRow(MikaIcons.Clock, tr(R.string.browser_history), onClick = act(onHistory))
+                if (host != null) {
+                    ListRow(MikaIcons.Star, if (favorite) tr(R.string.browser_unfavorite) else tr(R.string.browser_favorite), onClick = act(onToggleFavorite))
+                    ListRow(
+                        if (desktop) MikaIcons.Phone else MikaIcons.Desktop,
+                        if (desktop) tr(R.string.browser_to_mobile) else tr(R.string.browser_to_desktop),
+                        subtitle = if (desktop) tr(R.string.browser_keep_mobile) else tr(R.string.browser_keep_desktop),
+                        onClick = act(onToggleDesktop),
+                    )
+                }
+                ListRow(MikaIcons.Trash, tr(R.string.browser_clear_data), onClick = act(onClearData))
             }
             Spacer(Modifier.height(4.dp))
         }
