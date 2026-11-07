@@ -56,6 +56,10 @@ class FullscreenVideo(val view: View, val callback: WebChromeClient.CustomViewCa
 /** 页内查找:是否开着、搜的词、共几处、现在是第几处(都从 1 数)。 */
 data class FindState(val active: Boolean = false, val query: String = "", val matches: Int = 0, val index: Int = 0)
 
+/** WebView 给的当前匹配序号从 0 数;界面显示从 1 数,没有匹配时为 0。 */
+internal fun findMatchIndex(active: Int, matches: Int): Int =
+    if (matches > 0) (active + 1).coerceIn(1, matches) else 0
+
 /**
  * 用户自己用的浏览器(侧栏「浏览器」):一个看得见的 [WebTab],和 Agent 的标签同一个网页配置(Cookie、网页存储)。
  * 在这里登录了,Mika 办事时也是登录的。用哪一版网页由 [BrowserIdentity] 定:平常默认手机版、按网站可换成电脑版
@@ -241,20 +245,12 @@ class UserBrowser private constructor(private val app: Context) {
 
     /** 开一个空标签并显示起始页。 */
     fun newTab() {
+        if (opener != null) closePopup()
+        stopFind()
+        clearFullscreen()
         newTopTab()
         _page.value = null
         _dialog.value = null
-    }
-
-    /** 在当前标签里打开一个新的;没有标签时也开一个。 */
-    fun openInNewTab(url: String): String? {
-        refusal(url)?.let { return it }
-        stopFind()
-        val t = newTopTab()
-        loginFor[t] = null
-        _page.value = BrowserPage(url, "", 0, true, false, false, desktop = !t.devtools.isMobile(t))
-        navigate(t, url)
-        return null
     }
 
     /** 换到标签 [id];找不到不动。 */
@@ -402,6 +398,8 @@ class UserBrowser private constructor(private val app: Context) {
                 WebViewDatabase.getInstance(app).clearHttpAuthUsernamePassword()
                 sites.clear()
             }
+            loginFor.keys.forEach { loginFor[it] = null }
+            refresh()
         }
         if (cache) {
             openTabs.forEach { runCatching { it.view.clearCache(true) } }
@@ -522,7 +520,13 @@ class UserBrowser private constructor(private val app: Context) {
             BrowserIdentity.mobile(loginForMika = loginFor[t] != null, agentMobile = t.devtools.agentWantsMobile(host), userDesktop = modes.isDesktop(host))
         }
         t.view.setFindListener { active, matches, _ ->
-            if (t === tab) _find.value = _find.value.copy(matches = matches.coerceAtLeast(0), index = active.coerceAtLeast(0))
+            if (t === tab) {
+                // activeMatchOrdinal 从 0 数;界面显示从 1 数,0 处时显示 0
+                _find.value = _find.value.copy(
+                    matches = matches.coerceAtLeast(0),
+                    index = findMatchIndex(active, matches),
+                )
+            }
         }
         t.listener = listener
     }
@@ -616,6 +620,7 @@ class UserBrowser private constructor(private val app: Context) {
             if (!isUserGesture || tab !== this@UserBrowser.tab || opener != null) return false
             if (tab !in openTabs) return false
             val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
+            stopFind()
             val popup = createTab()
             transport.webView = popup.view
             resultMsg.sendToTarget()
@@ -642,6 +647,8 @@ class UserBrowser private constructor(private val app: Context) {
         stopFind()
         clearFullscreen()
         tab?.let { popup ->
+            loginFor.remove(popup)
+            probes.remove(popup)?.let(main::removeCallbacks)
             loans.swapped(popup, o)
             popup.destroy()
         }

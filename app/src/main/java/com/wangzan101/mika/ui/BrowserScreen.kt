@@ -32,6 +32,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -253,28 +254,30 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     }
 
     fullscreen?.let { f ->
-        Dialog(
-            onDismissRequest = { browser.exitFullscreen() },
-            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-        ) {
-            val view = LocalView.current
-            val controller = remember(view) { ViewCompat.getWindowInsetsController(view) }
-            DisposableEffect(view) {
-                controller?.hide(WindowInsetsCompat.Type.systemBars())
-                controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
-            }
-            Box(Modifier.fillMaxSize().background(Color.Black)) {
-                AndroidView(
-                    factory = { ctx ->
-                        FrameLayout(ctx).also {
-                            (f.view.parent as? ViewGroup)?.removeView(f.view)
-                            it.addView(f.view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    onRelease = { it.removeView(f.view) },
-                )
+        key(f) {
+            Dialog(
+                onDismissRequest = { browser.exitFullscreen() },
+                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+            ) {
+                val view = LocalView.current
+                val controller = remember(view) { ViewCompat.getWindowInsetsController(view) }
+                DisposableEffect(view) {
+                    controller?.hide(WindowInsetsCompat.Type.systemBars())
+                    controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+                }
+                Box(Modifier.fillMaxSize().background(Color.Black)) {
+                    AndroidView(
+                        factory = { ctx ->
+                            FrameLayout(ctx).also {
+                                (f.view.parent as? ViewGroup)?.removeView(f.view)
+                                it.addView(f.view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        onRelease = { it.removeView(f.view) },
+                    )
+                }
             }
         }
     }
