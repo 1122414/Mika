@@ -63,8 +63,29 @@ class AddressInputTest {
             assertEquals(url, AddressInput.search("天气 预报", e))
             assertEquals(url, AddressInput.resolve("天气 预报", e))
             assertEquals("天气 预报", AddressInput.searchQuery(url))
-            assertEquals(e, SearchEngine.of(url))
+            assertEquals(e, SearchEngineSpec.of(url, SearchEngine.entries))
         }
+    }
+
+    @Test
+    fun customEngineSearchesAndReadsBack() {
+        val custom = CustomSearchEngine.create("Example", "https://search.example.com/find?q=%s")!!
+        val url = custom.searchUrl("天气 预报")
+        assertEquals("https://search.example.com/find?q=%E5%A4%A9%E6%B0%94+%E9%A2%84%E6%8A%A5", url)
+        assertEquals("天气 预报", custom.queryOf(url))
+        assertEquals(url, AddressInput.resolve("天气 预报", custom))
+        val engines = SearchEngine.entries + custom
+        assertEquals(custom, SearchEngineSpec.of(url, engines))
+        assertEquals("天气 预报", AddressInput.searchQuery(url, engines))
+        assertEquals(null, AddressInput.searchQuery(url))
+    }
+
+    @Test
+    fun customEngineWithSuffixReadsBackWords() {
+        val custom = CustomSearchEngine.create("Example", "https://search.example.com/?q=%s&lang=zh")!!
+        assertEquals("天气", custom.queryOf(custom.searchUrl("天气")))
+        // 网站后面又加了参数也认得
+        assertEquals("天气", custom.queryOf(custom.searchUrl("天气") + "&source=nav"))
     }
 
     @Test

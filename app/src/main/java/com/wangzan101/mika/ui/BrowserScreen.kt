@@ -68,13 +68,13 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val recentPages by browser.recent.entries.collectAsState()
     val edits by browser.favorites.edits.collectAsState()
     val looks by browser.looks.entries.collectAsState()
-    val searchEngine by browser.searchEngine.engine.collectAsState()
+    val searchEngines by browser.searchEngine.choices.collectAsState()
     val activity = remember(context) { context.findActivity() }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
 
     val face = remember(looks) { { host: String -> SiteLooks.faceOf(host, looks, browser.looks::iconFile) } }
     val favorites = remember(edits, registry) { BrowserFavorites.combine(edits, registry) }
-    val recent = remember(recentPages, looks) { StartPageModel.recentRows(recentPages) { face(it).name } }
+    val recent = remember(recentPages, looks, searchEngines) { StartPageModel.recentRows(recentPages, { face(it).name }, searchEngines.all) }
     val toast: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     val scope = rememberCoroutineScope()
     val chat = remember(browser) { PageChat(context.applicationContext, browser, scope) }
@@ -119,8 +119,11 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 },
                 onAddHint = { toast(BROWSER_ADD_HINT) },
                 onClearRecent = browser.recent::clear,
-                engine = searchEngine,
+                engine = searchEngines.selected,
+                custom = searchEngines.custom,
                 onPickEngine = browser.searchEngine::set,
+                onAddEngine = browser.searchEngine::addCustom,
+                onRemoveEngine = { browser.searchEngine.removeCustom(it.id) },
             )
         } else {
             val host = WebUrlPolicy.host(p.url)
@@ -131,6 +134,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                     onClose = browser::closePage,
                     onSubmit = { input -> browser.submit(input)?.let(toast) },
                     onReload = browser::reload, onStop = browser::stop,
+                    engines = searchEngines.all,
                 )
                 if (loginBanner) LoginBanner(desktop = p.desktop, onDone = browser::confirmLogin)
                 val mode = chat.mode

@@ -65,7 +65,7 @@ class UserBrowser private constructor(private val app: Context) {
     val recent = RecentPages(dir)
     val favorites = BrowserFavorites(dir)
     val looks = SiteLooks(dir)
-    /** 起始页和地址栏用的搜索引擎;用户可以在起始页换。 */
+    /** 起始页和地址栏用的搜索引擎;用户可以在起始页换,也可以自己加。 */
     val searchEngine = SearchEngineStore(dir)
     private val modes = UserSiteModes(dir)
     /** 看着的这一页借给任务(见 [PageLoans])。 */
@@ -100,7 +100,7 @@ class UserBrowser private constructor(private val app: Context) {
      * 打开地址栏或搜索框里的一句话(见 [AddressInput])。打不开时返回给用户看的原因,不动当前页面。
      */
     fun submit(input: String): String? {
-        val url = AddressInput.resolve(input, searchEngine.engine.value) ?: return null
+        val url = AddressInput.resolve(input, searchEngine.choices.value.selected) ?: return null
         return open(url)
     }
 
@@ -473,7 +473,7 @@ class UserBrowser private constructor(private val app: Context) {
     /** 页面加载完后读网站名(页面声明的网站名或标题),记进 [looks]。 */
     private fun readName(t: WebTab, url: String) {
         val host = WebUrlPolicy.host(url) ?: return
-        if (AddressInput.searchQuery(url) != null) return
+        if (AddressInput.searchQuery(url, searchEngine.choices.value.all) != null) return
         t.view.evaluateJavascript(SiteNames.SCRIPT) { raw ->
             if (t.destroyed) return@evaluateJavascript
             val (declared, title) = SiteNames.parse(raw) ?: return@evaluateJavascript

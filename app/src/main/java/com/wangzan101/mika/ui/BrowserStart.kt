@@ -38,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,13 +56,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wangzan101.mika.browser.CustomSearchEngine
 import com.wangzan101.mika.browser.FavoriteSite
 import com.wangzan101.mika.browser.RecentItem
 import com.wangzan101.mika.browser.SearchEngine
+import com.wangzan101.mika.browser.SearchEngineSpec
 import com.wangzan101.mika.browser.SiteFace
 import com.wangzan101.mika.browser.StartPageModel
 import com.wangzan101.mika.browser.Suggestion
@@ -84,7 +88,7 @@ val BROWSER_ADD_HINT: String get() = tr(R.string.browser_add_hint)
 private const val COLUMNS = 4
 
 /**
- * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(用 [engine] 搜索,下面一行小字点开换引擎),
+ * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(用 [engine] 搜索,下面一行小字点开换引擎、加自己的引擎),
  * 输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
  * 「常用网站」一行四个(图标、名字,登录着的带小绿点,最后一格「＋」),「整理」或长按进整理(图标轻轻抖,× 移除,「完成」退出);
  * 「最近打开」(搜索写成「搜索：…」,右边是时间,标题右边「清除」)。整理和输入中按返回先退出它们。
@@ -101,14 +105,18 @@ fun BrowserStart(
     onRemoveSite: (FavoriteSite) -> Unit,
     onAddHint: () -> Unit,
     onClearRecent: () -> Unit,
-    engine: SearchEngine = SearchEngine.Bing,
-    onPickEngine: (SearchEngine) -> Unit = {},
+    engine: SearchEngineSpec = SearchEngine.Bing,
+    custom: List<CustomSearchEngine> = emptyList(),
+    onPickEngine: (SearchEngineSpec) -> Unit = {},
+    onAddEngine: (CustomSearchEngine) -> Unit = {},
+    onRemoveEngine: (CustomSearchEngine) -> Unit = {},
     now: Long = System.currentTimeMillis(),
 ) {
     val c = MikaTheme.colors
     var query by rememberSaveable { mutableStateOf("") }
     var editing by rememberSaveable { mutableStateOf(false) }
     var pickingEngine by rememberSaveable { mutableStateOf(false) }
+    var addingEngine by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = editing || query.isNotEmpty()) {
         if (editing) editing = false else query = ""
     }
@@ -159,7 +167,19 @@ fun BrowserStart(
             Spacer(Modifier.height(MikaSpace.S24))
         }
         if (pickingEngine) {
-            EnginePicker(engine, onPick = { pickingEngine = false; onPickEngine(it) }, onDismiss = { pickingEngine = false })
+            EnginePicker(
+                engine, custom,
+                onPick = { pickingEngine = false; onPickEngine(it) },
+                onAdd = { pickingEngine = false; addingEngine = true },
+                onRemove = onRemoveEngine,
+                onDismiss = { pickingEngine = false },
+            )
+        }
+        if (addingEngine) {
+            CustomEngineDialog(
+                onSave = { addingEngine = false; onAddEngine(it) },
+                onDismiss = { addingEngine = false },
+            )
         }
     }
 }
@@ -209,7 +229,7 @@ private fun Caption(text: String) {
 
 /** 搜索框下的一行小字「用必应搜索」:点一下换搜索引擎。 */
 @Composable
-private fun EngineNote(engine: SearchEngine, onClick: () -> Unit) {
+private fun EngineNote(engine: SearchEngineSpec, onClick: () -> Unit) {
     val c = MikaTheme.colors
     Text(
         tr(R.string.browser_engine_note, engine.displayName),
@@ -220,20 +240,83 @@ private fun EngineNote(engine: SearchEngine, onClick: () -> Unit) {
     )
 }
 
-/** 换搜索引擎的弹窗:一列单选项,选中就收起。 */
+/** 换搜索引擎的弹窗:内置和自定义的排成一列单选项,选中就收起;下面可以再加一个,自定义的能删。 */
 @Composable
-private fun EnginePicker(engine: SearchEngine, onPick: (SearchEngine) -> Unit, onDismiss: () -> Unit) {
+private fun EnginePicker(
+    engine: SearchEngineSpec,
+    custom: List<CustomSearchEngine>,
+    onPick: (SearchEngineSpec) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (CustomSearchEngine) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = MikaTheme.colors
+    val engines: List<SearchEngineSpec> = SearchEngine.entries + custom
     MikaDialog(
         onDismissRequest = onDismiss,
         title = { Text(tr(R.string.browser_engine_choose)) },
         text = {
             Column(Modifier.testTag("browser-engine-picker")) {
-                SearchEngine.entries.forEachIndexed { i, e ->
-                    RadioRow(e.displayName, selected = e == engine, onClick = { onPick(e) }, first = i == 0)
+                engines.forEachIndexed { i, e ->
+                    RadioRow(
+                        e.displayName, selected = e.id == engine.id, onClick = { onPick(e) }, first = i == 0,
+                        trailing = {
+                            if (e is CustomSearchEngine) {
+                                val remove = tr(R.string.browser_engine_custom_remove, e.displayName)
+                                Box(
+                                    Modifier.size(36.dp).clip(CircleShape)
+                                        .clickable(role = Role.Button, onClickLabel = remove) { onRemove(e) }
+                                        .testTag("browser-engine-remove"),
+                                    contentAlignment = Alignment.Center,
+                                ) { Icon(MikaIcons.Close, remove, Modifier.size(16.dp), tint = c.ink3) }
+                            }
+                        },
+                    )
+                }
+                TextButton(onClick = onAdd, modifier = Modifier.testTag("browser-engine-add")) {
+                    Text(tr(R.string.browser_engine_custom_add))
                 }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.done)) } },
+    )
+}
+
+/** 加自定义搜索引擎:名字和一个用 %s 代表搜索词的网址模板;不合法时提示,不收起。 */
+@Composable
+private fun CustomEngineDialog(onSave: (CustomSearchEngine) -> Unit, onDismiss: () -> Unit) {
+    val c = MikaTheme.colors
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var invalid by rememberSaveable { mutableStateOf(false) }
+    MikaDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr(R.string.browser_engine_custom_add)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextField(
+                    name, { name = it; invalid = false }, Modifier.fillMaxWidth().testTag("browser-engine-name"),
+                    singleLine = true, placeholder = { Text(tr(R.string.browser_engine_custom_name)) },
+                )
+                TextField(
+                    url, { url = it; invalid = false }, Modifier.fillMaxWidth().testTag("browser-engine-url"),
+                    singleLine = true, placeholder = { Text(tr(R.string.browser_engine_custom_url)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                )
+                Text(tr(R.string.browser_engine_custom_hint), style = MikaType.Hint, color = c.ink3)
+                if (invalid) Text(tr(R.string.browser_engine_custom_invalid), style = MikaType.Hint, color = c.warn)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val engine = CustomSearchEngine.create(name, url)
+                    if (engine == null) invalid = true else onSave(engine)
+                },
+                modifier = Modifier.testTag("browser-engine-save"),
+            ) { Text(tr(R.string.add)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
     )
 }
 

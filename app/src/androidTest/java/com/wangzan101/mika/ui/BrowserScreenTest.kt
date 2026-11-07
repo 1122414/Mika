@@ -55,7 +55,8 @@ class BrowserScreenTest {
             RecentPage(AddressInput.search("周末去哪玩"), "", 3_000),
             RecentPage("https://docs.example.net/guide", "使用指南", 2_000),
         ),
-    ) { face(it).name }
+        nameOf = { face(it).name },
+    )
 
     private fun start() {
         compose.setContent {

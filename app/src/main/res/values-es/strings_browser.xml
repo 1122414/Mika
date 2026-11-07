@@ -5,6 +5,12 @@
     <string name="browser_engine_duckduckgo">DuckDuckGo</string>
     <string name="browser_engine_baidu">Baidu</string>
     <string name="browser_engine_choose">Motor de búsqueda</string>
+    <string name="browser_engine_custom_add">Motor de búsqueda personalizado</string>
+    <string name="browser_engine_custom_name">Nombre</string>
+    <string name="browser_engine_custom_url">URL de búsqueda</string>
+    <string name="browser_engine_custom_hint" formatted="false">Pon %s donde van las palabras de búsqueda, p. ej. https://example.com/search?q=%s</string>
+    <string name="browser_engine_custom_invalid" formatted="false">Escribe un nombre y una URL http(s) con exactamente un %s</string>
+    <string name="browser_engine_custom_remove">Quitar %1$s</string>
     <string name="browser_recent_source">Abiertas recientemente</string>
     <string name="browser_search_colon">Buscar: %1$s</string>
     <string name="browser_search_q">Buscar “%1$s”</string>

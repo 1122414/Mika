@@ -66,6 +66,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.browser.AddressInput
+import com.wangzan101.mika.browser.SearchEngine
+import com.wangzan101.mika.browser.SearchEngineSpec
 import com.wangzan101.mika.browser.BrowserPage
 import com.wangzan101.mika.browser.SiteFace
 import com.wangzan101.mika.ui.components.BarIconButton
@@ -133,6 +135,7 @@ fun BrowserPageBar(
     onSubmit: (String) -> Unit,
     onReload: () -> Unit,
     onStop: () -> Unit,
+    engines: List<SearchEngineSpec> = SearchEngine.entries,
 ) {
     val c = MikaTheme.colors
     val focus = LocalFocusManager.current
@@ -156,7 +159,7 @@ fun BrowserPageBar(
                 )
             } else {
                 BarIconButton(MikaIcons.Close, tr(R.string.browser_close_page), onClose)
-                AddressPill(page, face, Modifier.weight(1f)) { editing = true }
+                AddressPill(page, face, engines, Modifier.weight(1f)) { editing = true }
                 if (page.loading) BarIconButton(MikaIcons.Stop, tr(R.string.chat_stop), onStop)
                 else BarIconButton(MikaIcons.Refresh, tr(R.string.refresh), onReload)
             }
@@ -171,9 +174,9 @@ fun BrowserPageBar(
 }
 
 @Composable
-private fun AddressPill(page: BrowserPage, face: SiteFace?, modifier: Modifier, onClick: () -> Unit) {
+private fun AddressPill(page: BrowserPage, face: SiteFace?, engines: List<SearchEngineSpec>, modifier: Modifier, onClick: () -> Unit) {
     val c = MikaTheme.colors
-    val query = AddressInput.searchQuery(page.url)
+    val query = AddressInput.searchQuery(page.url, engines)
     val shown = query ?: face?.name ?: page.url
     Row(
         modifier.height(40.dp).clip(MikaShapes.Pill).background(c.fill)

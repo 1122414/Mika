@@ -5,6 +5,12 @@
     <string name="browser_engine_duckduckgo">DuckDuckGo</string>
     <string name="browser_engine_baidu">Baidu</string>
     <string name="browser_engine_choose">검색 엔진</string>
+    <string name="browser_engine_custom_add">사용자 지정 검색 엔진</string>
+    <string name="browser_engine_custom_name">이름</string>
+    <string name="browser_engine_custom_url">검색 URL</string>
+    <string name="browser_engine_custom_hint" formatted="false">검색어 자리에 %s를 넣으세요. 예: https://example.com/search?q=%s</string>
+    <string name="browser_engine_custom_invalid" formatted="false">이름과 %s가 하나 포함된 http(s) URL을 입력하세요</string>
+    <string name="browser_engine_custom_remove">%1$s 삭제</string>
     <string name="browser_recent_source">최근에 연 페이지</string>
     <string name="browser_search_colon">검색: %1$s</string>
     <string name="browser_search_q">“%1$s” 검색</string>

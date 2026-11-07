@@ -5,6 +5,12 @@
     <string name="browser_engine_duckduckgo">DuckDuckGo</string>
     <string name="browser_engine_baidu">Baidu</string>
     <string name="browser_engine_choose">Mesin pencari</string>
+    <string name="browser_engine_custom_add">Mesin pencari khusus</string>
+    <string name="browser_engine_custom_name">Nama</string>
+    <string name="browser_engine_custom_url">URL pencarian</string>
+    <string name="browser_engine_custom_hint" formatted="false">Letakkan %s di tempat kata pencarian, misalnya https://example.com/search?q=%s</string>
+    <string name="browser_engine_custom_invalid" formatted="false">Masukkan nama dan URL http(s) dengan tepat satu %s</string>
+    <string name="browser_engine_custom_remove">Hapus %1$s</string>
     <string name="browser_recent_source">Baru dibuka</string>
     <string name="browser_search_colon">Cari: %1$s</string>
     <string name="browser_search_q">Cari “%1$s”</string>

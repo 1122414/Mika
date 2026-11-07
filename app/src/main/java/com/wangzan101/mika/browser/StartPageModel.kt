@@ -25,10 +25,14 @@ object StartPageModel {
     const val MAX_RECENT_SUGGESTIONS = 5
 
     /** 最近打开排成行:同一网址(不计 # 后面)只留最近的一条,最近的在前。 */
-    fun recentRows(pages: List<RecentPage>, nameOf: (String) -> String): List<RecentItem> {
+    fun recentRows(
+        pages: List<RecentPage>,
+        nameOf: (String) -> String,
+        engines: List<SearchEngineSpec> = SearchEngine.entries,
+    ): List<RecentItem> {
         val seen = HashSet<String>()
         return pages.sortedByDescending { it.openedAtMs }.filter { seen.add(it.url.trim().substringBefore('#')) }.map { p ->
-            val engine = SearchEngine.of(p.url)
+            val engine = SearchEngineSpec.of(p.url, engines)
             val q = engine?.queryOf(p.url)
             if (engine != null && q != null) {
                 RecentItem(p.url, tr(R.string.browser_search_colon, q), engine.displayName, null, true, p.openedAtMs)
@@ -44,11 +48,11 @@ object StartPageModel {
      * 输入时的联想:第一条是这句话本身——像网址的打开它,其余用 [engine] 搜;后面是最近打开里标题或网址包含这句话的(不分大小写)。
      * 空输入没有联想。
      */
-    fun suggestions(input: String, recent: List<RecentItem>, engine: SearchEngine = SearchEngine.Bing): List<Suggestion> {
+    fun suggestions(input: String, recent: List<RecentItem>, engine: SearchEngineSpec = SearchEngine.Bing): List<Suggestion> {
         val q = input.trim()
         if (q.isEmpty()) return emptyList()
         val target = AddressInput.resolve(q, engine) ?: return emptyList()
-        val first = if (AddressInput.searchQuery(target) != null) Suggestion(tr(R.string.browser_search_q, q), engine.displayName, target, true, null)
+        val first = if (engine.queryOf(target) != null) Suggestion(tr(R.string.browser_search_q, q), engine.displayName, target, true, null)
         else Suggestion(q, tr(R.string.browser_open_url), target, false, WebUrlPolicy.host(target))
         val hits = recent.filter { it.title.contains(q, ignoreCase = true) || it.url.contains(q, ignoreCase = true) }
             .filter { it.url != target }

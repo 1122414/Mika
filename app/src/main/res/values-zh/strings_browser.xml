@@ -5,6 +5,12 @@
     <string name="browser_engine_duckduckgo">DuckDuckGo</string>
     <string name="browser_engine_baidu">百度</string>
     <string name="browser_engine_choose">搜索引擎</string>
+    <string name="browser_engine_custom_add">自定义搜索引擎</string>
+    <string name="browser_engine_custom_name">名称</string>
+    <string name="browser_engine_custom_url">搜索网址</string>
+    <string name="browser_engine_custom_hint" formatted="false">用 %s 代表搜索词，例如 https://example.com/search?q=%s</string>
+    <string name="browser_engine_custom_invalid" formatted="false">请填写名称和包含一个 %s 的 http(s) 网址</string>
+    <string name="browser_engine_custom_remove">移除%1$s</string>
     <string name="browser_recent_source">最近打开</string>
     <string name="browser_search_colon">搜索：%1$s</string>
     <string name="browser_search_q">搜索「%1$s」</string>

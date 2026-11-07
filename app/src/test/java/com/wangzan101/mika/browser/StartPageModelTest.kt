@@ -52,6 +52,17 @@ class StartPageModelTest {
     }
 
     @Test
+    fun customEngineRowsAndSuggestionsUseItsName() {
+        val custom = CustomSearchEngine.create("站内搜", "https://s.example.com/?q=%s")!!
+        val engines = SearchEngine.entries + custom
+        val rows = StartPageModel.recentRows(listOf(RecentPage(custom.searchUrl("天气"), "", 1_000)), name, engines)
+        assertEquals(listOf("站内搜"), rows.map { it.subtitle })
+        val s = StartPageModel.suggestions("天气", rows, custom)
+        assertEquals(custom.searchUrl("天气"), s[0].url)
+        assertEquals("站内搜", s[0].subtitle)
+    }
+
+    @Test
     fun recentRowsKeepOnlyTheNewestOfTheSameAddress() {
         val rows = StartPageModel.recentRows(
             listOf(

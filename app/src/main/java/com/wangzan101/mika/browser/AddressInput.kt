@@ -18,7 +18,7 @@ object AddressInput {
     private val PORT = Regex("^\\d{1,5}$")
 
     /** 输入为空(只有空白)时为 null。 */
-    fun resolve(input: String, engine: SearchEngine = SearchEngine.Bing): String? {
+    fun resolve(input: String, engine: SearchEngineSpec = SearchEngine.Bing): String? {
         val s = input.trim()
         if (s.isEmpty()) return null
         if (s.any { it.isWhitespace() }) return search(s, engine)
@@ -32,10 +32,11 @@ object AddressInput {
         }
     }
 
-    fun search(query: String, engine: SearchEngine = SearchEngine.Bing): String = engine.searchUrl(query)
+    fun search(query: String, engine: SearchEngineSpec = SearchEngine.Bing): String = engine.searchUrl(query)
 
-    /** 网址是某个搜索引擎的搜索结果页时为搜的词,否则为 null。 */
-    fun searchQuery(url: String): String? = SearchEngine.of(url)?.queryOf(url)
+    /** 网址是 [engines] 里某个搜索引擎的搜索结果页时为搜的词,否则为 null。 */
+    fun searchQuery(url: String, engines: List<SearchEngineSpec> = SearchEngine.entries): String? =
+        SearchEngineSpec.of(url, engines)?.queryOf(url)
 
     /** 开头到第一个 / ? # 为止的主机名和端口;里面带 @ 等不像主机名的字符时为 null。 */
     private fun authority(s: String): Pair<String, String?>? {
