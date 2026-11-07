@@ -42,6 +42,10 @@
     <string name="chat_continue">继续</string>
     <string name="chat_not_done">没有完成</string>
     <string name="chat_stopped">已停止。</string>
+    <string name="chat_resume_checkpoint">从断点继续</string>
+    <string name="chat_restart_task">重新开始</string>
+    <string name="chat_resume_request">从断点继续：%1$s</string>
+    <string name="chat_restart_request">重新开始：%1$s</string>
     <string name="chat_view_source">查看来源</string>
     <string name="chat_open">打开</string>
     <string name="chat_attach_rejected">没能添加:%1$s(单个文件不超过 200 MB)</string>

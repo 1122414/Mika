@@ -15,6 +15,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 批量日程经安卓日历提供方一次写入；用户未授权时退回系统日历的新建页。 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- phone_set_alarm / phone_set_timer:经安卓标准接口请时钟 App 设闹钟、计时器(普通权限,安装即有) -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- 「重启后自动恢复」:开机时重新打开无线调试。这个授权普通安装拿不到,只在用户打开那个开关后

@@ -195,11 +195,13 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             TaskService.ensureChannels(app)
             TaskService.notifyDelivery(app, delivery, TaskService.nextResultId())
         }
+        val labels = com.wangzan101.mika.ui.ToolLabels(com.wangzan101.mika.core.assembly.knownTools())
         RunRecovery(runStore, outbox, { id -> if (id == LocalChannel.ID) local else wechat.channelFor(id) }, object : TriggerOutcomes {
             override fun interrupted(key: String, reason: String) = TriggerRuntime.interrupted(app, key, reason)
             override fun delivered(key: String) = TriggerRuntime.delivered(app, key)
             override fun actionFailed(key: String, reason: String) = TriggerRuntime.actionFailed(app, key, reason)
-        }, conversations, scope)
+        }, conversations, scope, records = com.wangzan101.mika.record.RunStore(app).reader(), label = labels::label,
+            appLabel = { com.wangzan101.mika.confirm.ConfirmationNotifier.appLabel(app, it) })
     }
 
     /** 站点登记表(登录过的网站等):设置页和标签池共用。 */

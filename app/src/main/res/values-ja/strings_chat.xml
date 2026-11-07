@@ -42,6 +42,10 @@
     <string name="chat_continue">続ける</string>
     <string name="chat_not_done">未完了</string>
     <string name="chat_stopped">停止しました。</string>
+    <string name="chat_resume_checkpoint">中断箇所から続ける</string>
+    <string name="chat_restart_task">最初からやり直す</string>
+    <string name="chat_resume_request">中断箇所から続ける：%1$s</string>
+    <string name="chat_restart_request">最初からやり直す：%1$s</string>
     <string name="chat_view_source">ソースを見る</string>
     <string name="chat_open">開く</string>
     <string name="chat_attach_rejected">追加できませんでした: %1$s(ファイルは 1 つあたり 200 MB 未満にしてください)</string>

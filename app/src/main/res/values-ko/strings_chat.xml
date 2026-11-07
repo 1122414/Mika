@@ -42,6 +42,10 @@
     <string name="chat_continue">계속</string>
     <string name="chat_not_done">끝내지 못했어요</string>
     <string name="chat_stopped">중지됨.</string>
+    <string name="chat_resume_checkpoint">중단한 곳에서 계속</string>
+    <string name="chat_restart_task">처음부터 다시 시작</string>
+    <string name="chat_resume_request">중단한 곳에서 계속: %1$s</string>
+    <string name="chat_restart_request">처음부터 다시 시작: %1$s</string>
     <string name="chat_view_source">출처 보기</string>
     <string name="chat_open">열기</string>
     <string name="chat_attach_rejected">추가하지 못했어요: %1$s (파일당 200MB 미만이어야 해요)</string>
