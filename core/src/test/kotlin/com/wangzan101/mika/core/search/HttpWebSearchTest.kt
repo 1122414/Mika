@@ -1,17 +1,38 @@
 package com.wangzan101.mika.core.search
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class HttpWebSearchTest {
     private fun response(body: String = """{"results":[{"title":"标题","url":"https://example.com/a","snippet":"摘要"}]}""") =
         MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(body)
+
+    @Test fun stoppingTheTaskCancelsAnInFlightSearch() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+            val client = OkHttpClient.Builder().readTimeout(3, TimeUnit.SECONDS).build()
+            val search = HttpWebSearch(server.url("/search").toString(), client = client)
+            val request = launch(Dispatchers.Default) { search.search("query", 1) }
+            assertNotNull(server.takeRequest(3, TimeUnit.SECONDS))
+            val call = client.dispatcher.runningCalls().single()
+            request.cancel()
+            assertEquals(true, withTimeoutOrNull(1_000) { request.join(); true })
+            assertTrue(call.isCanceled())
+        }
+    }
 
     @Test fun keylessRequestHasQueryAndNoAuthorization() = runTest {
         val server = MockWebServer()
