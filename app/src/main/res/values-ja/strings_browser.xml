@@ -59,6 +59,15 @@
     <string name="browser_long_press">サイトを長押しして編集することもできます</string>
     <string name="browser_favorites">お気に入り</string>
     <string name="browser_edit">編集</string>
+    <string name="browser_bookmarks">ブックマーク</string>
+    <string name="browser_all">すべて</string>
+    <string name="browser_bookmark_add">ブックマークに追加</string>
+    <string name="browser_bookmark_remove">ブックマークから削除</string>
+    <string name="browser_bookmarked">ブックマークに追加しました</string>
+    <string name="browser_unbookmarked">ブックマークから削除しました</string>
+    <string name="browser_bookmark_empty">ページを開いて「その他」の「ブックマークに追加」をタップしてください</string>
+    <string name="browser_bookmark_rename">ブックマーク名を変更</string>
+    <string name="browser_bookmark_name">タイトル</string>
     <string name="browser_clear_input">クリア</string>
     <string name="browser_open_site">%1$s を開く</string>
     <string name="browser_remove_site">%1$s を削除</string>

@@ -24,6 +24,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.wangzan101.mika.browser.AddressInput
 import com.wangzan101.mika.browser.BrowserPage
 import com.wangzan101.mika.browser.FavoriteSite
+import com.wangzan101.mika.browser.PageBookmark
 import com.wangzan101.mika.browser.RecentPage
 import com.wangzan101.mika.browser.SiteLook
 import com.wangzan101.mika.browser.SiteLooks
@@ -183,6 +184,24 @@ class BrowserScreenTest {
         compose.onNodeWithText("这个网站下次也用电脑版").assertIsDisplayed()
         compose.onNodeWithText("换成电脑版").performClick()
         assertEquals(listOf("dismiss", "desktop"), calls)
+    }
+
+    @Test
+    fun bookmarksSheetOpensInEditModeAndRemoves() {
+        val items = listOf(PageBookmark("https://shop.example.com/item/1", "购物页", 1_000))
+        compose.setContent {
+            MikaTheme {
+                BookmarksSheet(
+                    items, face,
+                    onDismiss = {}, onOpen = { calls += "open ${it.url}" },
+                    onRemove = { calls += "remove ${it.url}" }, onRename = { _, _ -> },
+                )
+            }
+        }
+        compose.onNodeWithText("购物页").assertIsDisplayed()
+        compose.onNodeWithText("整理").performClick()
+        compose.onNodeWithContentDescription("移除购物页", useUnmergedTree = true).performClick()
+        assertEquals(listOf("remove https://shop.example.com/item/1"), calls)
     }
 
     @Test

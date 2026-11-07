@@ -60,6 +60,15 @@
     <string name="browser_long_press">You can also long-press a site to edit</string>
     <string name="browser_favorites">Favorites</string>
     <string name="browser_edit">Edit</string>
+    <string name="browser_bookmarks">Bookmarks</string>
+    <string name="browser_all">All</string>
+    <string name="browser_bookmark_add">Add bookmark</string>
+    <string name="browser_bookmark_remove">Remove bookmark</string>
+    <string name="browser_bookmarked">Added to bookmarks</string>
+    <string name="browser_unbookmarked">Removed from bookmarks</string>
+    <string name="browser_bookmark_empty">Open a page, then tap “Add bookmark” under “More”</string>
+    <string name="browser_bookmark_rename">Rename bookmark</string>
+    <string name="browser_bookmark_name">Title</string>
     <string name="browser_clear_input">Clear</string>
     <string name="browser_open_site">Open %1$s</string>
     <string name="browser_remove_site">Remove %1$s</string>

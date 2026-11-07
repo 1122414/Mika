@@ -59,10 +59,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.browser.FavoriteSite
+import com.wangzan101.mika.browser.PageBookmark
 import com.wangzan101.mika.browser.RecentItem
 import com.wangzan101.mika.browser.SiteFace
 import com.wangzan101.mika.browser.StartPageModel
 import com.wangzan101.mika.browser.Suggestion
+import com.wangzan101.mika.core.cap.web.WebUrlPolicy
 import com.wangzan101.mika.ui.components.GroupCard
 import com.wangzan101.mika.ui.components.Hairline
 import com.wangzan101.mika.ui.components.TopBar
@@ -81,9 +83,13 @@ val BROWSER_LOGIN_LEGEND: String get() = tr(R.string.browser_login_legend)
 val BROWSER_ADD_HINT: String get() = tr(R.string.browser_add_hint)
 private const val COLUMNS = 4
 
+/** 起始页上最多列出几条书签,更多的在「全部」里。 */
+private const val MAX_BOOKMARKS = 5
+
 /**
  * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
  * 「常用网站」一行四个(图标、名字,登录着的带小绿点,最后一格「＋」),「整理」或长按进整理(图标轻轻抖,× 移除,「完成」退出);
+ * 「书签」最近加入的几条,「全部」打开书签页;
  * 「最近打开」(搜索写成「搜索：…」,右边是时间,标题右边「清除」)。整理和输入中按返回先退出它们。
  */
 @Composable
@@ -98,6 +104,9 @@ fun BrowserStart(
     onRemoveSite: (FavoriteSite) -> Unit,
     onAddHint: () -> Unit,
     onClearRecent: () -> Unit,
+    bookmarks: List<PageBookmark> = emptyList(),
+    onOpenBookmark: (PageBookmark) -> Unit = {},
+    onShowBookmarks: () -> Unit = {},
     now: Long = System.currentTimeMillis(),
 ) {
     val c = MikaTheme.colors
@@ -139,6 +148,8 @@ fun BrowserStart(
                     SectionHeader(tr(R.string.browser_favorites), if (sites.isEmpty()) null else tr(R.string.browser_edit)) { editing = true }
                     SiteGrid(sites, face, editing = false, onOpen = onOpenSite, onRemove = {}, onEdit = { editing = true }, onAdd = onAddHint)
                     if (sites.any { it.loggedIn }) Legend(BROWSER_LOGIN_LEGEND, dot = true)
+                    SectionHeader(tr(R.string.browser_bookmarks), if (bookmarks.isEmpty()) null else tr(R.string.browser_all), onShowBookmarks)
+                    BookmarkCard(bookmarks, face, onOpenBookmark)
                     SectionHeader(tr(R.string.browser_recent_source), if (recent.isEmpty()) null else tr(R.string.clear), onClearRecent)
                     RecentCard(recent, face, now, onOpenUrl)
                 } else {
@@ -335,6 +346,26 @@ private fun RecentCard(recent: List<RecentItem>, face: (String) -> SiteFace, now
     }
 }
 
+/** 起始页上的书签:最近加入的至多 [MAX_BOOKMARKS] 条;没有时说明怎么加。 */
+@Composable
+private fun BookmarkCard(bookmarks: List<PageBookmark>, face: (String) -> SiteFace, onOpen: (PageBookmark) -> Unit) {
+    val c = MikaTheme.colors
+    GroupCard {
+        if (bookmarks.isEmpty()) {
+            Text(tr(R.string.browser_bookmark_empty), Modifier.fillMaxWidth().padding(16.dp), style = MikaType.Body, color = c.ink3)
+        }
+        bookmarks.take(MAX_BOOKMARKS).forEachIndexed { i, b ->
+            if (i > 0) Hairline(start = 56.dp)
+            val host = WebUrlPolicy.host(b.url)
+            val site = host?.let { face(it).name } ?: b.url
+            SmallRow(
+                b.title.ifBlank { site }, host ?: b.url, onClick = { onOpen(b) },
+                lead = { if (host != null) SiteTile(face(host), 28.dp, MiniShape, InitialSmall) else SearchMini(MikaIcons.Bookmark) },
+            )
+        }
+    }
+}
+
 @Composable
 private fun SuggestionCard(list: List<Suggestion>, face: (String) -> SiteFace, onPick: (Suggestion) -> Unit) {
     if (list.isEmpty()) return
@@ -357,7 +388,7 @@ private fun SuggestionCard(list: List<Suggestion>, face: (String) -> SiteFace, o
 
 /** 起始页上的一行:左边 28 的小图标,标题(一行)和小字,右边可放时间。 */
 @Composable
-private fun SmallRow(
+internal fun SmallRow(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
