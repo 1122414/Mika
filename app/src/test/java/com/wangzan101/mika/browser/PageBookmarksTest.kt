@@ -78,6 +78,20 @@ class PageBookmarksTest {
     }
 
     @Test
+    fun userRenamedTitlesSurvivePageRetitleAndRestart() {
+        val b = store()
+        b.add("https://a.example.com/", "A")
+        b.rename("https://a.example.com/", "买鞋")
+        b.retitle("https://a.example.com/", "商品详情")
+        assertEquals("买鞋", b.entries.value.single().title)
+        val reloaded = store()
+        assertEquals("买鞋", reloaded.entries.value.single().title)
+        assertTrue(reloaded.entries.value.single().edited)
+        reloaded.retitle("https://a.example.com/", "又变了")
+        assertEquals("买鞋", reloaded.entries.value.single().title)
+    }
+
+    @Test
     fun onlyHttpPagesAreStored() {
         val b = store()
         assertFalse(b.add("ftp://example.com/x", "FTP"))

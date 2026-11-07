@@ -17,17 +17,20 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -379,29 +382,31 @@ fun BookmarksSheet(
                     style = MikaType.Body, color = c.ink3,
                 )
             }
-            bookmarks.forEachIndexed { i, b ->
-                if (i > 0) Hairline(start = 56.dp)
-                val host = WebUrlPolicy.host(b.url)
-                val site = host?.let { face(it).name } ?: b.url
-                SmallRow(
-                    b.title.ifBlank { site }, host ?: b.url,
-                    onClick = { if (editing) renaming = b else onOpen(b) },
-                    lead = {
-                        if (host != null) SiteTile(face(host), 28.dp, MiniShape, InitialSmall)
-                        else Box(Modifier.size(28.dp).background(c.neutralSoft, MiniShape), contentAlignment = Alignment.Center) {
-                            Icon(MikaIcons.Bookmark, null, Modifier.size(15.dp), tint = c.ink3)
-                        }
-                    },
-                    trailing = {
-                        if (editing) {
-                            val remove = tr(R.string.browser_remove_site, b.title.ifBlank { site })
-                            Box(
-                                Modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = remove) { onRemove(b) },
-                                contentAlignment = Alignment.Center,
-                            ) { Icon(MikaIcons.Close, remove, Modifier.size(16.dp), tint = c.ink3) }
-                        }
-                    },
-                )
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                bookmarks.forEachIndexed { i, b ->
+                    if (i > 0) Hairline(start = 56.dp)
+                    val host = WebUrlPolicy.host(b.url)
+                    val site = host?.let { face(it).name } ?: b.url
+                    SmallRow(
+                        b.title.ifBlank { site }, host ?: b.url,
+                        onClick = { if (editing) renaming = b else onOpen(b) },
+                        lead = {
+                            if (host != null) SiteTile(face(host), 28.dp, MiniShape, InitialSmall)
+                            else Box(Modifier.size(28.dp).background(c.neutralSoft, MiniShape), contentAlignment = Alignment.Center) {
+                                Icon(MikaIcons.Bookmark, null, Modifier.size(15.dp), tint = c.ink3)
+                            }
+                        },
+                        trailing = {
+                            if (editing) {
+                                val remove = tr(R.string.browser_remove_site, b.title.ifBlank { site })
+                                Box(
+                                    Modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = remove) { onRemove(b) },
+                                    contentAlignment = Alignment.Center,
+                                ) { Icon(MikaIcons.Close, remove, Modifier.size(16.dp), tint = c.ink3) }
+                            }
+                        },
+                    )
+                }
             }
         }
     }

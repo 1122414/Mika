@@ -8,13 +8,14 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.io.File
 
-/** 存下的一页书签:网址、标题(可以为空,显示时用网站名)、加入的时间。 */
-data class PageBookmark(val url: String, val title: String, val addedAtMs: Long)
+/** 存下的一页书签:网址、标题(可以为空,显示时用网站名)、加入的时间;[edited] 是用户自己改过标题。 */
+data class PageBookmark(val url: String, val title: String, val addedAtMs: Long, val edited: Boolean = false)
 
 /**
  * 浏览器页的书签:用户自己保存的具体网页,最近加入的在前,同一网址(不计 # 后面)只留一条,至多 [limit] 条。
@@ -37,23 +38,23 @@ class PageBookmarks(dir: File, private val limit: Int = LIMIT, private val clock
         return true
     }
 
-    /** 当前页标题后到时补上:只改已有的那一条,不挪位置。 */
+    /** 当前页标题后到时补上:只改已有的那一条,不挪位置;用户自己改过标题的不动。 */
     @Synchronized
     fun retitle(url: String, title: String) {
         val key = key(url)
         val t = title.trim()
-        if (t.isEmpty() || _entries.value.none { key(it.url) == key && it.title != t }) return
+        if (t.isEmpty() || _entries.value.none { key(it.url) == key && !it.edited && it.title != t }) return
         save(_entries.value.map { if (key(it.url) == key) it.copy(title = t) else it })
     }
 
-    /** 用户自己改标题;空标题不生效。 */
+    /** 用户自己改标题;空标题不生效。改过之后页面标题再变也不覆盖。 */
     @Synchronized
     fun rename(url: String, title: String) {
         val t = title.trim()
         if (t.isEmpty()) return
         val key = key(url)
         if (_entries.value.none { key(it.url) == key }) return
-        save(_entries.value.map { if (key(it.url) == key) it.copy(title = t) else it })
+        save(_entries.value.map { if (key(it.url) == key) it.copy(title = t, edited = true) else it })
     }
 
     /** 删掉一条;没有这一条时为 false。 */
@@ -90,6 +91,7 @@ class PageBookmarks(dir: File, private val limit: Int = LIMIT, private val clock
                     url,
                     (o["title"] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty(),
                     (o["at"] as? JsonPrimitive)?.longOrNull ?: 0L,
+                    (o["edited"] as? JsonPrimitive)?.booleanOrNull ?: false,
                 )
             }.orEmpty().distinctBy { key(it.url) }.take(limit)
         } catch (e: SerializationException) {
@@ -100,7 +102,7 @@ class PageBookmarks(dir: File, private val limit: Int = LIMIT, private val clock
     private fun save(list: List<PageBookmark>) {
         _entries.value = list
         file.parentFile?.mkdirs()
-        val json = JsonArray(list.map { buildJsonObject { put("url", it.url); put("title", it.title); put("at", it.addedAtMs) } }).toString()
+        val json = JsonArray(list.map { buildJsonObject { put("url", it.url); put("title", it.title); put("at", it.addedAtMs); put("edited", it.edited) } }).toString()
         // 先写临时文件再改名,写到一半被杀不会留下半个文件
         val tmp = File(file.parentFile, "$FILE.tmp")
         tmp.writeText(json)
