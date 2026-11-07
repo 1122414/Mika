@@ -36,4 +36,6 @@
     <string name="teach_notification">Mika no está usando el teléfono.</string>
     <string name="teach_no_visible">No se pudo mostrar la barra Aprendiendo, así que la grabación no empezó. No hace falta permiso de notificaciones. La superposición de accesibilidad tiene que verse, con Pausar y Terminar.</string>
     <string name="teach_watch_lost">La barra Aprendiendo desapareció, así que la demostración se detuvo. Ya no se graba nada.</string>
+    <string name="teach_shelf_expand">Mostrar Enseñar a Mika</string>
+    <string name="teach_shelf_collapse">Ocultar Enseñar a Mika</string>
 </resources>

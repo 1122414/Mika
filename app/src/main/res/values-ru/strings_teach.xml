@@ -36,4 +36,6 @@
     <string name="teach_notification">Mika не управляет телефоном.</string>
     <string name="teach_no_visible">Полосу «Учится» не удалось показать, поэтому запись не началась. Разрешение на уведомления не нужно. Нужна видимая панель спецвозможностей с паузой и завершением.</string>
     <string name="teach_watch_lost">Полоса «Учится» исчезла, поэтому показ остановлен. Больше ничего не записывается.</string>
+    <string name="teach_shelf_expand">Показать Научить Mika</string>
+    <string name="teach_shelf_collapse">Скрыть Научить Mika</string>
 </resources>
