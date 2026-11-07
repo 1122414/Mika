@@ -389,6 +389,11 @@ fun ChatScreen(
             voice = voice,
             // 说的话接在已有的字后面;任务在跑时发出去就是插话
             onVoiceText = { input = HoldToTalk.join(input, it) },
+            // 松开在「在听」卡片里:接上已有的字直接发出;发不出去(比如还在导入附件)就留在输入框里
+            onVoiceSend = {
+                input = HoldToTalk.join(input, it)
+                if (vm.send(input, check)) input = ""
+            },
             onPickSpeech = openSpeechModel,
             steerTarget = if (ui.followUpMode == FollowUpMode.Steer) last?.goal?.let(ChatCopy::plainTitle) else null,
             onVoiceHolding = { voiceHolding = it },
@@ -1209,6 +1214,8 @@ internal fun Composer(
     voice: VoiceSource? = null,
     /** 说完的字;调用方把它接在已有的字后面,不自动发送。 */
     onVoiceText: (String) -> Unit = {},
+    /** 松开在「在听」卡片里(「松开 发送」)说完的字:调用方接上已有的字直接发出。没给时没有「松开 发送」。 */
+    onVoiceSend: ((String) -> Unit)? = null,
     /** 「还不能语音输入」里的「去选」:到设置里选转文字。 */
     onPickSpeech: () -> Unit = {},
     /** 任务在跑时说的话交给谁:卡片顶上写「插话给『…』」。 */
@@ -1217,10 +1224,6 @@ internal fun Composer(
     onVoiceHolding: (Boolean) -> Unit = {},
 ) {
     val c = MikaTheme.colors
-    val vh = rememberVoiceHold(voice, onVoiceText)
-    val vState = voiceState(vh)
-    val voiceHolding = vh?.holding == true
-    LaunchedEffect(voiceHolding) { onVoiceHolding(voiceHolding) }
     var fieldFocused by remember { mutableStateOf(false) }
     // 底部从页面底色淡出到透明,输入栏是浮在上面的玻璃
     val fade = remember(c) { Brush.verticalGradient(0f to c.bg.copy(alpha = 0f), 0.6f to c.bg, 1f to c.bg) }
@@ -1232,6 +1235,11 @@ internal fun Composer(
     val ime = WindowInsets.ime
     val nav = WindowInsets.navigationBars
     var panel by rememberSaveable { mutableStateOf(Panel.Closed) }
+    // 「松开 发送」和发送键一样先收起附件面板
+    val vh = rememberVoiceHold(voice, onVoiceText, onVoiceSend?.let { send -> { text -> panel = Panel.Closed; send(text) } })
+    val vState = voiceState(vh)
+    val voiceHolding = vh?.holding == true
+    LaunchedEffect(voiceHolding) { onVoiceHolding(voiceHolding) }
     LaunchedEffect(editRequest) {
         if (editRequest > 0) {
             panel = Panel.Closed
