@@ -62,6 +62,15 @@
     <string name="browser_long_press">Изменить сайт можно и долгим нажатием на него</string>
     <string name="browser_favorites">Избранное</string>
     <string name="browser_edit">Изменить</string>
+    <string name="browser_bookmarks">Закладки</string>
+    <string name="browser_all">Все</string>
+    <string name="browser_bookmark_add">Добавить в закладки</string>
+    <string name="browser_bookmark_remove">Убрать из закладок</string>
+    <string name="browser_bookmarked">Добавлено в закладки</string>
+    <string name="browser_unbookmarked">Удалено из закладок</string>
+    <string name="browser_bookmark_empty">Откройте страницу и нажмите «Добавить в закладки» в «Ещё»</string>
+    <string name="browser_bookmark_rename">Переименовать закладку</string>
+    <string name="browser_bookmark_name">Название</string>
     <string name="browser_clear_input">Очистить</string>
     <string name="browser_open_site">Открыть %1$s</string>
     <string name="browser_remove_site">Удалить %1$s</string>

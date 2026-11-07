@@ -64,6 +64,15 @@
     <string name="browser_long_press">يمكنك أيضًا الضغط مطولًا على موقع لتعديله</string>
     <string name="browser_favorites">المفضلة</string>
     <string name="browser_edit">تعديل</string>
+    <string name="browser_bookmarks">الإشارات المرجعية</string>
+    <string name="browser_all">الكل</string>
+    <string name="browser_bookmark_add">إضافة إشارة مرجعية</string>
+    <string name="browser_bookmark_remove">إزالة الإشارة المرجعية</string>
+    <string name="browser_bookmarked">تمت الإضافة إلى الإشارات المرجعية</string>
+    <string name="browser_unbookmarked">تمت الإزالة من الإشارات المرجعية</string>
+    <string name="browser_bookmark_empty">افتح صفحة ثم اضغط «إضافة إشارة مرجعية» ضمن «المزيد»</string>
+    <string name="browser_bookmark_rename">إعادة تسمية الإشارة المرجعية</string>
+    <string name="browser_bookmark_name">العنوان</string>
     <string name="browser_clear_input">مسح</string>
     <string name="browser_open_site">فتح %1$s</string>
     <string name="browser_remove_site">إزالة %1$s</string>

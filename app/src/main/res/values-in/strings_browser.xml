@@ -59,6 +59,15 @@
     <string name="browser_long_press">Anda juga bisa menekan lama sebuah situs untuk mengubahnya</string>
     <string name="browser_favorites">Favorit</string>
     <string name="browser_edit">Ubah</string>
+    <string name="browser_bookmarks">Markah</string>
+    <string name="browser_all">Semua</string>
+    <string name="browser_bookmark_add">Tambahkan markah</string>
+    <string name="browser_bookmark_remove">Hapus markah</string>
+    <string name="browser_bookmarked">Ditambahkan ke markah</string>
+    <string name="browser_unbookmarked">Dihapus dari markah</string>
+    <string name="browser_bookmark_empty">Buka halaman lalu ketuk «Tambahkan markah» di «Lainnya»</string>
+    <string name="browser_bookmark_rename">Ganti nama markah</string>
+    <string name="browser_bookmark_name">Judul</string>
     <string name="browser_clear_input">Hapus</string>
     <string name="browser_open_site">Buka %1$s</string>
     <string name="browser_remove_site">Hapus %1$s</string>

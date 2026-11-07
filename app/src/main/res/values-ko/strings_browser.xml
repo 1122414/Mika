@@ -59,6 +59,15 @@
     <string name="browser_long_press">사이트를 길게 눌러 편집할 수도 있어요</string>
     <string name="browser_favorites">즐겨찾기</string>
     <string name="browser_edit">편집</string>
+    <string name="browser_bookmarks">북마크</string>
+    <string name="browser_all">전체</string>
+    <string name="browser_bookmark_add">북마크 추가</string>
+    <string name="browser_bookmark_remove">북마크 삭제</string>
+    <string name="browser_bookmarked">북마크에 추가했어요</string>
+    <string name="browser_unbookmarked">북마크에서 삭제했어요</string>
+    <string name="browser_bookmark_empty">페이지를 연 뒤 「더보기」에서 「북마크 추가」를 누르세요</string>
+    <string name="browser_bookmark_rename">북마크 이름 변경</string>
+    <string name="browser_bookmark_name">제목</string>
     <string name="browser_clear_input">지우기</string>
     <string name="browser_open_site">%1$s 열기</string>
     <string name="browser_remove_site">%1$s 삭제</string>

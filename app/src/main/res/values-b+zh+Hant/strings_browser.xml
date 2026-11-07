@@ -59,6 +59,15 @@
     <string name="browser_long_press">長按某個網站也能進來整理</string>
     <string name="browser_favorites">常用網站</string>
     <string name="browser_edit">整理</string>
+    <string name="browser_bookmarks">書籤</string>
+    <string name="browser_all">全部</string>
+    <string name="browser_bookmark_add">加入書籤</string>
+    <string name="browser_bookmark_remove">移除書籤</string>
+    <string name="browser_bookmarked">已加入書籤</string>
+    <string name="browser_unbookmarked">已從書籤移除</string>
+    <string name="browser_bookmark_empty">開啟網頁後，在「更多」裡點「加入書籤」</string>
+    <string name="browser_bookmark_rename">修改書籤標題</string>
+    <string name="browser_bookmark_name">標題</string>
     <string name="browser_clear_input">清空</string>
     <string name="browser_open_site">開啟%1$s</string>
     <string name="browser_remove_site">移除%1$s</string>

@@ -61,6 +61,15 @@
     <string name="browser_long_press">También puedes mantener pulsado un sitio para editarlo</string>
     <string name="browser_favorites">Favoritos</string>
     <string name="browser_edit">Editar</string>
+    <string name="browser_bookmarks">Marcadores</string>
+    <string name="browser_all">Todos</string>
+    <string name="browser_bookmark_add">Añadir marcador</string>
+    <string name="browser_bookmark_remove">Quitar marcador</string>
+    <string name="browser_bookmarked">Añadido a marcadores</string>
+    <string name="browser_unbookmarked">Eliminado de marcadores</string>
+    <string name="browser_bookmark_empty">Abre una página y toca «Añadir marcador» en «Más»</string>
+    <string name="browser_bookmark_rename">Cambiar nombre del marcador</string>
+    <string name="browser_bookmark_name">Título</string>
     <string name="browser_clear_input">Borrar</string>
     <string name="browser_open_site">Abrir %1$s</string>
     <string name="browser_remove_site">Quitar %1$s</string>

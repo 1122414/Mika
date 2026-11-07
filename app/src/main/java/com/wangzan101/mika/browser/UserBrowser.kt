@@ -64,6 +64,7 @@ class UserBrowser private constructor(private val app: Context) {
     private val dir = File(app.filesDir, "web")
     val recent = RecentPages(dir)
     val favorites = BrowserFavorites(dir)
+    val bookmarks = PageBookmarks(dir)
     val looks = SiteLooks(dir)
     private val modes = UserSiteModes(dir)
     /** 看着的这一页借给任务(见 [PageLoans])。 */
@@ -348,6 +349,7 @@ class UserBrowser private constructor(private val app: Context) {
             val url = tab.view.url ?: return
             if (!url.startsWith("http")) return
             recent.add(url, tab.view.title?.takeIf { it != url })
+            bookmarks.retitle(url, tab.view.title.orEmpty())
             WebTab.cookieManager().flush()
             readName(tab, url)
             scheduleProbe(tab, 0)

@@ -67,9 +67,11 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val registry by browser.sites.entries.collectAsState()
     val recentPages by browser.recent.entries.collectAsState()
     val edits by browser.favorites.edits.collectAsState()
+    val bookmarks by browser.bookmarks.entries.collectAsState()
     val looks by browser.looks.entries.collectAsState()
     val activity = remember(context) { context.findActivity() }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
+    var bookmarksOpen by rememberSaveable { mutableStateOf(false) }
 
     val face = remember(looks) { { host: String -> SiteLooks.faceOf(host, looks, browser.looks::iconFile) } }
     val favorites = remember(edits, registry) { BrowserFavorites.combine(edits, registry) }
@@ -118,6 +120,9 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 },
                 onAddHint = { toast(BROWSER_ADD_HINT) },
                 onClearRecent = browser.recent::clear,
+                bookmarks = bookmarks,
+                onOpenBookmark = { b -> browser.open(b.url)?.let(toast) },
+                onShowBookmarks = { bookmarksOpen = true },
             )
         } else {
             val host = WebUrlPolicy.host(p.url)
@@ -156,6 +161,7 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
             }
             if (moreOpen) {
                 val favorite = host != null && BrowserFavorites.contains(favorites, host)
+                val bookmarked = bookmarks.any { it.url.trim().substringBefore('#') == p.url.trim().substringBefore('#') }
                 BrowserMoreSheet(
                     face = host?.let(face), host = host, favorite = favorite, desktop = p.desktop,
                     onDismiss = { moreOpen = false },
@@ -165,6 +171,15 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                         toast(tr(R.string.browser_link_copied))
                     },
                     onOpenOutside = { openOutside(context, p.url)?.let(toast) },
+                    bookmarked = bookmarked,
+                    onToggleBookmark = {
+                        if (bookmarked) {
+                            browser.bookmarks.remove(p.url)
+                            toast(tr(R.string.browser_unbookmarked))
+                        } else if (browser.bookmarks.add(p.url, p.title)) {
+                            toast(tr(R.string.browser_bookmarked))
+                        }
+                    },
                     onToggleFavorite = {
                         if (host == null) return@BrowserMoreSheet
                         if (favorite) {
@@ -182,6 +197,16 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
                 )
             }
         }
+    }
+
+    if (bookmarksOpen) {
+        BookmarksSheet(
+            bookmarks = bookmarks, face = face,
+            onDismiss = { bookmarksOpen = false },
+            onOpen = { b -> bookmarksOpen = false; browser.open(b.url)?.let(toast) },
+            onRemove = { b -> browser.bookmarks.remove(b.url); toast(tr(R.string.browser_unbookmarked)) },
+            onRename = { b, title -> browser.bookmarks.rename(b.url, title) },
+        )
     }
 
     dialog?.let { d -> PageDialogBox(d, browser::answerDialog) }

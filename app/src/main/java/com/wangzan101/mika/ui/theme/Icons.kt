@@ -188,6 +188,8 @@ object MikaIcons {
     val Pin = stroke("pin", "M9 3.5 h6 M10 3.5 v5.5 l-3 3.5 h10 l-3 -3.5 V3.5", "M12 12.5 V20.5")
     /** 星:常用网站。 */
     val Star = stroke("star", "M12 4.5 l2.3 4.7 l5.2 0.8 l-3.8 3.6 l0.9 5.1 L12 16.3 l-4.6 2.4 l0.9 -5.1 L4.5 10 l5.2 -0.8 z")
+    /** 书签:下面一个 V 形缺口。 */
+    val Bookmark = stroke("bookmark", "M7 4.5 h10 v15 l-5 -3.5 l-5 3.5 z")
     /** 显示器:电脑版网页。 */
     val Desktop = stroke("desktop", "M5 5 h14 a1.5 1.5 0 0 1 1.5 1.5 v8 a1.5 1.5 0 0 1 -1.5 1.5 H5 a1.5 1.5 0 0 1 -1.5 -1.5 v-8 A1.5 1.5 0 0 1 5 5 z", "M9 20 h6 M12 16 v4")
     val Shield = stroke("shield", "M12 3 l7.5 3 v5.5 c0 4.6 -3.2 8.4 -7.5 9.5 c-4.3 -1.1 -7.5 -4.9 -7.5 -9.5 V6 z")
