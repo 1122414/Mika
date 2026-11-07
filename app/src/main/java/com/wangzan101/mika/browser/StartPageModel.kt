@@ -32,10 +32,9 @@ object StartPageModel {
     ): List<RecentItem> {
         val seen = HashSet<String>()
         return pages.sortedByDescending { it.openedAtMs }.filter { seen.add(it.url.trim().substringBefore('#')) }.map { p ->
-            val engine = SearchEngineSpec.of(p.url, engines)
-            val q = engine?.queryOf(p.url)
-            if (engine != null && q != null) {
-                RecentItem(p.url, tr(R.string.browser_search_colon, q), engine.displayName, null, true, p.openedAtMs)
+            val match = SearchEngineSpec.match(p.url, engines)
+            if (match != null) {
+                RecentItem(p.url, tr(R.string.browser_search_colon, match.second), match.first.displayName, null, true, p.openedAtMs)
             } else {
                 val host = WebUrlPolicy.host(p.url)
                 val site = host?.let(nameOf) ?: p.url

@@ -22,9 +22,12 @@ sealed interface SearchEngineSpec {
     fun queryOf(url: String): String?
 
     companion object {
+        /** 网址是 [engines] 里哪个引擎的搜索结果页、搜的是什么;都不是为 null。只解码一次。 */
+        fun match(url: String, engines: List<SearchEngineSpec>): Pair<SearchEngineSpec, String>? =
+            engines.firstNotNullOfOrNull { e -> e.queryOf(url)?.let { e to it } }
+
         /** 网址是 [engines] 里哪个引擎的搜索结果页;都不是为 null。 */
-        fun of(url: String, engines: List<SearchEngineSpec>): SearchEngineSpec? =
-            engines.firstOrNull { it.queryOf(url) != null }
+        fun of(url: String, engines: List<SearchEngineSpec>): SearchEngineSpec? = match(url, engines)?.first
     }
 }
 
@@ -78,9 +81,21 @@ data class CustomSearchEngine private constructor(
         val raw = if (suffix.isEmpty()) {
             rest.substringBefore('&').substringBefore('#')
         } else {
-            rest.substring(0, rest.indexOf(suffix).takeIf { it >= 0 } ?: return null)
+            rest.substring(0, suffixStart(rest) ?: return null)
         }
         return decode(raw)
+    }
+
+    /** 模板后半段出现的位置:后面得是结尾、`&` 或 `#`,免得搜索词里正好也有这一段时截错。 */
+    private fun suffixStart(rest: String): Int? {
+        var from = 0
+        while (true) {
+            val i = rest.indexOf(suffix, from)
+            if (i < 0) return null
+            val after = i + suffix.length
+            if (after == rest.length || rest[after] == '&' || rest[after] == '#') return i
+            from = i + 1
+        }
     }
 
     companion object {

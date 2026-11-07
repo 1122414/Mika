@@ -89,6 +89,12 @@ class AddressInputTest {
     }
 
     @Test
+    fun customEngineSuffixInsideTheQueryIsNotMistakenForTheEnd() {
+        val custom = CustomSearchEngine.create("Example", "https://search.example.com/?q=%s_zh-cn")!!
+        assertEquals("weather_zh-cn", custom.queryOf(custom.searchUrl("weather_zh-cn")))
+    }
+
+    @Test
     fun googleAndBaiduUseTheirOwnUrls() {
         assertEquals("https://www.google.com/search?q=hello+world", AddressInput.resolve("hello world", SearchEngine.Google))
         assertEquals("https://www.baidu.com/s?wd=hello+world", AddressInput.resolve("hello world", SearchEngine.Baidu))

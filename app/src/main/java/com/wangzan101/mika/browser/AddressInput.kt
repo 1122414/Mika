@@ -36,7 +36,7 @@ object AddressInput {
 
     /** 网址是 [engines] 里某个搜索引擎的搜索结果页时为搜的词,否则为 null。 */
     fun searchQuery(url: String, engines: List<SearchEngineSpec> = SearchEngine.entries): String? =
-        SearchEngineSpec.of(url, engines)?.queryOf(url)
+        SearchEngineSpec.match(url, engines)?.second
 
     /** 开头到第一个 / ? # 为止的主机名和端口;里面带 @ 等不像主机名的字符时为 null。 */
     private fun authority(s: String): Pair<String, String?>? {
