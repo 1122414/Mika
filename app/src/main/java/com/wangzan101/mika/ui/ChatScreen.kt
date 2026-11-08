@@ -396,7 +396,7 @@ fun ChatScreen(
             onStartQueued = vm::startQueued,
             followUpStatus = last?.status?.takeIf { it.isActive() },
             attachPanel = if (ui.attachEnabled && (ui.composer == ComposerMode.Idle ||
-                    (ui.composer == ComposerMode.Busy && ui.followUpMode == FollowUpMode.Queue))) ({
+                    (ui.composer != ComposerMode.Idle && ui.followUpMode == FollowUpMode.Queue))) ({
                 androidx.compose.runtime.key(ui.conversationId) {
                     AttachPanelHost(ui.attachments, onPicked = { vm.attach(it, ui.conversationId) }, onToggle = vm::toggleAttachment)
                 }
@@ -530,7 +530,11 @@ fun ChatScreen(
             text = { Text(stringResource(R.string.share_draft_replace_body)) },
             confirmButton = {
                 TextButton(
-                    onClick = { vm.confirmPendingSharedDraft() },
+                    onClick = {
+                        if (!vm.confirmPendingSharedDraft()) {
+                            Toast.makeText(context, R.string.share_draft_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     Modifier.testTag("confirm-replace-shared-draft"),
                 ) { Text(stringResource(R.string.chat_example_replace_action)) }
             },
@@ -1360,7 +1364,9 @@ internal fun Composer(
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
     ) {
         Column(Modifier.fillMaxWidth()) {
-            if (busy) FollowUpModeBar(followUpMode, onFollowUpMode, followUpStatus)
+            if (busy || (mode == ComposerMode.Answer && attachments.isNotEmpty())) {
+                FollowUpModeBar(followUpMode, onFollowUpMode, followUpStatus)
+            }
             FollowUpTray(queued, active = mode != ComposerMode.Idle, onEdit = onEditQueued, onCancel = onCancelQueued, onStartNow = onStartQueued)
             quote?.let { QuoteChip(it, onRemoveQuote, Modifier.padding(bottom = 6.dp)) }
             if (attachments.isNotEmpty()) PendingTray(attachments, onRemove, Modifier.padding(bottom = 2.dp))

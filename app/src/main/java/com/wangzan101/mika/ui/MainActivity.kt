@@ -95,16 +95,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) {
+            (application as MikaApp).chat.cancelPendingSharedDraft()
+        }
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         takeTeach(intent)
         shareInCurrent = savedInstanceState?.getBoolean(STATE_SHARE_IN_CURRENT, false) ?: false
         shareHandled = savedInstanceState?.getBoolean(STATE_SHARE_HANDLED, false) ?: false
-        val pendingShare = (application as MikaApp).sharedDrafts.read()
-        val restoringAcceptedShare = savedInstanceState != null && intent.action == Intent.ACTION_SEND &&
-            (shareHandled || (!shareInCurrent && pendingShare != null &&
-                (application as MikaApp).conversations.currentChat() == CurrentChat.Open(pendingShare.conversationId)))
-        // 已收下或处理完的分享在旋转/重建时不重复触发;真正的冷启动分享或尚未完成的后台分享继续收下。
-        if (!restoringAcceptedShare && (savedInstanceState == null || intent.action == Intent.ACTION_SEND)) {
+        // 已处理完的分享在旋转/重建时不重复触发;真正的冷启动分享或尚未完成的后台分享继续收下。
+        if (!shareHandled && (savedInstanceState == null || intent.action == Intent.ACTION_SEND)) {
             receiveShare(intent, inCurrentConversation = shareInCurrent)
         }
         monitor = SystemStatusMonitor(this, PhoneServices.of(this).shellControl)
@@ -140,6 +139,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         val app = application as MikaApp
+        shareJob?.cancel()
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         if (requestedConversation != null || intent.getBooleanExtra(EXTRA_OPEN_TEACH, false)) {
             app.chat.cancelPendingSharedDraft()
@@ -232,7 +232,7 @@ class MainActivity : ComponentActivity() {
         // 还没绑到对话的私有副本随这次接收结束清掉;已接受的草稿由 CurrentChat 恢复,不在这里删除。
         requestedSharedDraft?.let { (application as MikaApp).sharedDrafts.discard(it.draft.image) }
         requestedSharedDraft = null
-        if (!isChangingConfigurations) {
+        if (isFinishing) {
             (application as MikaApp).chat.cancelPendingSharedDraft()
         }
         super.onDestroy()
