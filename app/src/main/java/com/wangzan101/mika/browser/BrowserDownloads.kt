@@ -87,7 +87,7 @@ class BrowserDownloads(context: Context, dir: File) {
                         reason = c.getInt(reason),
                     )
                 }
-                ids.retain(out.map { it.id }.toSet())
+                ids.pruneMissing(wanted, out.map { it.id }.toSet())
                 out.sortedByDescending { it.id }.take(limit)
             }
         }.getOrDefault(emptyList())
@@ -143,8 +143,8 @@ internal class DownloadIds(private val file: File, private val limit: Int = 200)
     }
 
     @Synchronized
-    fun retain(all: Set<Long>) {
-        if (ids.retainAll(all)) save()
+    fun pruneMissing(queried: LongArray, found: Set<Long>) {
+        if (ids.removeAll(queried.filterNot(found::contains).toSet())) save()
     }
 
     @Synchronized
