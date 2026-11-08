@@ -104,9 +104,10 @@ class Bridge:
         # Claimed events are never replayed after a crash: execution may already have happened.
         for row in self.store.execute("SELECT * FROM inbox WHERE state='processing'"):
             event = json.loads(row["payload"])
-            self.store.update(event["chat"] + ":" + event["user"], uncertain=1)
-            self.reply(event, "The connector stopped while processing a message. Execution is uncertain; it was not replayed. Check the phone, "
-                       "then send /reset checked.", "recovery")
+            if event["user"] in self.owners():
+                self.store.update(event["chat"] + ":" + event["user"], uncertain=1)
+                self.reply(event, "The connector stopped while processing a message. Execution is uncertain; it was not replayed. Check the phone, "
+                           "then send /reset checked.", "recovery")
             self.store.execute("UPDATE inbox SET state='done' WHERE id=?", (row["id"],))
 
     def work_once(self):
@@ -114,6 +115,8 @@ class Bridge:
         if not event:
             return False
         try:
+            if event["user"] not in self.owners():
+                return True
             # Pending events may have been persisted before a long disconnect.
             if time.time() - event.get("created_at", 0) > 300:
                 self.reply(event, "This queued message expired; no phone action was submitted.", "expired")

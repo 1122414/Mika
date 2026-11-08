@@ -68,6 +68,19 @@ class BridgeTests(unittest.TestCase):
         self.assertFalse(restarted.receive(event()))
         self.assertEqual(len(self.api.writes), 1)
 
+    def test_restart_discards_queued_events_from_revoked_users(self):
+        claimed = event("claimed")
+        claimed["event"]["message"]["chat_id"] = "oc_other"
+        self.assertTrue(self.bridge.receive(claimed))
+        self.store.pop()
+        self.assertTrue(self.bridge.receive(event("pending")))
+        restarted = Bridge(self.api, self.store, lambda *args: self.sent.append(args), ["ou_new"])
+        restarted.recover()
+        self.assertTrue(restarted.work_once())
+        self.assertEqual(self.api.writes, [])
+        self.assertEqual(self.sent, [])
+        self.assertEqual(self.store.execute("SELECT id FROM inbox WHERE state != 'done'"), [])
+
     def test_lost_post_response_blocks_future_tasks(self):
         self.api.error = ApiError("timeout", uncertain=True)
         self.deliver()
