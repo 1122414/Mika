@@ -290,6 +290,15 @@ fun ChatScreen(
             if (reduceMotion) lift.snapTo(1f) else lift.animateTo(1f, tween(MENU_IN_MS, easing = MikaMotion.Decelerate))
         }
     }
+    LaunchedEffect(ui.pendingSharedDraft, ui.sharedDraft) {
+        if (ui.pendingSharedDraft != null || ui.sharedDraft != null) {
+            pendingExample = null
+            if (menu != null) {
+                lift.snapTo(0f)
+                menu = null
+            }
+        }
+    }
     /** 收起菜单:倒着放一遍出现的动画,放完再清掉;[then] 当场做。 */
     fun closeMenu(then: () -> Unit = {}) {
         then()
@@ -511,6 +520,26 @@ fun ChatScreen(
                 ) { Text(stringResource(R.string.chat_example_replace_action)) }
             },
             dismissButton = { TextButton({ pendingExample = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+
+    if (ui.pendingSharedDraft != null) {
+        MikaDialog(
+            onDismissRequest = vm::cancelPendingSharedDraft,
+            title = { Text(stringResource(R.string.chat_example_replace_title)) },
+            text = { Text(stringResource(R.string.share_draft_replace_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = { vm.confirmPendingSharedDraft() },
+                    Modifier.testTag("confirm-replace-shared-draft"),
+                ) { Text(stringResource(R.string.chat_example_replace_action)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = vm::cancelPendingSharedDraft,
+                    Modifier.testTag("cancel-replace-shared-draft"),
+                ) { Text(stringResource(R.string.cancel)) }
+            },
         )
     }
 }

@@ -949,6 +949,116 @@ class ChatViewModelTest {
         assertTrue(calls.isNotEmpty())
     }
 
+    @Test fun shareInCurrentConversationPrefillsDirectlyAndPreservesHistoryOnRestart() = runTest {
+        val conversations = ConversationStore(tmp.newFolder())
+        val existing = conversations.newConversation()
+        conversations.append(existing, Turn("上一轮问题", "上一轮回答", "succeeded"))
+        val drafts = SharedDraftStore(tmp.newFolder())
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, conversations, sharedDrafts = drafts)
+        runCurrent()
+
+        // 当前在已打开的会话且无草稿时,后台分享直接放入当前会话,不新建对话,也不丢历史轮次。
+        vm.openConversation(existing)
+        assertEquals(existing, vm.ui.value.conversationId)
+        assertEquals(1, vm.ui.value.exchanges.size)
+        assertTrue(vm.openSharedDraft(SharedDraft("", "后台分享文字"), inCurrentConversation = true))
+        assertEquals(existing, vm.ui.value.conversationId)
+        assertNull(vm.ui.value.pendingSharedDraft)
+        assertEquals("后台分享文字", vm.ui.value.input)
+        assertEquals("后台分享文字", vm.ui.value.sharedDraft?.text)
+        assertEquals(1, vm.ui.value.exchanges.size)
+        assertEquals("上一轮问题", vm.ui.value.exchanges.single().goal)
+
+        // 进程重建后恢复该会话草稿时,原有历史轮次依然完整保留。
+        val restored = ChatViewModel(backgroundScope, state, stage, actions, conversations, sharedDrafts = drafts)
+        runCurrent()
+        assertEquals(existing, restored.ui.value.conversationId)
+        assertEquals("后台分享文字", restored.ui.value.input)
+        assertEquals(listOf("上一轮问题"), restored.ui.value.exchanges.map { it.goal })
+    }
+
+    @Test fun shareInCurrentConversationPromptsWhenDraftExistsAndSupportsReplaceOrCancel() = runTest {
+        val conversations = ConversationStore(tmp.newFolder())
+        val drafts = SharedDraftStore(tmp.newFolder())
+        drafts.imageFile("old.jpg")!!.writeBytes(byteArrayOf(1))
+        drafts.imageFile("cancelled.jpg")!!.writeBytes(byteArrayOf(2))
+        drafts.imageFile("replaced.jpg")!!.writeBytes(byteArrayOf(3))
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, conversations,
+            sharedDrafts = drafts,
+            sharedDraftUri = { "content://mika.shared/$it" },
+        )
+        runCurrent()
+
+        val oldImage = com.wangzan101.mika.chat.SharedDraftImage("old.jpg", "old.jpg", 1)
+        assertTrue(vm.openSharedDraft(SharedDraft("", "原有草稿", oldImage), inCurrentConversation = true))
+        val currentId = vm.ui.value.conversationId!!
+        vm.quote(QuoteMessage.From.Mika, "被引用的回复")
+
+        // 已有草稿时收到后台分享:先挂入 pendingSharedDraft 等用户选择,原草稿不动。
+        val cancelledImage = com.wangzan101.mika.chat.SharedDraftImage("cancelled.jpg", "cancelled.jpg", 1)
+        assertTrue(vm.openSharedDraft(SharedDraft("", "将被取消的分享", cancelledImage), inCurrentConversation = true))
+        assertEquals("将被取消的分享", vm.ui.value.pendingSharedDraft?.text)
+        assertEquals("原有草稿", vm.ui.value.input)
+        assertNotNull(vm.ui.value.quote)
+
+        // 点「取消」:保留原草稿与原图,删除新分享的临时图片副本。
+        vm.cancelPendingSharedDraft()
+        assertNull(vm.ui.value.pendingSharedDraft)
+        assertEquals("原有草稿", vm.ui.value.input)
+        assertNotNull(vm.ui.value.quote)
+        assertTrue(drafts.imageFile("old.jpg")!!.exists())
+        assertFalse(drafts.imageFile("cancelled.jpg")!!.exists())
+
+        // 再次后台分享并点「替换」:整份草稿(文字、附件、引用)替换为新分享内容,旧分享图片被清理。
+        val replacedImage = com.wangzan101.mika.chat.SharedDraftImage("replaced.jpg", "replaced.jpg", 1)
+        assertTrue(vm.openSharedDraft(SharedDraft("", "确认替换的分享", replacedImage), inCurrentConversation = true))
+        assertTrue(vm.confirmPendingSharedDraft())
+        assertNull(vm.ui.value.pendingSharedDraft)
+        assertEquals(currentId, vm.ui.value.conversationId)
+        assertEquals("确认替换的分享", vm.ui.value.input)
+        assertNull(vm.ui.value.quote)
+        assertEquals(listOf("content://mika.shared/replaced.jpg"), vm.ui.value.attachments.map { it.uri })
+        assertFalse(drafts.imageFile("old.jpg")!!.exists())
+        assertTrue(drafts.imageFile("replaced.jpg")!!.exists())
+    }
+
+    @Test fun shareImageInBusyConversationAutomaticallySwitchesToQueueMode() = runTest {
+        val conversations = ConversationStore(tmp.newFolder())
+        val drafts = SharedDraftStore(tmp.newFolder())
+        drafts.imageFile("busy.jpg")!!.writeBytes(byteArrayOf(1, 2))
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, conversations,
+            sharedDrafts = drafts,
+            sharedDraftUri = { "content://mika.shared/$it" },
+        )
+        runCurrent()
+
+        assertTrue(vm.send("正在运行的任务", ok))
+        state.value = TaskState.Running(1, "step")
+        runCurrent()
+        assertEquals(ComposerMode.Busy, vm.ui.value.composer)
+        assertEquals(FollowUpMode.Steer, vm.ui.value.followUpMode)
+
+        // 任务运行中收到后台图片分享:自动切换到排队模式。
+        val image = com.wangzan101.mika.chat.SharedDraftImage("busy.jpg", "busy.jpg", 2)
+        assertTrue(vm.openSharedDraft(SharedDraft("", "排队看这张图", image), inCurrentConversation = true))
+        assertEquals(FollowUpMode.Queue, vm.ui.value.followUpMode)
+        assertEquals(listOf("content://mika.shared/busy.jpg"), vm.ui.value.attachments.map { it.uri })
+
+        // 用户改了文字后手动切回插话模式:图片副本被清理,改过的文字仍保留在草稿存储中。
+        vm.input("改成纯文字插话")
+        vm.setFollowUpMode(FollowUpMode.Steer)
+        assertTrue(vm.ui.value.attachments.isEmpty())
+        assertFalse(drafts.imageFile("busy.jpg")!!.exists())
+        assertEquals("改成纯文字插话", drafts.read()?.text)
+
+        // 发送插话后,分享草稿从存储中一并清除。
+        assertTrue(vm.send("改成纯文字插话", ok))
+        assertNull(vm.ui.value.sharedDraft)
+        assertNull(drafts.read())
+    }
+
     @Test fun startWaitsUntilServiceFinishedPreviousTask() = runTest {
         val busy = MutableStateFlow(true)
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()), busy)

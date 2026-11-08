@@ -303,6 +303,8 @@ data class ChatUi(
     val overLimit: Int = 0,
     /** 系统分享刚预填到新对话的内容;只供输入框展示,不会触发任务。 */
     val sharedDraft: SharedDraft? = null,
+    /** 当前会话已有草稿时,后台收到的系统分享先挂在这里,等用户确认替换或取消。 */
+    val pendingSharedDraft: SharedDraft? = null,
     /** 输入框上方要随下一句话发出去的引用(长按消息选「引用」);没有为 null。随会话草稿保留。 */
     val quote: QuoteMessage.Quote? = null,
 ) {
@@ -356,6 +358,7 @@ private fun ChatUi.rebuildForConversation(
     rejectedAttachments = emptyList(),
     overLimit = 0,
     sharedDraft = sharedDraft,
+    pendingSharedDraft = null,
     quote = null,
 )
 
@@ -485,17 +488,19 @@ class ChatViewModel(
 
     fun input(text: String) {
         if (text == _ui.value.input) return
-        draftConversation()
-        _ui.update { it.copy(input = text) }
+        val id = draftConversation()
+        val clearShared = text.isBlank() && _ui.value.sharedDraft != null && _ui.value.sharedDraft?.image == null
+        if (clearShared) sharedDrafts?.clear(id)
+        _ui.update { it.copy(input = text, sharedDraft = if (clearShared) null else it.sharedDraft) }
     }
 
     private fun keepDraft() {
         draftStateChanged = true
         val ui = _ui.value
         val id = ui.conversationId ?: return
-        val shared = ui.sharedDraft?.copy(text = ui.input)
-        if (shared != null) {
-            if (shared.text.isBlank() && shared.image == null) sharedDrafts?.clear(id)
+        val shared = ui.sharedDraft?.copy(text = ui.input)?.takeIf { it.text.isNotBlank() || it.image != null }
+        if (ui.sharedDraft != null) {
+            if (shared == null) sharedDrafts?.clear(id)
             else sharedDrafts?.save(shared)
         }
         val draft = ui.draft().copy(sharedDraft = shared)
@@ -655,7 +660,7 @@ class ChatViewModel(
         }
         val current = store.currentChat() as? CurrentChat.Open
         if (current != null && current.id in drafts.value) {
-            _ui.value = restoreDraft(_ui.value.rebuildForConversation(conversationId = current.id))
+            _ui.value = restoreDraft(_ui.value.rebuildForConversation(conversationId = current.id, exchanges = saved(current.id)))
         }
     }
 
@@ -792,9 +797,11 @@ class ChatViewModel(
     fun attach(uris: List<String>, conversationId: String? = _ui.value.conversationId) {
         if (uris.isEmpty() || conversationId != _ui.value.conversationId || !canAttach(_ui.value)) return
         val id = draftConversation()
+        val sharedBefore = _ui.value.sharedDraft
         scope.launch {
             val items = try { describeAttachments(uris) } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
-            if (_ui.value.conversationId == id && !canAttach(_ui.value)) return@launch
+            if (_ui.value.conversationId == id && (!canAttach(_ui.value) || _ui.value.sharedDraft != sharedBefore)) return@launch
+            if (_ui.value.conversationId != id && drafts.value[id]?.sharedDraft != sharedBefore) return@launch
             updateDraft(id) { draft ->
                 val (all, dropped) = AttachTray.add(draft.attachments, items)
                 draft.copy(attachments = all, overLimit = dropped, rejected = emptyList())
@@ -813,13 +820,25 @@ class ChatViewModel(
         return !t.full
     }
 
+    private fun clearSharedImage(draft: SharedDraft) {
+        val currentText = _ui.value.input
+        if (currentText.isBlank()) {
+            sharedDrafts?.clear(draft.conversationId)
+        } else {
+            val updated = draft.copy(text = currentText, image = null)
+            if (sharedDrafts?.save(updated) != true) sharedDrafts?.removeImage(draft.conversationId)
+        }
+        _ui.update { current ->
+            if (current.sharedDraft == draft) {
+                current.copy(sharedDraft = draft.copy(text = current.input, image = null).takeIf { it.text.isNotBlank() })
+            } else current
+        }
+    }
+
     fun removeAttachment(uri: String) {
         val draft = _ui.value.sharedDraft
         if (draft?.image != null && runCatching { sharedDraftUri(draft.image.fileName) }.getOrNull() == uri) {
-            sharedDrafts?.removeImage(draft.conversationId)
-            _ui.update { current ->
-                if (current.sharedDraft == draft) current.copy(sharedDraft = draft.copy(image = null).takeIf { it.text.isNotBlank() }) else current
-            }
+            clearSharedImage(draft)
         }
         _ui.update { ui -> ui.copy(attachments = ui.attachments.filterNot { it.uri == uri }) }
     }
@@ -866,10 +885,23 @@ class ChatViewModel(
         refreshParallel()
         val ui = _ui.value
         if (ui.importing) return false
+        val queuedAttachments = ui.composer == ComposerMode.Busy && ui.followUpMode == FollowUpMode.Queue
+        val sendingAttachments = ui.attachments.isNotEmpty() && (ui.composer == ComposerMode.Idle || queuedAttachments)
         val sent = sendQuoted(text.trim(), ui, check)
-        if (sent && !(ui.attachments.isNotEmpty() && (ui.composer == ComposerMode.Idle ||
-                ui.composer == ComposerMode.Busy && ui.followUpMode == FollowUpMode.Queue))) _ui.update {
-            it.copy(input = if (it.input == text) "" else it.input, quote = null)
+        if (sent && !sendingAttachments) {
+            val shared = ui.sharedDraft
+            if (shared != null) {
+                if (shared.image == null) {
+                    discardSharedDraft(shared)
+                } else {
+                    val textCleared = shared.copy(text = "")
+                    sharedDrafts?.save(textCleared)
+                    _ui.update { if (it.sharedDraft == shared) it.copy(sharedDraft = textCleared) else it }
+                }
+            }
+            _ui.update {
+                it.copy(input = if (it.input == text) "" else it.input, quote = null)
+            }
         }
         return sent
     }
@@ -918,25 +950,33 @@ class ChatViewModel(
             updateDraft(id) { it.copy(importing = false, rejected = r.rejected) }
             val now = _ui.value
             if (goal.isEmpty() || now.conversationId != id || id in _deleted.value) return@launch
+            val currentAttachments = now.attachments
+            val keepNewerAttachments = currentAttachments != submitted.attachments
             val accepted = when {
-                now.composer == ComposerMode.Idle -> { begin(goal, id); true }
+                now.composer == ComposerMode.Idle -> { begin(goal, id, clearDraftAttachments = !keepNewerAttachments); true }
                 now.composer == ComposerMode.Busy && now.followUpMode == FollowUpMode.Queue -> enqueue(goal, check)
                 else -> false
             }
             if (accepted) {
-                discardSharedDraft()
-                _ui.update { it.copy(input = if (it.input == submitted.input) "" else it.input,
-                    quote = if (it.quote == submitted.quote) null else it.quote, attachments = emptyList()) }
+                discardSharedDraft(submitted.sharedDraft)
+                _ui.update {
+                    it.copy(
+                        input = if (it.input == submitted.input) "" else it.input,
+                        quote = if (it.quote == submitted.quote) null else it.quote,
+                        attachments = if (keepNewerAttachments) currentAttachments else emptyList(),
+                        followUpMode = if (keepNewerAttachments && currentAttachments.isNotEmpty() && it.composer != ComposerMode.Idle) FollowUpMode.Queue else it.followUpMode,
+                    )
+                }
             }
         }
         return true
     }
 
     /** 在对话 [id] 里开始新任务 [goal]:界面上加一问一答,交给服务(并行关着、服务还忙时排在它收尾后面)。 */
-    private fun begin(goal: String, id: String) {
+    private fun begin(goal: String, id: String, clearDraftAttachments: Boolean = true) {
         lingerJob?.cancel()
         // 真正开始任务后,草稿图片已在工作区(纯文字不需要图片),可以清掉私有暂存副本。
-        discardSharedDraft()
+        if (clearDraftAttachments) discardSharedDraft()
         // 这个对话的编号定下来了:胶囊之后接着它(新开的对话到这一刻才有编号)
         markCurrent(CurrentChat.Open(id))
         // 上一个任务收尾时先撤屏再报结束,这里读到的就是新任务开始前的样子;
@@ -946,14 +986,15 @@ class ChatViewModel(
         pipClosed = false
         _ui.update {
             liveIndex = it.exchanges.size
+            val nextAttachments = if (clearDraftAttachments) emptyList() else it.attachments
             it.copy(
                 conversationId = id,
                 exchanges = it.exchanges + Exchange(goal, emptyList(), ExchangeStatus.Working, live = true, startedAt = clock()),
                 blocked = null,
-                attachments = emptyList(),
+                attachments = nextAttachments,
                 pip = gated(PipUi(visible = true)),
                 composer = ComposerMode.Busy,
-                followUpMode = FollowUpMode.Steer,
+                followUpMode = if (nextAttachments.isNotEmpty()) FollowUpMode.Queue else FollowUpMode.Steer,
                 // 这一句如果本来在排队条上乐观挂着、现在已经开始,就不能再显示一行
                 queued = it.queued.filterNot { q -> q.text == goal },
             )
@@ -1003,6 +1044,9 @@ class ChatViewModel(
 
     /** 切换任务进行中补充消息的默认去向;只影响下次发送,不改已经发出的消息。 */
     fun setFollowUpMode(mode: FollowUpMode) {
+        if (mode == FollowUpMode.Steer) {
+            _ui.value.sharedDraft?.takeIf { it.image != null }?.let(::clearSharedImage)
+        }
         _ui.update {
             if (it.followUpMode == mode) it else it.copy(followUpMode = mode,
                 attachments = if (mode == FollowUpMode.Steer) emptyList() else it.attachments)
@@ -1104,6 +1148,7 @@ class ChatViewModel(
         refreshParallel()
         if (!parallel()) return openConversation(conversationId)
         if (conversationId == _ui.value.conversationId) return
+        cancelPendingSharedDraft()
         keepDraft()
         lingerJob?.cancel()
         if (conversationId != _ui.value.conversationId) parkLive()
@@ -1131,7 +1176,11 @@ class ChatViewModel(
             _ui.update {
                 liveIndex = it.exchanges.size
                 it.copy(exchanges = it.exchanges + live, composer = ComposerMode.Busy, pip = gated(PipUi(visible = true)),
-                    followUpMode = if (it.draft().hasContent) it.followUpMode else FollowUpMode.Steer,
+                    followUpMode = when {
+                        it.attachments.isNotEmpty() -> FollowUpMode.Queue
+                        it.draft().hasContent -> it.followUpMode
+                        else -> FollowUpMode.Steer
+                    },
                     queued = it.queued.filterNot { q -> q.text == live.goal })
             }
         }
@@ -1284,13 +1333,32 @@ class ChatViewModel(
     }
 
     /**
-     * 系统分享进入一个全新的对话草稿:只换当前对话并预填输入框/附件,分享内容本身绝不启动任务。
-     * 先完整落盘再改屏上的对话;落盘失败不会留下空对话或半份当前状态。连续分享各自进入新对话,旧草稿仍可从侧栏打开。
-     * 旧对话正在跑的任务原地保留,状态流仍按对话编号过滤;这里的停止按钮不会落到旧任务上。
+     * 系统分享进入对话草稿:只预填输入框/附件,分享内容本身绝不启动任务。
+     * - [inCurrentConversation] 为 false(界面未在后台存活时的冷启动分享):进入全新的对话草稿,旧对话正在跑的任务原地保留。
+     * - [inCurrentConversation] 为 true(界面已在后台存活):放入当前已打开的会话;若当前会话已有草稿则挂入 [ChatUi.pendingSharedDraft],
+     *   由界面弹窗让用户选择「替换」或「取消」。
      */
-    fun openSharedDraft(prepared: SharedDraft): Boolean {
+    fun openSharedDraft(prepared: SharedDraft, inCurrentConversation: Boolean = false): Boolean {
         val drafts = sharedDrafts ?: return false
         refreshParallel()
+        if (inCurrentConversation) {
+            val attachments = sharedAttachments(prepared)
+            if (prepared.image != null && attachments.size != 1) {
+                drafts.discard(prepared.image)
+                return false
+            }
+            if (!drafts.validContent(prepared)) {
+                drafts.discard(prepared.image)
+                return false
+            }
+            cancelPendingSharedDraft()
+            draftStateChanged = true
+            if (_ui.value.draft().hasContent) {
+                _ui.update { it.copy(pendingSharedDraft = prepared) }
+                return true
+            }
+            return applySharedDraftToCurrent(prepared)
+        }
         if (pendingStart?.isActive == true &&
             (_ui.value.conversationId == null || _ui.value.exchanges.getOrNull(liveIndex) == null)
         ) return false
@@ -1301,7 +1369,11 @@ class ChatViewModel(
             drafts.discard(draft.image)
             return false
         }
-        if (!drafts.save(draft)) return false
+        if (!drafts.save(draft)) {
+            drafts.discard(draft.image)
+            return false
+        }
+        cancelPendingSharedDraft()
         keepDraft()
         val previous = _ui.value
         if (previous.conversationId != id) parkLive()
@@ -1323,8 +1395,55 @@ class ChatViewModel(
         return true
     }
 
-    private fun discardSharedDraft() {
-        val draft = _ui.value.sharedDraft ?: return
+    /** 用户在替换草稿弹窗里点了「替换」:用待确认的分享内容覆盖当前会话草稿。 */
+    fun confirmPendingSharedDraft(): Boolean {
+        val pending = _ui.value.pendingSharedDraft ?: return false
+        _ui.update { it.copy(pendingSharedDraft = null) }
+        return applySharedDraftToCurrent(pending)
+    }
+
+    /** 用户在替换草稿弹窗里点了「取消」或关闭弹窗:保留原草稿,清掉这次分享的临时图片副本。 */
+    fun cancelPendingSharedDraft() {
+        val pending = _ui.value.pendingSharedDraft ?: return
+        _ui.update { if (it.pendingSharedDraft == pending) it.copy(pendingSharedDraft = null) else it }
+        sharedDrafts?.discard(pending.image)
+    }
+
+    private fun applySharedDraftToCurrent(prepared: SharedDraft): Boolean {
+        val drafts = sharedDrafts ?: return false
+        val id = _ui.value.conversationId ?: store.newConversation()
+        val draft = prepared.copy(conversationId = id)
+        val attachments = sharedAttachments(draft)
+        if (draft.image != null && attachments.size != 1) {
+            drafts.discard(draft.image)
+            return false
+        }
+        if (!drafts.save(draft)) {
+            drafts.discard(draft.image)
+            return false
+        }
+        draftStateChanged = true
+        _ui.update {
+            it.copy(
+                conversationId = id,
+                input = draft.text,
+                attachments = attachments,
+                sharedDraft = draft,
+                quote = null,
+                rejectedAttachments = emptyList(),
+                overLimit = 0,
+                followUpMode = if (draft.image != null && it.composer != ComposerMode.Idle) FollowUpMode.Queue else it.followUpMode,
+                pendingSharedDraft = null,
+            )
+        }
+        markCurrent(CurrentChat.Open(id))
+        return true
+    }
+
+    private fun discardSharedDraft(target: SharedDraft? = _ui.value.sharedDraft) {
+        val draft = target ?: return
+        val isCurrent = _ui.value.sharedDraft == draft || drafts.value[draft.conversationId]?.sharedDraft == draft
+        if (!isCurrent) return
         val imageUri = draft.image?.let { image -> runCatching { sharedDraftUri(image.fileName) }.getOrNull() }
         sharedDrafts?.clear(draft.conversationId)
         _ui.update { current ->
@@ -1334,6 +1453,14 @@ class ChatViewModel(
                 attachments = current.attachments.filterNot { it.uri == imageUri },
             ) else current
         }
+        drafts.update { saved ->
+            val existing = saved[draft.conversationId]
+            if (existing?.sharedDraft != draft) saved
+            else {
+                val next = existing.copy(sharedDraft = null, attachments = existing.attachments.filterNot { it.uri == imageUri })
+                if (next.hasContent) saved + (draft.conversationId to next) else saved - draft.conversationId
+            }
+        }
     }
 
     /** 切到某个对话;任务在跑时不切。 */
@@ -1342,6 +1469,7 @@ class ChatViewModel(
         refreshParallel()
         if (parallel()) return switchTo(id)
         if (busy()) return
+        cancelPendingSharedDraft()
         keepDraft()
         val past = saved(id)
         liveIndex = -1
@@ -1367,6 +1495,7 @@ class ChatViewModel(
     fun newConversation() {
         refreshParallel()
         if (parallel()) {
+            cancelPendingSharedDraft()
             keepDraft()
             // 别的任务可能还在跑:先给新对话编号,它的状态就不会被当成这个对话的
             lingerJob?.cancel()
@@ -1378,6 +1507,7 @@ class ChatViewModel(
             return
         }
         if (busy()) return
+        cancelPendingSharedDraft()
         keepDraft()
         liveIndex = -1
         _ui.update { it.rebuildForConversation(conversationId = null, takeoverStage = it.takeoverStage) }
@@ -1480,6 +1610,7 @@ class ChatViewModel(
     /** 屏上的对话被删了:不再跟它的任务(还没交给服务的开始直接作废),换成新的空对话。 */
     private fun startOver(id: String) {
         draftStateChanged = true
+        cancelPendingSharedDraft()
         discardSharedDraft()
         lingerJob?.cancel()
         pendingStart?.cancel()
@@ -1519,7 +1650,12 @@ class ChatViewModel(
                 val goal = it.conversationId?.let(runGoal).orEmpty()
                 val files = if (ownTask()) sharedFiles.value else emptyList()
                 val ex = Exchange(goal, emptyList(), ExchangeStatus.Working, live = true, files = files, startedAt = clock())
-                it.copy(exchanges = it.exchanges + ex, followUpMode = if (it.draft().hasContent) it.followUpMode else FollowUpMode.Steer,
+                it.copy(exchanges = it.exchanges + ex,
+                    followUpMode = when {
+                        it.attachments.isNotEmpty() -> FollowUpMode.Queue
+                        it.draft().hasContent -> it.followUpMode
+                        else -> FollowUpMode.Steer
+                    },
                     queued = it.queued.filterNot { q -> q.text == goal })
             }
         }

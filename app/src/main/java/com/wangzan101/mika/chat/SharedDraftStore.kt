@@ -95,7 +95,8 @@ class SharedDraftStore(private val dir: File) {
             val tmp = File(dir, "$METADATA.tmp")
             val written = runCatching {
                 tmp.writeText(json)
-                tmp.renameTo(metadata) && metadata.isFile && metadata.readText() == json
+                val moved = tmp.renameTo(metadata) || (metadata.delete() && tmp.renameTo(metadata))
+                moved && metadata.isFile && metadata.readText() == json
             }.getOrDefault(false)
             if (!written) {
                 tmp.delete()
@@ -131,6 +132,10 @@ class SharedDraftStore(private val dir: File) {
                 string(o, "text") ?: return@mapNotNull null, image).takeIf(::valid)
         }
     }.getOrDefault(emptyList())
+
+    /** 校验分享内容本身是否合法（等待用户确认替换草稿时还未绑定具体对话编号）。 */
+    @Synchronized
+    fun validContent(draft: SharedDraft): Boolean = valid(draft.copy(conversationId = "pending"))
 
     private fun valid(draft: SharedDraft): Boolean {
         if (!draft.conversationId.matches(ID) || draft.text.length > MAX_TEXT_CHARS) return false
