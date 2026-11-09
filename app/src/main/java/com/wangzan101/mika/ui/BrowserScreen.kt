@@ -94,11 +94,17 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
         filePickerId = null
         if (id != null) browser.answerFileChooser(id, uris)
     }
+    var mediaPermissionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var locationPermissionId by rememberSaveable { mutableStateOf<String?>(null) }
     val askMediaPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        browser.answerPagePermission(granted.isNotEmpty() && granted.values.all { it })
+        val id = mediaPermissionId
+        mediaPermissionId = null
+        if (id != null) browser.answerPagePermission(id, granted.isNotEmpty() && granted.values.all { it })
     }
     val askLocationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        browser.answerGeolocation(granted.isNotEmpty() && granted.values.any { it })
+        val id = locationPermissionId
+        locationPermissionId = null
+        if (id != null) browser.answerGeolocation(id, granted.values.any { it })
     }
     val page by browser.page.collectAsState()
     val dialog by browser.dialog.collectAsState()
@@ -296,29 +302,38 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     if (downloadsOpen) {
         DownloadsSheet(browser.downloads, onDismiss = { downloadsOpen = false })
     }
-    pagePermission?.let { req ->
-        val site = page?.url?.let { WebUrlPolicy.host(it) }?.let { face(it).name } ?: tr(R.string.drawer_browser)
+    val askingAndroid = mediaPermissionId != null || locationPermissionId != null
+    pagePermission?.takeUnless { askingAndroid }?.let { req ->
         WebPermissionDialog(
-            site = site,
-            what = mediaPermissionText(req.request.resources),
-            onAllow = {
-                val missing = mediaAndroidPermissions(req.request.resources)
+            site = req.origin,
+            what = mediaPermissionText(req.value.resources),
+            onAllow = allow@{
+                if (mediaPermissionId != null || locationPermissionId != null) return@allow
+                if (browser.pagePermission.value?.id != req.id) return@allow
+                val missing = mediaAndroidPermissions(req.value.resources)
                     .filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
-                if (missing.isEmpty()) browser.answerPagePermission(true) else askMediaPermissions.launch(missing.toTypedArray())
+                if (missing.isEmpty()) browser.answerPagePermission(req.id, true) else {
+                    mediaPermissionId = req.id
+                    askMediaPermissions.launch(missing.toTypedArray())
+                }
             },
-            onDeny = { browser.answerPagePermission(false) },
+            onDeny = { browser.answerPagePermission(req.id, false) },
         )
     }
-    geoPermission?.let { req ->
-        val site = req.origin?.let { WebUrlPolicy.host(it) }?.let { face(it).name } ?: tr(R.string.drawer_browser)
+    geoPermission?.takeUnless { askingAndroid || pagePermission != null }?.let { req ->
         WebPermissionDialog(
-            site = site,
+            site = req.origin,
             what = tr(R.string.browser_permission_location),
-            onAllow = {
+            onAllow = allow@{
+                if (mediaPermissionId != null || locationPermissionId != null) return@allow
+                if (browser.geoPermission.value?.id != req.id) return@allow
                 val missing = LOCATION_PERMISSIONS.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
-                if (missing.isEmpty()) browser.answerGeolocation(true) else askLocationPermission.launch(missing.toTypedArray())
+                if (missing.isEmpty()) browser.answerGeolocation(req.id, true) else {
+                    locationPermissionId = req.id
+                    askLocationPermission.launch(missing.toTypedArray())
+                }
             },
-            onDeny = { browser.answerGeolocation(false) },
+            onDeny = { browser.answerGeolocation(req.id, false) },
         )
     }
     if (menuOpen) {
