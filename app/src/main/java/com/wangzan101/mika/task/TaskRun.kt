@@ -670,16 +670,24 @@ class TaskRun(
                 val id = phone?.display?.current?.displayId ?: return false
                 return moveTask(taskId, id)
             }
+            val app = service.application as MikaApp
+            // 微信只使用当前绑定会话的独立授权；仍保留 Channel 来源及原有确认/接管规则。
+            val unlockAuthorized = taskUnlockAuthorization(provenance.origin, channelPeer) { peer ->
+                app.wechat.store.canUnlock(peer)
+            }
             val taskGate = TaskGate(states.locked, shellUp,
                 refreshLocked = states::refresh,
-                unattendedUnlock = if (provenance.origin == RunOrigin.Trigger) {
+                unattendedUnlock = unlockAuthorized?.let { authorized ->
                     {
-                        val result = (service.application as MikaApp).deviceAccess.access.unlock()
+                        val result = app.deviceAccess.access.unlock(authorized)
                         states.refresh()
-                        Log.i(TAG, "scheduled unlock finished: ${result.status}")
+                        Log.i(TAG, "${provenance.origin} unlock finished: ${result.status}")
                         result.status
                     }
-                } else null,
+                },
+                unlockFailureMessage = {
+                    tr(if (provenance.origin == RunOrigin.Channel) R.string.wechat_unlock_failed else R.string.trigger_unlock_failed)
+                },
             ) {
                 val t = phone?.screen?.target?.value
                 t != null && t.taskId >= 0 && moveBackToAgent(t.taskId)
