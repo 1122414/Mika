@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 
 /**
  * 浏览器页此刻打开的网页。[desktop]:标签此刻用的是电脑版网页;[loginFor]:这次是「给 Mika 登录」,为要登录的网站
@@ -51,8 +52,9 @@ data class BrowserPage(
     val loginFor: String? = null,
 )
 
-/** 用户浏览器里网页弹出的文件选择框:界面弹系统选择器,选好后调 [callback];[started] 防止转屏后重复弹。 */
-class FilePickRequest(val callback: ValueCallback<Array<Uri>>, val params: WebChromeClient.FileChooserParams) {
+/** 用户浏览器里网页弹出的文件选择框，选好的 URI 只交给发起请求的标签。 */
+class FilePickRequest(val tab: WebTab, val callback: ValueCallback<Array<Uri>>, val params: WebChromeClient.FileChooserParams) {
+    val id: String = UUID.randomUUID().toString()
     @Volatile var started = false
 }
 
@@ -158,10 +160,9 @@ class UserBrowser private constructor(private val app: Context) {
     val geoPermission: StateFlow<GeoPermissionRequest?> = _geoPermission.asStateFlow()
 
     /** 系统选择器回来了:交回网页;取消(空)交 null。 */
-    fun answerFileChooser(uris: List<Uri>?) {
-        val r = _filePick.value ?: return
-        _filePick.value = null
-        r.callback.onReceiveValue(uris?.takeIf { it.isNotEmpty() }?.toTypedArray())
+    fun answerFileChooser(id: String, uris: List<Uri>?) {
+        val r = _filePick.takeFileRequest(id, FilePickRequest::id) ?: return
+        r.callback.onReceiveValue(uris?.takeIf { tab === r.tab && it.isNotEmpty() }?.toTypedArray())
     }
 
     /** 用户同意或拒绝网页用摄像头、麦克风。 */
@@ -655,8 +656,9 @@ class UserBrowser private constructor(private val app: Context) {
         /** 用户自己看的这个标签要选文件:交给界面弹系统选择器。 */
         override fun onFileChooser(tab: WebTab, callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
             if (tab !== this@UserBrowser.tab) return false
-            _filePick.value?.callback?.onReceiveValue(null)
-            _filePick.value = FilePickRequest(callback, params)
+            val previous = _filePick.value
+            _filePick.value = FilePickRequest(tab, callback, params)
+            previous?.callback?.onReceiveValue(null)
             return true
         }
 
