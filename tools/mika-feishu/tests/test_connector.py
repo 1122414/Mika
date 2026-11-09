@@ -110,8 +110,56 @@ class BridgeTests(unittest.TestCase):
         self.deliver("/answer 同意", "om_2")
         self.assertEqual(len(self.api.writes), 1)
         self.api.status.update(status="waiting_for_answer", question="哪个城市？")
+        self.bridge.poll_once()
         self.deliver("上海", "om_3")
         self.assertEqual(self.api.writes[-1], ("answer", "上海"))
+
+    def test_poll_does_not_send_the_replaced_tasks_question(self):
+        peer = "oc_chat:ou_owner"
+        self.store.update(peer, task_id="task_old")
+
+        def replace_during_poll(task_id):
+            self.assertEqual(task_id, "task_old")
+            self.store.update(peer, task_id="task_1")
+            return {"task_id": "task_old", "status": "waiting_for_answer", "question": "Old question?"}
+
+        with patch.object(self.api, "task", side_effect=replace_during_poll):
+            self.bridge.poll_once()
+        self.assertEqual(self.sent, [])
+        self.api.status.update(status="waiting_for_answer", question="New question?")
+        self.deliver("old answer")
+        self.assertEqual(self.api.writes, [])
+
+    def test_reply_must_match_current_question_message(self):
+        peer = "oc_chat:ou_owner"
+        self.store.update(peer, task_id="task_old")
+        self.api.status.update(task_id="task_old", status="waiting_for_answer", question="Old question?")
+
+        def send(*message):
+            self.sent.append(message)
+            return ["bot_" + str(len(self.sent))]
+
+        self.bridge.send = send
+        self.bridge.poll_once()
+        self.store.update(peer, task_id="task_1", notice="")
+        self.api.status.update(task_id="task_1", question="New question?")
+        self.bridge.poll_once()
+
+        for mid, parent, answer in (("old", "bot_1", "old answer"), ("new", "bot_2", "new answer")):
+            data = event(mid, answer)
+            data["event"]["message"]["parent_id"] = parent
+            self.assertTrue(self.bridge.receive(data))
+            self.bridge.work_once()
+        self.assertEqual(self.api.writes, [("answer", "new answer")])
+
+    def test_status_can_show_the_current_question_before_an_explicit_answer(self):
+        self.deliver()
+        self.api.status.update(status="waiting_for_answer", question="Which city?")
+        self.deliver("/answer Shanghai", "om_2")
+        self.assertEqual(len(self.api.writes), 1)
+        self.deliver("/status", "om_3")
+        self.deliver("/answer Shanghai", "om_4")
+        self.assertEqual(self.api.writes[-1], ("answer", "Shanghai"))
 
     def test_terminal_notifications_sent_once_and_resume_same_conversation(self):
         self.deliver()
@@ -161,8 +209,12 @@ class BridgeTests(unittest.TestCase):
     def test_real_sdk_event_serialization(self):
         import lark_oapi as lark
         from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
-        payload = json.loads(lark.JSON.marshal(P2ImMessageReceiveV1(event())))
-        self.assertEqual(normalize(payload)["user"], "ou_owner")
+        data = event()
+        data["event"]["message"]["parent_id"] = "om_current_question"
+        payload = json.loads(lark.JSON.marshal(P2ImMessageReceiveV1(data)))
+        normalized = normalize(payload)
+        self.assertEqual(normalized["user"], "ou_owner")
+        self.assertEqual(normalized["reply_to"], "om_current_question")
 
     def test_private_config_permissions_and_secret_roundtrip(self):
         from mika_feishu.config import load_config, save_config
