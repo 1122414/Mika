@@ -208,4 +208,8 @@
     <string name="recommendations_too_many">می‌توانید حداکثر %1$d کار پیشنهادی ذخیره کنید</string>
     <string name="recommendations_unreadable">کارهای پیشنهادی ذخیره‌شده خوانده نشدند، بنابراین فعلاً قابل تغییر نیستند.</string>
     <string name="share_draft_replace_body">این محتوای به‌اشتراک‌گذاشته‌شده جایگزین پیش‌نویس فعلی شما می‌شود.</string>
+    <string name="chat_attach_unavailable">افزودن ممکن نشد: %1$s. بررسی کنید فایل‌ها در دسترس و در محدودهٔ حجم باشند.</string>
+    <string name="chat_retry_missing">%1$s: فایل موجود نیست</string>
+    <string name="chat_retry_limit">%1$s: به سقف کپی رسید</string>
+    <string name="chat_retry_failed">%1$s: کپی ممکن نشد</string>
 </resources>

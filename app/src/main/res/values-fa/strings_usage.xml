@@ -35,4 +35,17 @@
     <string name="usage_input">ورودی</string>
     <string name="usage_output">خروجی</string>
     <string name="usage_calls">فراخوانی‌ها</string>
+    <string name="usage_allowance_title">سهمیهٔ فعلی</string>
+    <string name="usage_allowance_loading">در حال بررسی سهمیه…</string>
+    <string name="usage_allowance_unavailable">موقتاً در دسترس نیست</string>
+    <string name="usage_allowance_balance">موجودی حساب: %1$s</string>
+    <string name="usage_allowance_key_limit">سقف هزینهٔ باقی‌ماندهٔ کلید: %1$s</string>
+    <string name="usage_allowance_no_key_limit">برای این کلید سقف هزینه تعیین نشده است</string>
+    <string name="usage_allowance_view_balance">مشاهدهٔ موجودی حساب</string>
+    <string name="usage_allowance_reset_daily">بازنشانی روزانه</string>
+    <string name="usage_allowance_reset_weekly">بازنشانی هفتگی</string>
+    <string name="usage_allowance_reset_monthly">بازنشانی ماهانه</string>
+    <string name="usage_allowance_updated">آخرین به‌روزرسانی %1$s</string>
+    <string name="usage_allowance_self_hosted">اتصال با میزبانی شخصی</string>
+    <string name="usage_allowance_unsupported">بررسی سهمیه برای این اتصال در دسترس نیست</string>
 </resources>

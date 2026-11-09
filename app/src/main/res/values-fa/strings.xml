@@ -108,4 +108,27 @@
     <string name="speech_asr_language_ja">ژاپنی</string>
     <string name="speech_asr_language_yue">کانتونی</string>
     <string name="speech_asr_language_ko">کره‌ای</string>
+    <string name="terminal_title">ترمینال</string>
+    <string name="terminal_open">ترمینال</string>
+    <string name="terminal_open_action">باز کردن ترمینال</string>
+    <string name="terminal_network_on">آنلاین</string>
+    <string name="terminal_network_off">آفلاین</string>
+    <string name="terminal_preparing">در حال آماده‌سازی محیط…</string>
+    <string name="terminal_unsupported">این دستگاه از ترمینال پشتیبانی نمی‌کند (نیاز به arm64).</string>
+    <string name="terminal_unavailable">محیط هنوز آماده نیست. لحظه‌ای دیگر دوباره تلاش کنید.</string>
+    <string name="terminal_limit">حداکثر دو ترمینال می‌توانند هم‌زمان باز باشند. ابتدا یکی را ببندید.</string>
+    <string name="terminal_storage_low">کمتر از ۵۰۰ مگابایت فضای آزاد وجود دارد، بنابراین ترمینال باز نمی‌شود.</string>
+    <string name="terminal_busy">محیط در حال بازنشانی است. لحظه‌ای دیگر دوباره تلاش کنید.</string>
+    <string name="terminal_revoked">محیط بازنشانی شد یا فضای کاری پاک شد، بنابراین ترمینال بسته شد.</string>
+    <string name="terminal_exited">ترمینال پایان یافت (کد خروج %1$d).</string>
+    <string name="terminal_closed">ترمینال بسته است.</string>
+    <string name="terminal_close">بستن ترمینال</string>
+    <string name="terminal_close_title">این ترمینال بسته شود؟</string>
+    <string name="terminal_close_body">برنامه‌هایی که هنوز در حال اجرا هستند نیز متوقف می‌شوند.</string>
+    <string name="terminal_close_confirm">بستن</string>
+    <string name="terminal_retry">باز کردن دوباره</string>
+    <string name="terminal_stop">توقف</string>
+    <string name="terminal_task_running">میکا در همین فضای کاری در حال کار است؛ تغییرات هر دو طرف ممکن است تداخل ایجاد کند.</string>
+    <string name="terminal_copy_all">کپی همه</string>
+    <string name="terminal_copied">کپی شد</string>
 </resources>
