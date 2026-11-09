@@ -168,6 +168,8 @@ class TaskRun(
     internal var provenance = RunProvenance()
     internal var triggerWindowKey: String? = null
     internal var triggerActionGoal: String? = null
+    /** 条件检查运行时用户写的条件原文;对话和通知显示它,不显示生成的检查目标 [goal]。 */
+    internal var triggerCondition: String? = null
     internal var triggerThreadId: String? = null
     internal var mcpExternalId: String? = null
     internal var channelPeer: ChannelPeer? = null
@@ -368,7 +370,7 @@ class TaskRun(
                 if (stopPressed) markSteers(setOf(messageId), SteerState.Cancelled)
                 else {
                     markSteers(setOf(messageId), SteerState.Next)
-                    service.deferMessage(conversationId, text)
+                    service.deferMessage(conversationId, text, messageId)
                 }
             }
         }
@@ -403,7 +405,7 @@ class TaskRun(
         val (discard, next) = left.partition { cancelled || it.currentTaskOnly }
         markSteers(discard.map { it.messageId }.toSet(), SteerState.Cancelled)
         markSteers(next.map { it.messageId }.toSet(), SteerState.Next)
-        next.forEach { service.deferMessage(conversationId, it.text) }
+        next.forEach { service.deferMessage(conversationId, it.text, it.messageId) }
     }
 
     /** 已交给这个任务的插话,随这一轮存进对话。 */
@@ -582,7 +584,7 @@ class TaskRun(
                     }
                 // 服务卡在「开着却没运行」、正在自动重启时多等一会儿,修好了接着做,放弃了照常报错
                 val a11y = AccessibilityRepair.awaitService(ScreenAccessibility.instance, phoneServices.recovery.accessibilityRepair.phase, A11Y_WAIT_MS)
-                    ?: throw PhoneUnavailable(NO_ACCESSIBILITY)
+                    ?: throw PhoneUnavailable(StatusCopy.accessibilityUnavailable(phoneServices.recovery.accessibility.value.enabled))
                 recovery.beginRun(shell, key)
                 // 只有用过手机的任务才跟着 shell 的死活:shell 没了,虚拟屏和上面的 App 一起没了
                 shellDeath = IBinder.DeathRecipient {
@@ -675,6 +677,7 @@ class TaskRun(
                         val result = (service.application as MikaApp).deviceAccess.access.unlock()
                         states.refresh()
                         Log.i(TAG, "scheduled unlock finished: ${result.status}")
+                        result.status
                     }
                 } else null,
             ) {
@@ -686,7 +689,14 @@ class TaskRun(
             val sink: RunSink = withContext(Dispatchers.IO) {
                 runCatching {
                     val runs = RunStore(service).also { runStore = it }
-                    runs.open(goal).also { record = it; _runId.value = it.runId }
+                    runs.open(goal).also { opened ->
+                        record = opened
+                        _runId.value = opened.runId
+                        service.rememberRecord(this@TaskRun, opened.runId)
+                        mcpExternalId?.let { ext ->
+                            (service.application as? com.wangzan101.mika.MikaApp)?.remoteTasks?.rememberRun(ext, opened.runId)
+                        }
+                    }
                 }.onFailure { Log.w(TAG, "run record unavailable, running without it", it) }.getOrNull()
             } ?: RunSink.NONE
             val trace = record?.takeIf { traceTicket != null }?.let { run ->
@@ -834,6 +844,8 @@ class TaskRun(
                 // 这个对话之前几轮的运行记录(只读;history_read 只认 runSpec 里这个对话的轮次)
                 runRecords = RunStore(service).reader(),
                 mcpServers = mcpEndpoints(),
+                // 仅用户明确配置并启用时提供通用搜索;否则继续用浏览器搜索。
+                webSearch = com.wangzan101.mika.settings.WebSearchSettings.get(service).service(),
                 // 已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才登记 root 工具(子任务、条件检查不给)
                 root = phoneServices.shellManager.root.takeIf { !conditionCheck && it.commandsAllowed() }
                     ?.let { r -> RootCommands(RootShell::su, r::commandsAllowed) { a -> if (a == null) r.suGone() else r.commandsDenied(a) } })
@@ -953,7 +965,7 @@ class TaskRun(
 
                 override suspend fun returnWeb(loggedIn: Boolean): HandoverActivity? =
                     webStack?.let { w -> withContext(Dispatchers.Main) { w.returnFromTakeover(loggedIn) } }
-            }, side, queue = service.takeoverQueue)
+            }, side, queue = service.takeoverQueue, remind = { service.refreshNotifications(this@TaskRun) })
             takeover = handover
             handoverRef = handover
 
@@ -1142,6 +1154,27 @@ class TaskRun(
     /** 停止后有没有可交代的:做过至少一件事,或停下时已经写出了字。 */
     fun hasStopMaterial(draft: String?): Boolean = synchronized(activityLog) { activityLog.isNotEmpty() } || !draft.isNullOrBlank()
 
+    /** 真正失败后的断点交代:只按记录拼,不再请模型,也不把短失败原因改写成成功。 */
+    suspend fun checkpointSummary(): String? {
+        val k = kit
+        val runId = _runId.value
+        val recorded = withContext(Dispatchers.IO) {
+            try {
+                runId?.let { id -> k?.runStore?.events(id) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+        val events = recorded?.takeIf { StopSummary.worthSaying(it, null) } ?: synchronized(activityLog) { activityLog.toList() }
+        if (!StopSummary.worthSaying(events, null)) return null
+        val labels = ToolLabels(knownTools())
+        return StopSummary.plain(k?.agent?.taskText ?: goal, events, null, labels::label) {
+            ConfirmationNotifier.appLabel(service, it)
+        }
+    }
+
     /**
      * 用户停止之后:按这次已经做了的事写几行交代(见 [StopSummary]),只读运行记录,不再操作任何东西。
      * 轻量模型优先,没配用主模型;没模型、出错、超时就按记录直接拼。没什么可交代的为 null。
@@ -1306,7 +1339,6 @@ class TaskRun(
         const val A11Y_WAIT_MS = 5_000L
         val NO_PHONE_HELPER: String get() = tr(R.string.task_no_phone_helper)
         val NO_PHONE_HELPER_USB: String get() = tr(R.string.task_no_phone_helper_usb)
-        val NO_ACCESSIBILITY: String get() = tr(R.string.task_no_a11y)
         const val TAG = "MikaTask"
     }
 }
