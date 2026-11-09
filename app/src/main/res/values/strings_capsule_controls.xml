@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="capsule_edge_reveal">Show capsule</string>
-    <string name="capsule_edge_detail">After dragging to an edge, the idle capsule tucks into a half circle. Tap it to show the capsule. Requests that need you stay fully visible.</string>
+    <string name="capsule_hide_at_edge">Auto-hide at screen edge</string>
     <string name="capsule_hide_fullscreen">Hide capsule in fullscreen</string>
-    <string name="capsule_hide_fullscreen_detail">Hide when the foreground app fills the screen with the status bar hidden; restore after fullscreen. Tasks and notifications continue. Off by default.</string>
+    <string name="capsule_tile_label">Mika capsule</string>
+    <string name="capsule_tile_enabled">Available in Quick Settings</string>
     <string name="capsule_tile_setup">Open Mika and set up phone control to use the floating capsule.</string>
-    <string name="capsule_tile_add">Add to Quick Settings</string>
-    <string name="capsule_tile_manual">In Android Quick Settings, tap Edit and add Floating capsule to switch it on or off. You can also use Mika Settings › Floating capsule.</string>
     <string name="pip_size_smaller">Smaller preview</string>
     <string name="pip_size_larger">Larger preview</string>
     <string name="pip_size_reset">Reset preview size</string>

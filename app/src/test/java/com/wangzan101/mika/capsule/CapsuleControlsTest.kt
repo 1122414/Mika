@@ -10,11 +10,11 @@ class CapsuleControlsTest {
 
     private fun tucked(kind: CapsuleKind = CapsuleKind.Idle, pill: Boolean = false, needs: Int = 0,
         expanded: Boolean = false, dragging: Boolean = false, talking: Boolean = false, note: Boolean = false,
-        idle: Long = CapsuleFade.IDLE_MS, docked: Boolean = true) =
-        CapsuleEdge.hidden(docked, kind, pill, needs, expanded, dragging, talking, note, idle)
+        idle: Long = CapsuleFade.IDLE_MS, enabled: Boolean = true) =
+        CapsuleEdge.hidden(enabled, kind, pill, needs, expanded, dragging, talking, note, idle)
 
     @Test fun draggedBallTucksOnlyAfterTheIdleDelay() {
-        assertFalse(tucked(docked = false))
+        assertFalse(tucked(enabled = false))
         assertFalse(tucked(idle = CapsuleFade.IDLE_MS - 1))
         assertTrue(tucked())
         assertTrue(tucked(kind = CapsuleKind.Running))
@@ -75,5 +75,12 @@ class CapsuleControlsTest {
         assertEquals(CapsuleTileAction.OpenApp, CapsuleTilePolicy.action(CapsuleMode.Off, false, false))
         assertEquals(CapsuleTileAction.OpenApp, CapsuleTilePolicy.action(CapsuleMode.Off, true, true))
         assertEquals(CapsuleTileAction.TurnOn, CapsuleTilePolicy.action(CapsuleMode.Off, true, false))
+    }
+
+    @Test fun enablingCapsuleRequestsAccessibilityOnlyWhenItIsMissing() {
+        assertFalse(CapsuleSetup.needsAccessibility(CapsuleMode.Off, false))
+        assertFalse(CapsuleSetup.needsAccessibility(CapsuleMode.Always, true))
+        assertTrue(CapsuleSetup.needsAccessibility(CapsuleMode.Always, false))
+        assertTrue(CapsuleSetup.needsAccessibility(CapsuleMode.DuringTasks, false))
     }
 }

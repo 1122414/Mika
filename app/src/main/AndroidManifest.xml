@@ -195,9 +195,10 @@
 
         <!-- Android Quick Settings binds this service; ordinary apps cannot toggle the capsule through it. -->
         <service android:name=".capsule.CapsuleTileService"
+            android:enabled="false"
             android:exported="true"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
-            android:label="@string/capsule_settings_title"
+            android:label="@string/capsule_tile_label"
             android:icon="@drawable/ic_capsule_tile">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

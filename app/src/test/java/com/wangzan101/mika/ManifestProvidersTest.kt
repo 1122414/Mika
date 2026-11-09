@@ -157,7 +157,9 @@ class ManifestProvidersTest {
         val services = doc.getElementsByTagName("service")
         val tile = (0 until services.length).map { services.item(it) as Element }
             .single { it.getAttributeNS(androidNs, "name") == ".capsule.CapsuleTileService" }
+        assertEquals("false", tile.getAttributeNS(androidNs, "enabled"))
         assertEquals("true", tile.getAttributeNS(androidNs, "exported"))
+        assertEquals("@string/capsule_tile_label", tile.getAttributeNS(androidNs, "label"))
         assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE", tile.getAttributeNS(androidNs, "permission"))
         val actions = tile.getElementsByTagName("action")
         assertEquals(1, actions.length)

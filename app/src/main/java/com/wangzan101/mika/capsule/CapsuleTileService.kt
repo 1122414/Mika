@@ -1,9 +1,9 @@
 package com.wangzan101.mika.capsule
 
 import android.app.PendingIntent
-import android.app.StatusBarManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
@@ -68,7 +68,7 @@ class CapsuleTileService : TileService() {
 
     private fun refresh(mode: CapsuleMode, quit: Boolean, ready: Boolean) {
         val tile = qsTile ?: return
-        tile.label = tr(R.string.capsule_settings_title)
+        tile.label = tr(R.string.capsule_tile_label)
         tile.icon = Icon.createWithResource(this, R.drawable.ic_capsule_tile)
         tile.state = if (mode != CapsuleMode.Off && !quit && ready) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.subtitle = tr(when {
@@ -81,18 +81,19 @@ class CapsuleTileService : TileService() {
     }
 
     companion object {
-        fun requestAdd(context: Context) {
-            if (Build.VERSION.SDK_INT < 33) return
-            runCatching {
-                context.getSystemService(StatusBarManager::class.java).requestAddTileService(
-                    ComponentName(context, CapsuleTileService::class.java),
-                    context.getString(R.string.capsule_settings_title),
-                    Icon.createWithResource(context, R.drawable.ic_capsule_tile),
-                    context.mainExecutor,
-                ) { result ->
-                    if (result !in StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED..StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) Toast.makeText(context, R.string.capsule_tile_manual, Toast.LENGTH_LONG).show()
-                }
-            }.onFailure { Toast.makeText(context, R.string.capsule_tile_manual, Toast.LENGTH_LONG).show() }
+        private fun component(context: Context) = ComponentName(context, CapsuleTileService::class.java)
+
+        /** The manifest default is disabled, so users opt in before Android lists the tile. */
+        fun isAvailable(context: Context): Boolean =
+            context.packageManager.getComponentEnabledSetting(component(context)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+
+        fun setAvailable(context: Context, available: Boolean) {
+            context.packageManager.setComponentEnabledSetting(
+                component(context),
+                if (available) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP,
+            )
+            if (available) runCatching { TileService.requestListeningState(context, component(context)) }
         }
     }
 }

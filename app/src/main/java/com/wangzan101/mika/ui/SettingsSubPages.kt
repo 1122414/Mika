@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.capsule.CapsuleCardScale
 import com.wangzan101.mika.capsule.CapsuleIdleOpacity
 import com.wangzan101.mika.capsule.CapsuleMode
+import com.wangzan101.mika.capsule.CapsuleTileService
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
 import com.wangzan101.mika.settings.ChannelRow
 import com.wangzan101.mika.settings.Prerequisites
@@ -458,7 +459,13 @@ fun CapsuleScreen(
 ) {
     val context = LocalContext.current
     val flags = remember { FeatureFlags.get(context) }
+    val hideAtEdge by remember(flags) { flags.capsuleHideAtEdgeChanges() }.collectAsState(flags.capsuleHideAtEdge())
     val hideFullscreen by remember(flags) { flags.capsuleHideFullscreenChanges() }.collectAsState(flags.capsuleHideFullscreen())
+    var quickSettings by remember { mutableStateOf(CapsuleTileService.isAvailable(context)) }
+    fun setQuickSettings(on: Boolean) {
+        CapsuleTileService.setAvailable(context, on)
+        quickSettings = CapsuleTileService.isAvailable(context)
+    }
     PageScaffold(CapsuleSettingsCopy.TITLE, onBack) {
         GroupCard {
             CapsuleMode.entries.forEachIndexed { i, m ->
@@ -472,7 +479,7 @@ fun CapsuleScreen(
         GroupCard {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 ListRow(
-                    MikaIcons.Photo, CapsuleSettingsCopy.IDLE_OPACITY, CapsuleSettingsCopy.IDLE_OPACITY_DETAIL,
+                    MikaIcons.Photo, CapsuleSettingsCopy.IDLE_OPACITY,
                     first = true, titleColor = if (mode == CapsuleMode.Off) MikaTheme.colors.ink3 else androidx.compose.ui.graphics.Color.Unspecified,
                 ) { RowValue("${idleOpacity.percent}%") }
                 Slider(
@@ -509,18 +516,19 @@ fun CapsuleScreen(
             }
         }
         GroupCard {
+            ListRow(MikaIcons.EyeOff, stringResource(R.string.capsule_hide_at_edge), first = true,
+                onClick = { flags.setCapsuleHideAtEdge(!hideAtEdge) }) {
+                MikaSwitch(hideAtEdge, flags::setCapsuleHideAtEdge, Modifier.testTag("capsule-hide-at-edge"))
+            }
             ListRow(MikaIcons.Screens, stringResource(R.string.capsule_hide_fullscreen),
-                stringResource(R.string.capsule_hide_fullscreen_detail), first = true,
                 onClick = { flags.setCapsuleHideFullscreen(!hideFullscreen) }) {
                 MikaSwitch(hideFullscreen, flags::setCapsuleHideFullscreen, Modifier.testTag("capsule-hide-fullscreen"))
             }
+            ListRow(MikaIcons.Apps, stringResource(R.string.capsule_tile_enabled),
+                onClick = { setQuickSettings(!quickSettings) }) {
+                MikaSwitch(quickSettings, ::setQuickSettings, Modifier.testTag("capsule-quick-settings"))
+            }
         }
-        FooterNote(stringResource(R.string.capsule_edge_detail))
-        if (android.os.Build.VERSION.SDK_INT >= 33) GroupCard {
-            ListRow(MikaIcons.Plus, stringResource(R.string.capsule_tile_add), first = true,
-                onClick = { com.wangzan101.mika.capsule.CapsuleTileService.requestAdd(context) }) { RowChevron() }
-        }
-        FooterNote(stringResource(R.string.capsule_tile_manual))
         FooterNote(CapsuleSettingsCopy.FOOTNOTE)
         FooterNote(CapsuleSettingsCopy.BACKGROUND)
     }

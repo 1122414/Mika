@@ -23,15 +23,15 @@ class FeatureFlagsCapsuleControlsTest {
         }
     }
 
-    @Test fun hiddenPreferenceAndDockingDefaultOffAndPersist() {
+    @Test fun automaticHidePreferencesDefaultOffAndPersist() {
         val prefs = FeatureFlagsCapsuleTest.MemoryPrefs()
         val flags = FeatureFlags(prefs)
         assertFalse(flags.capsuleHideFullscreen())
-        assertFalse(flags.capsuleEdgeDocked())
+        assertFalse(flags.capsuleHideAtEdge())
         flags.setCapsuleHideFullscreen(true)
-        flags.setCapsuleEdgeDocked(true)
+        flags.setCapsuleHideAtEdge(true)
         assertTrue(FeatureFlags(prefs).capsuleHideFullscreen())
-        assertTrue(FeatureFlags(prefs).capsuleEdgeDocked())
+        assertTrue(FeatureFlags(prefs).capsuleHideAtEdge())
     }
 
     @Test fun fullscreenPreferenceEmitsLiveChanges() = runTest {
@@ -42,6 +42,19 @@ class FeatureFlagsCapsuleControlsTest {
         flags.setCapsuleHideFullscreen(true)
         runCurrent()
         flags.setCapsuleHideFullscreen(false)
+        job.join()
+        assertEquals(listOf(false, true, false), values)
+    }
+
+
+    @Test fun edgePreferenceEmitsLiveChanges() = runTest {
+        val flags = FeatureFlags(FeatureFlagsCapsuleTest.MemoryPrefs())
+        val values = mutableListOf<Boolean>()
+        val job = launch { flags.capsuleHideAtEdgeChanges().take(3).toList(values) }
+        runCurrent()
+        flags.setCapsuleHideAtEdge(true)
+        runCurrent()
+        flags.setCapsuleHideAtEdge(false)
         job.join()
         assertEquals(listOf(false, true, false), values)
     }

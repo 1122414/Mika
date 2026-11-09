@@ -131,7 +131,6 @@ class CapsuleController(
     private var preview by mutableStateOf<Bitmap?>(null)
     private var zoomed by mutableStateOf(false)
     private var dock by mutableStateOf(flags.capsuleDock())
-    private var edgeDocked = flags.capsuleEdgeDocked()
     private var edgeHidden by mutableStateOf(false)
     private var inputUi by mutableStateOf(CardInputUi())
     /** 截到一屏时加一:一颗上闪一下。 */
@@ -260,10 +259,16 @@ class CapsuleController(
             combine(
                 combine(
                     runs(),
-                    combine(mode, flags.capsuleIdleOpacityChanges(), flags.capsuleCardScaleChanges()) { m, o, s -> Triple(m, o, s) },
+                    combine(
+                        mode,
+                        flags.capsuleIdleOpacityChanges(),
+                        flags.capsuleHideAtEdgeChanges(),
+                        flags.capsuleCardScaleChanges(),
+                    ) { m, opacity, hideAtEdge, cardScale -> RenderSettings(m, opacity, hideAtEdge, cardScale) },
                     foreground.visible, screen.locked, ScreenAccessibility.instance,
                 ) { r, settings, f, l, a ->
-                    Snapshot(r, settings.first, f, l, a, opacity = settings.second, cardScale = settings.third)
+                    Snapshot(r, settings.mode, f, l, a,
+                        opacity = settings.opacity, hideAtEdge = settings.hideAtEdge, cardScale = settings.cardScale)
                 }.combine(fullscreen) { s, full -> s.copy(fullscreen = full) },
                 ticks,
                 keeper.page,
@@ -319,6 +324,13 @@ class CapsuleController(
         refresh()
     }
 
+    private data class RenderSettings(
+        val mode: CapsuleMode,
+        val opacity: CapsuleIdleOpacity,
+        val hideAtEdge: Boolean,
+        val cardScale: CapsuleCardScale,
+    )
+
     private data class Snapshot(
         val runs: List<CapsuleRun>, val mode: CapsuleMode, val mikaInForeground: Boolean, val locked: Boolean,
         val service: ScreenAccessibility?,
@@ -327,6 +339,7 @@ class CapsuleController(
         val opacity: CapsuleIdleOpacity = CapsuleIdleOpacity.DEFAULT,
         /** 展开卡片的缩放档位,改了当场生效(见 [CardOverlay])。 */
         val cardScale: CapsuleCardScale = CapsuleCardScale.DEFAULT,
+        val hideAtEdge: Boolean = false,
         val fullscreen: Boolean = false,
     )
 
@@ -862,7 +875,7 @@ class CapsuleController(
         val v = view ?: return
         val idleFor = System.currentTimeMillis() - lastActive
         val before = edgeHidden
-        edgeHidden = CapsuleEdge.hidden(edgeDocked, v.kind, v.pill, v.needCount,
+        edgeHidden = CapsuleEdge.hidden(last?.hideAtEdge == true, v.kind, v.pill, v.needCount,
             expanded || capturing, dragging, talk.active, note != null, idleFor)
         alpha = if (expanded || dragging) 1f else CapsuleFade.alpha(v.kind, v.needCount, v.pill, idleFor, last?.opacity?.alpha ?: CapsuleIdleOpacity.DEFAULT.alpha)
         if (before != edgeHidden) {
@@ -1061,8 +1074,6 @@ class CapsuleController(
             val base = area(ime = false) ?: a
             dock = CapsuleDocking.release(x, y, w.width, w.height, a, base)
             flags.setCapsuleDock(dock)
-            edgeDocked = true
-            flags.setCapsuleEdgeDocked(true)
             wake()
             snapTo(x, y, CapsuleDocking.dockedX(dock.side, a, w.width))
         }

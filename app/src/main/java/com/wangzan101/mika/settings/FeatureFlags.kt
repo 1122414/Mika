@@ -204,17 +204,20 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         setCapsuleMode(if (capsuleMode() == CapsuleMode.Off) saved.takeIf { it != CapsuleMode.Off } ?: CapsuleMode.Always else CapsuleMode.Off)
     }
 
-    fun capsuleEdgeDocked(): Boolean = prefs.getBoolean(CAPSULE_EDGE_DOCKED, false)
-    fun setCapsuleEdgeDocked(on: Boolean) { prefs.edit().putBoolean(CAPSULE_EDGE_DOCKED, on).commit() }
+    fun capsuleHideAtEdge(): Boolean = prefs.getBoolean(CAPSULE_HIDE_AT_EDGE, false)
+    fun setCapsuleHideAtEdge(on: Boolean) { prefs.edit().putBoolean(CAPSULE_HIDE_AT_EDGE, on).commit() }
+    fun capsuleHideAtEdgeChanges(): Flow<Boolean> = booleanChanges(CAPSULE_HIDE_AT_EDGE, ::capsuleHideAtEdge)
 
     fun capsuleHideFullscreen(): Boolean = prefs.getBoolean(CAPSULE_HIDE_FULLSCREEN, false)
     fun setCapsuleHideFullscreen(on: Boolean) { prefs.edit().putBoolean(CAPSULE_HIDE_FULLSCREEN, on).commit() }
-    fun capsuleHideFullscreenChanges(): Flow<Boolean> = callbackFlow {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == null || key == CAPSULE_HIDE_FULLSCREEN) trySend(capsuleHideFullscreen())
+    fun capsuleHideFullscreenChanges(): Flow<Boolean> = booleanChanges(CAPSULE_HIDE_FULLSCREEN, ::capsuleHideFullscreen)
+
+    private fun booleanChanges(prefKey: String, value: () -> Boolean): Flow<Boolean> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
+            if (changedKey == null || changedKey == prefKey) trySend(value())
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
-        send(capsuleHideFullscreen())
+        send(value())
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
@@ -336,7 +339,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private val SKIN_KEYS = setOf(SKIN_VERSION, SKIN_SCRIM, SKIN_BLUR, SKIN_FOCUS, SKIN_ACCENT_FOLLOW, SKIN_HUE)
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_RESUME_MODE = "capsule_resume_mode"
-        private const val CAPSULE_EDGE_DOCKED = "capsule_edge_docked"
+        private const val CAPSULE_HIDE_AT_EDGE = "capsule_hide_at_edge"
         private const val CAPSULE_HIDE_FULLSCREEN = "capsule_hide_fullscreen"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
         private const val CAPSULE_CARD_SCALE = "capsule_card_scale"
