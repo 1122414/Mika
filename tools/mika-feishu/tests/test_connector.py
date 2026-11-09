@@ -1,11 +1,14 @@
 import json
 import os
+import socket
+import ssl
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 from mika_feishu.api import ApiError, MikaApi
 from mika_feishu.bridge import Bridge, normalize
@@ -177,12 +180,14 @@ class ContractTests(unittest.TestCase):
     """Wire-level contract derived from official v0.1.31 RemoteTaskApi/RemoteStatus."""
     def setUp(self):
         self.calls, self.version, self.caps, self.mode = [], 1, ["tasks", "task_steer"], "ok"
+        self.hosts = []
         parent = self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
 
             def handle_request(self):
+                parent.hosts.append(self.headers.get("Host"))
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 parent.calls.append((self.command, self.path, body, self.headers.get("Authorization")))
                 if self.path == "/api/v1":
@@ -242,6 +247,52 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ApiError):
             self.api.check()
         self.assertEqual(len(self.calls), 1)
+
+    def test_request_connects_to_the_address_it_validated(self):
+        host = "phone.example.test"
+        port = self.server.server_port
+        resolve, connect = socket.getaddrinfo, socket.socket.connect
+        answers = iter(("127.0.0.1", "127.0.0.1", "203.0.113.9"))
+        attempted = []
+
+        def changing_dns(name, port, *args, **kwargs):
+            return resolve(next(answers) if name == host else name, port, *args, **kwargs)
+
+        def observe_connection(sock, address):
+            attempted.append(address[0])
+            # Route even an incorrect address to the local fixture; never connect to it.
+            return connect(sock, ("127.0.0.1", port))
+
+        with patch.object(socket, "getaddrinfo", changing_dns), patch.object(socket.socket, "connect", observe_connection):
+            MikaApi(f"http://{host}:{port}", "test-token").check()
+        self.assertEqual(attempted, ["127.0.0.1"])
+        self.assertEqual(self.calls[0][3], "Bearer test-token")
+        self.assertEqual(self.hosts, [f"{host}:{port}"])
+
+    def test_public_address_after_setup_is_rejected_before_connecting(self):
+        port = self.server.server_port
+        public = [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("203.0.113.9", port))]
+        with patch.object(socket, "getaddrinfo", return_value=public), patch.object(socket.socket, "connect") as connect:
+            with self.assertRaises(ApiError) as error:
+                self.api.request("POST", "/tasks", {"goal": "test"})
+        connect.assert_not_called()
+        self.assertFalse(error.exception.uncertain)
+
+    def test_tls_keeps_original_hostname_after_address_validation(self):
+        host = "phone.example.test"
+        port = self.server.server_port
+        resolve = socket.getaddrinfo
+        handshakes = []
+
+        def wrap(context, sock, *, server_hostname):
+            handshakes.append((context.check_hostname, context.verify_mode, server_hostname))
+            return sock  # The local fixture serves HTTP; verify the TLS arguments only.
+
+        with patch.object(socket, "getaddrinfo", side_effect=lambda name, port, **kw: resolve("127.0.0.1", port, **kw)):
+            with patch.object(ssl.SSLContext, "wrap_socket", wrap):
+                MikaApi(f"https://{host}:{port}", "test-token").check()
+        self.assertEqual(handshakes, [(True, ssl.CERT_REQUIRED, host)])
+        self.assertEqual(self.hosts, [f"{host}:{port}"])
 
     def test_additive_fields_tolerated(self):
         info = self.api.check()
