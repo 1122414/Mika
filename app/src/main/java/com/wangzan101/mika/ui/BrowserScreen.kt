@@ -83,11 +83,16 @@ import com.wangzan101.mika.ui.theme.MikaType
 @Composable
 fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     val context = LocalContext.current
+    var filePickerId by rememberSaveable { mutableStateOf<String?>(null) }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        browser.answerFileChooser(uri?.let { listOf(it) })
+        val id = filePickerId
+        filePickerId = null
+        if (id != null) browser.answerFileChooser(id, uri?.let { listOf(it) })
     }
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        browser.answerFileChooser(uris)
+        val id = filePickerId
+        filePickerId = null
+        if (id != null) browser.answerFileChooser(id, uris)
     }
     val askMediaPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         browser.answerPagePermission(granted.isNotEmpty() && granted.values.all { it })
@@ -129,13 +134,15 @@ fun BrowserScreen(browser: UserBrowser, onBack: () -> Unit) {
     // 换了一页(还没在这一页上问过时)重新找接着的对话;关了网页回到什么都没有
     val pageUrl = page?.url
     LaunchedEffect(pageUrl) { chat.onPage(pageUrl) }
-    // 网页要选文件:弹系统选择器;转屏后同一个请求不重复弹(request.started)
-    LaunchedEffect(filePick) {
+    // 系统选择器返回前先保留原请求 ID，新的请求等原选择器结束再弹。
+    LaunchedEffect(filePick, filePickerId) {
         val request = filePick ?: return@LaunchedEffect
-        if (request.started) return@LaunchedEffect
+        if (filePickerId != null || request.started || browser.filePick.value?.id != request.id) return@LaunchedEffect
         request.started = true
-        val types = chooserMimeTypes(request.params)
-        if (request.params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) pickFiles.launch(types) else pickFile.launch(types)
+        filePickerId = request.id
+        val params = request.params
+        val types = chooserMimeTypes(params)
+        if (params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) pickFiles.launch(types) else pickFile.launch(types)
     }
 
     // 这一处浏览器页:进来时登记,回到前台时把网页视图要过来(界面有两个实例时挂在看得见的那个上),
