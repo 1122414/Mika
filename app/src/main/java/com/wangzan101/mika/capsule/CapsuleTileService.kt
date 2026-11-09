@@ -69,7 +69,7 @@ class CapsuleTileService : TileService() {
     private fun refresh(mode: CapsuleMode, quit: Boolean, ready: Boolean) {
         val tile = qsTile ?: return
         tile.label = tr(R.string.capsule_tile_label)
-        tile.icon = Icon.createWithResource(this, R.drawable.ic_capsule_tile)
+        tile.icon = Icon.createWithResource(this, R.mipmap.ic_launcher)
         tile.state = if (mode != CapsuleMode.Off && !quit && ready) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.subtitle = tr(when {
             mode == CapsuleMode.Off -> R.string.capsule_mode_off

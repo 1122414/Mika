@@ -160,6 +160,7 @@ class ManifestProvidersTest {
         assertEquals("false", tile.getAttributeNS(androidNs, "enabled"))
         assertEquals("true", tile.getAttributeNS(androidNs, "exported"))
         assertEquals("@string/capsule_tile_label", tile.getAttributeNS(androidNs, "label"))
+        assertEquals("@mipmap/ic_launcher", tile.getAttributeNS(androidNs, "icon"))
         assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE", tile.getAttributeNS(androidNs, "permission"))
         val actions = tile.getElementsByTagName("action")
         assertEquals(1, actions.length)
