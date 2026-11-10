@@ -48,26 +48,21 @@ import java.util.Date
 fun CallSettingsScreen(runtime: CallRuntime, onInstructions: (() -> Unit)? = null, onBack: () -> Unit,
     standalone: Boolean = false, onHelperSetup: () -> Unit = {}, onAbout: () -> Unit = {},
     updateAvailable: Boolean = false, focusRequest: Int = 0) {
-    var voiceCloneOpen by rememberSaveable { mutableStateOf(false) }
     var instructionsOpen by rememberSaveable { mutableStateOf(false) }
     var handledFocusRequest by rememberSaveable { mutableIntStateOf(0) }
     val workspaceState = rememberSaveableStateHolder()
     val taskDraft = rememberSaveable(saver = CallTaskDraft.Saver) { CallTaskDraft() }
     LaunchedEffect(focusRequest) {
         if (focusRequest > 0 && focusRequest != handledFocusRequest) {
-            voiceCloneOpen = false
             instructionsOpen = false
             handledFocusRequest = focusRequest
         }
     }
     when {
-        voiceCloneOpen -> VoiceCloneScreen(runtime) { voiceCloneOpen = false }
         instructionsOpen -> CallInstructionsScreen(runtime) { instructionsOpen = false }
         else -> workspaceState.SaveableStateProvider("call-workspace") {
             CallSettingsWorkspace(runtime, taskDraft, onBack, onInstructions ?: { instructionsOpen = true },
-                standalone, onHelperSetup, onAbout, updateAvailable, focusRequest) {
-                voiceCloneOpen = true
-            }
+                standalone, onHelperSetup, onAbout, updateAvailable, focusRequest)
         }
     }
 }
@@ -78,7 +73,6 @@ private fun CallSettingsWorkspace(
     onBack: () -> Unit, onInstructions: () -> Unit,
     standalone: Boolean, onHelperSetup: () -> Unit, onAbout: () -> Unit, updateAvailable: Boolean,
     focusRequest: Int,
-    onVoiceClone: () -> Unit,
 ) {
     val config by runtime.settings.state.collectAsState()
     val state by runtime.state.collectAsState()
@@ -294,7 +288,6 @@ private fun CallSettingsWorkspace(
                             onPrepare = prepare, onStop = { perform(priority = true) { runtime.stop() } },
                             onHelperSetup = onHelperSetup, onStartStandby = startStandby,
                             onCredentials = { dialog = CallDialog.Credentials }, onProfile = { dialog = CallDialog.Profile },
-                            onVoiceClone = onVoiceClone,
                             onVerifyAudio = { verified ->
                                 scope.launch { save { it.copy(audioVerified = verified, autoAnswer = verified && it.autoAnswer) } }
                             },
@@ -581,7 +574,7 @@ private fun CallPreferencesPage(
     config: CallConfig, state: CallRuntimeState, ready: Boolean, openDeviceRequest: Int,
     canConfigure: Boolean, stopBusy: Boolean, device: CallDeviceControls, canStartStandby: Boolean,
     onPrepare: () -> Unit, onStop: () -> Unit, onCredentials: () -> Unit, onProfile: () -> Unit,
-    onVoiceClone: () -> Unit, onVerifyAudio: (Boolean) -> Unit, onDefaultSim: (String?) -> Unit,
+    onVerifyAudio: (Boolean) -> Unit, onDefaultSim: (String?) -> Unit,
     onHelperSetup: () -> Unit, onStartStandby: () -> Unit,
 ) {
     var deviceOpen by rememberSaveable { mutableStateOf(!ready || !config.audioVerified) }
@@ -651,8 +644,6 @@ private fun CallPreferencesPage(
             ) { RowChevron() }
             ListRow(MikaIcons.Message, stringResource(R.string.calls_profile),
                 stringResource(R.string.calls_model_label, config.model), onClick = onProfile.takeIf { canConfigure }) { RowChevron() }
-            ListRow(MikaIcons.Mic, stringResource(R.string.voice_clone_title), stringResource(R.string.voice_clone_entry),
-                onClick = onVoiceClone.takeIf { canConfigure }) { RowChevron() }
         }
     }
 
