@@ -211,7 +211,7 @@
 
 - 基于 PRoot 和 Alpine 3.22 的运行环境,随 APK 自带,App 启动时在后台离线解包(`app/cap/sandbox/RuntimePreparer.kt`、`RootfsInstaller.kt`);Mika 升级后自动重新解包。沙箱程序只有 arm64 版本,其他设备显示「此设备不支持(需要 arm64)」,模型也被告知不用这组工具。来源与构建见 `tools/sandbox/README.md`。
 - 每个对话一个工作区,沙箱里是 `/workspace`,跨消息保留;聊天里附加的文件放进 `/workspace/inbox/`;`share_file` 把文件存到手机的「下载/Mika」并在对话里显示为文件卡片;点卡片时网页、Markdown、PDF、图片和文本类文件在 App 里的查看页打开(`FileViewerActivity`,见第 15 节),其余交给系统里能打开它的 App。
-- 默认断网,设置 → 高级 → 文件与计算环境里「允许脚本联网」打开后才联网;设备无法隔离网络时,只有打开「允许脚本联网」才能运行(`AndroidSandbox`、`AdvancedSection` 的提示)。每个任务有累计运行时间预算,同一条命令反复失败会被叫停(`core/cap/sandbox/SandboxGuard.kt`)。
+- 默认联网,设置 → 高级 → 文件与计算环境里关闭「允许脚本联网」后才断网;设备无法隔离网络时,只有打开「允许脚本联网」才能运行(`AndroidSandbox`、`AdvancedSection` 的提示)。每个任务有累计运行时间预算,同一条命令反复失败会被叫停(`core/cap/sandbox/SandboxGuard.kt`)。
 - **网络代理**:用的是设置 › 高级与其他的「网络代理」(见第 12 节「网络代理」),这一页不再重复显示。只在允许联网的命令里给(`AndroidSandbox` 不联网时传空),经 `ProcRunner.env` 放进 `http_proxy`/`https_proxy`/`all_proxy`(大小写各一份)和 `no_proxy`(`LocalHosts.NO_PROXY`:本机、局域网网段和后缀直连);`https://` 代理只有这里的命令用得上。
 - **已用空间**:同一页下面一组(`SandboxUsageReader`,`app/cap/sandbox/SandboxUsage.kt`):合计、运行环境、技能、对话的工作区各占多少,再按对话列出工作区(按对话标题,对话已删掉的写「已删除的对话」,大的在前)。大小按目录树里的普通文件算,不跟进链接(`AndroidSandbox.treeBytes`)。点一行先确认再清掉那个工作区,最后一行清空所有;和删对话一样经文件闸门按句柄删、不跟进链接,拿着树锁的独占许可(`SandboxDirs.exclusiveWrite`,删、换整棵目录都走它)、和命令、导入、重置互斥,拿到许可后才查对话忙不忙(清空所有时每删一个前都再查);删大目录的这段时间里所有对话的沙箱命令都要等;有任务在跑或排队的对话写明「暂时不能清理」,清空所有时跳过它们。运行环境和技能随 App 自带,不在这里清(要从头准备用「重置运行环境」)。容器里不挂手机存储。
 - 工具:`run_command`、`run_bundled_script`(运行知识、技能自带的脚本,见 `docs/dev/skill-scripts.md`)、`read_file`、`write_file`、`search_files`、`share_file`。
