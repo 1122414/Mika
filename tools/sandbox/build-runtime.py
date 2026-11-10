@@ -58,21 +58,10 @@ def _opener(url):
     return opener.open(req, timeout=120)
 ARCH = "aarch64"
 # What `apk add` would be asked for. Keep in sync with core SANDBOX_PACKAGES (a JVM test checks it).
-# Base set (preinstalled): Python/Node + Pillow + pypdf + tzdata.
-# Doc base set: poppler-utils (PDF->image/text), CJK font (reportlab needs a TTF for CJK output).
-# Network base: curl/unzip/zip for everyday fetch work.
-# Keep in sync with core SANDBOX_PACKAGES (a JVM test checks it).
+# Base set: Python/Node + Pillow + pypdf + tzdata + the pip toolchain.
+# Doc set: poppler-utils (PDF->text/image), a CJK font + fontconfig (CJK output).
+# Everyday CLI: curl/unzip/zip/git/jq for fetch/unpack/repo work in scripts.
 WANT = ["python3", "nodejs", "py3-pillow", "py3-pypdf", "tzdata", "py3-pip", "py3-setuptools", "py3-wheel", "py3-packaging", "poppler-utils", "font-wqy-zenhei", "fontconfig", "curl", "unzip", "zip", "git", "jq"]
-# pip packages preinstalled into the runtime (CN mirror, https://pypi.tuna.tsinghua.edu.cn).
-# These are the "document + everyday" base; AI installs heavy/scientific extras on demand.
-PIP_PACKAGES = [
-    "reportlab", "fpdf2", "python-docx", "openpyxl", "xlsxwriter",
-    "requests", "httpx", "beautifulsoup4", "lxml", "cryptography",
-]
-# Where pip-installed packages land in the rootfs, and the CN PyPI simple-index used to fetch wheels.
-PIP_SITE = "usr/lib/python3.12/site-packages"
-PIP_SIMPLE = ["https://pypi.tuna.tsinghua.edu.cn/simple", "https://pypi.org/simple"]
-PIP_WHEEL_CACHE = os.path.join(CACHE, "wheels")
 # Install scripts and triggers that a real `apk add` would run on the phone, pinned by SHA-256 of the script, and why
 # the runtime is already right without running them. Any other install script or trigger stops the build.
 SCRIPTS_NOT_RUN = {
@@ -100,8 +89,6 @@ def _openssl_path():
     candidates = [
         r"C:\Program Files\Git\usr\bin\openssl.exe",
         r"C:\Program Files\Git\mingw64\bin\openssl.exe",
-        r"E:\开发软件\kaifa\Git\usr\bin\openssl.exe",
-        r"E:\开发软件\kaifa\Git\mingw64\bin\openssl.exe",
     ]
     for c in candidates:
         if os.path.isfile(c):
@@ -109,82 +96,6 @@ def _openssl_path():
     die("openssl not found on PATH or common locations; install Git for Windows or OpenSSL")
 
 
-def _pip_pick_wheel(links):
-    """Pick the best wheel filename for aarch64 CPython 3.12 from a list of (url, filename)."""
-    def score(fn):
-        s = 0
-        if "cp312" in fn: s += 4
-        if "manylinux" in fn and "aarch64" in fn: s += 6
-        if "aarch64" in fn and "cp312" in fn: s += 6
-        if "py3-none-any" in fn: s += 3
-        if fn.endswith(".whl"): s += 1
-        if "musllinux" in fn: s -= 4
-        if "win" in fn or "macosx" in fn or "x86_64" in fn or "i686" in fn: s -= 20
-        return s
-    best = None
-    for url, fn in links:
-        sc = score(fn)
-        if best is None or sc > best[0]:
-            best = (sc, url, fn)
-    return best
-
-
-def _pip_download(name):
-    """Download a wheel (and cache it) for `name` from a CN simple index; return the wheel path."""
-    import urllib.parse
-    os.makedirs(PIP_WHEEL_CACHE, exist_ok=True)
-    for base in PIP_SIMPLE:
-        url = f"{base}/{name.lower()}/"
-        try:
-            with _opener(url) as r:
-                html = r.read().decode("utf-8", "replace")
-            links = []
-            for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>([^<]+)</a>', html):
-                href, fn = m.group(1), m.group(2)
-                if fn.endswith(".whl"):
-                    full = urllib.parse.urljoin(url, href)
-                    links.append((full, fn))
-            if not links:
-                continue
-            pick = _pip_pick_wheel(links)
-            if not pick or pick[0] < 0:
-                continue
-            _, wurl, wfn = pick
-            dest = os.path.join(PIP_WHEEL_CACHE, wfn)
-            if not os.path.isfile(dest):
-                fetch(wurl, dest)
-            return dest
-        except Exception as e:
-            print(f"build-runtime: pip {name} via {base}: {e}", file=sys.stderr)
-    die(f"could not fetch a wheel for {name}")
-
-
-def preinstall_pip(tree, epoch):
-    """Extract the base pip wheels (pre-downloaded by `pip download` into PIP_WHEEL_CACHE,
-    with the right platform/ABI) into the rootfs site-packages (in the in-memory tree).
-    Every .whl in the cache is unpacked; the cache is populated offline so this step never
-    touches the network.  Wheels already provided by apk (e.g. Pillow via py3-pillow) may
-    co-exist; pip wheels win on import because they land under the same site-packages."""
-    import zipfile as _zip
-    if not os.path.isdir(PIP_WHEEL_CACHE) or not os.listdir(PIP_WHEEL_CACHE):
-        print(f"build-runtime: WARNING no pre-downloaded wheels in {PIP_WHEEL_CACHE}; "
-              f"run `pip download` first.  Continuing without pip preinstall.", file=sys.stderr)
-        return
-    for whl in sorted(os.listdir(PIP_WHEEL_CACHE)):
-        if not whl.endswith(".whl"):
-            continue
-        path = os.path.join(PIP_WHEEL_CACHE, whl)
-        with _zip.ZipFile(path, "r") as zf:
-            for zi in zf.infolist():
-                if zi.is_dir():
-                    continue
-                data = zf.read(zi)
-                ti = tarfile.TarInfo(f"{PIP_SITE}/{zi.filename}")
-                ti.size = len(data)
-                ti.mode = 0o755 if ".so" in zi.filename else 0o644
-                ti.mtime = epoch
-                tree.put(ti, data)
-    print(f"build-runtime: preinstalled {len(os.listdir(PIP_WHEEL_CACHE))} pip wheels into {PIP_SITE}")
 def die(msg):
     print(f"build-runtime: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -581,10 +492,6 @@ def build(out_asset):
         manifest.append({"name": p["P"], "version": p["V"], "license": p.get("L", ""), "origin": p.get("o", ""),
                          "url": p.get("U", ""), "repo": "main", "commit": p.get("c", "")})
     manifest.sort(key=lambda e: e["name"])
-
-    # Preinstall the base pip library set (doc + everyday) into site-packages so the
-    # sandbox can generate PDF/Word/Excel and scrape without any first-run download.
-    preinstall_pip(tree, epoch)
 
     # Remove PEP668 EXTERNALLY-MANAGED marker so pip can install into system
     # site-packages directly (required for on-demand package installs).
