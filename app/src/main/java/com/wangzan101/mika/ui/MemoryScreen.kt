@@ -93,6 +93,11 @@ fun MemoryScreen(
     onOpenRoutes: () -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
+    var market by rememberSaveable { mutableStateOf(false) }
+    if (market) {
+        SkillMarketScreen(onBack = { market = false }, onImport = vm::importSkill)
+        return
+    }
     val ui by vm.ui.collectAsState()
     var editing by remember { mutableStateOf<Row?>(null) }
     var acting by remember { mutableStateOf<Row?>(null) }
@@ -141,7 +146,7 @@ fun MemoryScreen(
                     ListRow(MikaIcons.Plus, stringResource(R.string.memory_add), first = true, titleColor = MikaTheme.colors.accent, tone = TileTone.Accent, onClick = { adding = true })
                 }
             }
-            Segment.Skills -> SkillsSection(vm, ui.skills, pending = false)
+            Segment.Skills -> SkillsSection(vm, ui.skills, pending = false, onMarket = { market = true })
             Segment.Pending -> {
                 if (ui.pendingCount == 0) {
                     GroupLabel("")
