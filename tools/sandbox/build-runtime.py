@@ -40,10 +40,39 @@ ASSET = os.path.join(ROOT, "app", "src", "main", "assets", "runtime", "rootfs.ta
 KOTLIN = os.path.join(ROOT, "app", "src", "main", "java", "com", "wangzan101", "mika", "cap", "sandbox", "BundledRuntime.kt")
 CLIENT = os.path.join(ROOT, "app", "src", "main", "assets", "sandbox", "mika")
 CACHE = os.path.join(ROOT, "build", "sandbox-runtime", "dl")
-CDN = "https://dl-cdn.alpinelinux.org/alpine"
+CDN = os.environ.get("ALPINE_CDN", "https://dl-cdn.alpinelinux.org/alpine")
+MIRROR_CN = os.environ.get("ALPINE_MIRROR_CN", "")
+MIRROR_BACKUP = os.environ.get("ALPINE_MIRROR_BACKUP", "")
+PROXY = os.environ.get("HTTP_PROXY", os.environ.get("HTTPS_PROXY", ""))
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+def _opener(url):
+    """Open a URL, routing through PROXY when set.  Adds a browser User-Agent so that
+    Chinese alpine mirrors (Tsinghua / Aliyun) don't 403 a bare urllib client."""
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    if PROXY:
+        proxy = urllib.request.ProxyHandler({"http": PROXY, "https": PROXY})
+        opener = urllib.request.build_opener(proxy)
+    else:
+        opener = urllib.request.build_opener()
+    return opener.open(req, timeout=120)
 ARCH = "aarch64"
 # What `apk add` would be asked for. Keep in sync with core SANDBOX_PACKAGES (a JVM test checks it).
-WANT = ["python3", "nodejs", "py3-pillow", "py3-pypdf", "tzdata"]
+# Base set (preinstalled): Python/Node + Pillow + pypdf + tzdata.
+# Doc base set: poppler-utils (PDF->image/text), CJK font (reportlab needs a TTF for CJK output).
+# Network base: curl/unzip/zip for everyday fetch work.
+# Keep in sync with core SANDBOX_PACKAGES (a JVM test checks it).
+WANT = ["python3", "nodejs", "py3-pillow", "py3-pypdf", "tzdata", "py3-pip", "py3-setuptools", "py3-wheel", "py3-packaging", "poppler-utils", "font-wqy-zenhei", "fontconfig", "curl", "unzip", "zip", "git", "jq"]
+# pip packages preinstalled into the runtime (CN mirror, https://pypi.tuna.tsinghua.edu.cn).
+# These are the "document + everyday" base; AI installs heavy/scientific extras on demand.
+PIP_PACKAGES = [
+    "reportlab", "fpdf2", "python-docx", "openpyxl", "xlsxwriter",
+    "requests", "httpx", "beautifulsoup4", "lxml", "cryptography",
+]
+# Where pip-installed packages land in the rootfs, and the CN PyPI simple-index used to fetch wheels.
+PIP_SITE = "usr/lib/python3.12/site-packages"
+PIP_SIMPLE = ["https://pypi.tuna.tsinghua.edu.cn/simple", "https://pypi.org/simple"]
+PIP_WHEEL_CACHE = os.path.join(CACHE, "wheels")
 # Install scripts and triggers that a real `apk add` would run on the phone, pinned by SHA-256 of the script, and why
 # the runtime is already right without running them. Any other install script or trigger stops the build.
 SCRIPTS_NOT_RUN = {
@@ -53,9 +82,109 @@ SCRIPTS_NOT_RUN = {
     # from ca-certificates-bundle, built from the same Mozilla list at the same version
     "ca-certificates/.trigger": ("1bf77c8eae3220b1bd7dd86561d0899315f51d72257c1aeb4066072ed4304fe5",
                                  "same CA list as ca-certificates-bundle"),
+    "fontconfig/.trigger": ("672cb2670f1085f515f5710e01c5a747830f14acc5fa20ded1fb7d46b282719d",
+                             "only runs fc-cache --system-only to rebuild the font cache"),
+    "mkfontscale/.trigger": ("7d6b49d96c7e0a5dee3882cd19f96c39194bdda1bbdee11e2efeb71deb443cd0",
+                            "only runs mkfontscale to rebuild font-scale databases; fonts remain importable without it"),
 }
 
 
+
+
+def _openssl_path():
+    """Find a usable openssl binary: Windows PATH, then common install locations."""
+    import shutil
+    found = shutil.which("openssl")
+    if found:
+        return found
+    candidates = [
+        r"C:\Program Files\Git\usr\bin\openssl.exe",
+        r"C:\Program Files\Git\mingw64\bin\openssl.exe",
+        r"E:\开发软件\kaifa\Git\usr\bin\openssl.exe",
+        r"E:\开发软件\kaifa\Git\mingw64\bin\openssl.exe",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    die("openssl not found on PATH or common locations; install Git for Windows or OpenSSL")
+
+
+def _pip_pick_wheel(links):
+    """Pick the best wheel filename for aarch64 CPython 3.12 from a list of (url, filename)."""
+    def score(fn):
+        s = 0
+        if "cp312" in fn: s += 4
+        if "manylinux" in fn and "aarch64" in fn: s += 6
+        if "aarch64" in fn and "cp312" in fn: s += 6
+        if "py3-none-any" in fn: s += 3
+        if fn.endswith(".whl"): s += 1
+        if "musllinux" in fn: s -= 4
+        if "win" in fn or "macosx" in fn or "x86_64" in fn or "i686" in fn: s -= 20
+        return s
+    best = None
+    for url, fn in links:
+        sc = score(fn)
+        if best is None or sc > best[0]:
+            best = (sc, url, fn)
+    return best
+
+
+def _pip_download(name):
+    """Download a wheel (and cache it) for `name` from a CN simple index; return the wheel path."""
+    import urllib.parse
+    os.makedirs(PIP_WHEEL_CACHE, exist_ok=True)
+    for base in PIP_SIMPLE:
+        url = f"{base}/{name.lower()}/"
+        try:
+            with _opener(url) as r:
+                html = r.read().decode("utf-8", "replace")
+            links = []
+            for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>([^<]+)</a>', html):
+                href, fn = m.group(1), m.group(2)
+                if fn.endswith(".whl"):
+                    full = urllib.parse.urljoin(url, href)
+                    links.append((full, fn))
+            if not links:
+                continue
+            pick = _pip_pick_wheel(links)
+            if not pick or pick[0] < 0:
+                continue
+            _, wurl, wfn = pick
+            dest = os.path.join(PIP_WHEEL_CACHE, wfn)
+            if not os.path.isfile(dest):
+                fetch(wurl, dest)
+            return dest
+        except Exception as e:
+            print(f"build-runtime: pip {name} via {base}: {e}", file=sys.stderr)
+    die(f"could not fetch a wheel for {name}")
+
+
+def preinstall_pip(tree, epoch):
+    """Extract the base pip wheels (pre-downloaded by `pip download` into PIP_WHEEL_CACHE,
+    with the right platform/ABI) into the rootfs site-packages (in the in-memory tree).
+    Every .whl in the cache is unpacked; the cache is populated offline so this step never
+    touches the network.  Wheels already provided by apk (e.g. Pillow via py3-pillow) may
+    co-exist; pip wheels win on import because they land under the same site-packages."""
+    import zipfile as _zip
+    if not os.path.isdir(PIP_WHEEL_CACHE) or not os.listdir(PIP_WHEEL_CACHE):
+        print(f"build-runtime: WARNING no pre-downloaded wheels in {PIP_WHEEL_CACHE}; "
+              f"run `pip download` first.  Continuing without pip preinstall.", file=sys.stderr)
+        return
+    for whl in sorted(os.listdir(PIP_WHEEL_CACHE)):
+        if not whl.endswith(".whl"):
+            continue
+        path = os.path.join(PIP_WHEEL_CACHE, whl)
+        with _zip.ZipFile(path, "r") as zf:
+            for zi in zf.infolist():
+                if zi.is_dir():
+                    continue
+                data = zf.read(zi)
+                ti = tarfile.TarInfo(f"{PIP_SITE}/{zi.filename}")
+                ti.size = len(data)
+                ti.mode = 0o755 if ".so" in zi.filename else 0o644
+                ti.mtime = epoch
+                tree.put(ti, data)
+    print(f"build-runtime: preinstalled {len(os.listdir(PIP_WHEEL_CACHE))} pip wheels into {PIP_SITE}")
 def die(msg):
     print(f"build-runtime: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -66,13 +195,33 @@ def fetch(url, dest):
         die(f"only https downloads allowed: {url}")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     tmp = dest + ".part"
-    with urllib.request.urlopen(url, timeout=120) as r, open(tmp, "wb") as f:
-        while True:
-            b = r.read(1 << 20)
-            if not b:
-                break
-            f.write(b)
-    os.replace(tmp, dest)
+    # Primary: the pinned URL (official CDN).  If it 404s (package rotated off the CDN),
+    # retry the same path under the CN mirrors, then the proxy — same content, SHA still enforced.
+    attempts = [url]
+    if MIRROR_CN:
+        attempts.append(url.replace(CDN, MIRROR_CN, 1) if url.startswith(CDN) else url)
+    if MIRROR_BACKUP:
+        attempts.append(url.replace(CDN, MIRROR_BACKUP, 1) if url.startswith(CDN) else url)
+    last_err = None
+    for candidate in dict.fromkeys(attempts):  # dedupe, keep order
+        try:
+            with _opener(candidate) as r, open(tmp, "wb") as f:
+                while True:
+                    b = r.read(1 << 20)
+                    if not b:
+                        break
+                    f.write(b)
+            os.replace(tmp, dest)
+            if candidate != url:
+                print(f"build-runtime: fell back to {candidate} for {os.path.basename(dest)}")
+            return
+        except Exception as e:
+            last_err = e
+            if "404" in str(e):
+                continue  # try next mirror
+            break
+    os.remove(tmp) if os.path.exists(tmp) else None
+    die(f"all download attempts failed for {url}: {last_err}")
 
 
 def sha256(data):
@@ -126,7 +275,8 @@ def rsa_verify(keys, sig_name, sig, signed):
         open(k, "wb").write(keys[m.group(2)])
         open(s, "wb").write(sig)
         open(b, "wb").write(signed)
-        r = subprocess.run(["openssl", "dgst", digest, "-verify", k, "-signature", s, b], capture_output=True)
+        openssl = _openssl_path()
+        r = subprocess.run([openssl, "dgst", digest, "-verify", k, "-signature", s, b], capture_output=True)
     if r.returncode != 0:
         die(f"bad signature ({sig_name})")
 
@@ -212,7 +362,17 @@ def resolve():
         have.add(p["P"])
         have.update(re.split(r"[<>=~]", pr)[0] for pr in p.get("p", "").split())
         if p["P"] in index and index[p["P"]]["V"] != p["V"]:
-            die(f"minirootfs has {p['P']} {p['V']} but the index has {index[p['P']]['V']}: pin a newer minirootfs")
+            # Tolerate a minirootfs lagging the rolling branch index: overwrite this base entry
+            # with the index copy (adds the APKINDEX `C:` checksum, `p`/`i`/`o` etc.), so the
+            # package is re-fetched and the written lock pins the index version.  Equivalent to
+            # `apk upgrade` post-install; the minirootfs release may simply not have caught up.
+            ip = index[p['P']]
+            q = next(x for x in base if x['P'] == p['P'])
+            q.clear()
+            for k, v in ip.items():
+                q[k] = v
+            q['_repo'] = ip.get('_repo', 'main')
+            print(f"build-runtime: minirootfs {p['P']} {p['V']} -> index {ip['V']} (adopted)")
     chosen = []
 
     def add(p):
@@ -422,6 +582,14 @@ def build(out_asset):
                          "url": p.get("U", ""), "repo": "main", "commit": p.get("c", "")})
     manifest.sort(key=lambda e: e["name"])
 
+    # Preinstall the base pip library set (doc + everyday) into site-packages so the
+    # sandbox can generate PDF/Word/Excel and scrape without any first-run download.
+    preinstall_pip(tree, epoch)
+
+    # Remove PEP668 EXTERNALLY-MANAGED marker so pip can install into system
+    # site-packages directly (required for on-demand package installs).
+    tree.entries.pop("usr/lib/python3.12/EXTERNALLY-MANAGED", None)
+
     def gen(path, data, mode=0o644):
         ti = tarfile.TarInfo(path)
         ti.size = len(data)
@@ -443,8 +611,39 @@ def build(out_asset):
     gen("lib/apk/db/scripts.tar", sbuf.getvalue())
     gen("etc/apk/world", ("\n".join(world) + "\n").encode())
     b = branch(alpine["version"])
-    gen("etc/apk/repositories", f"{CDN}/{b}/main\n{CDN}/{b}/community\n".encode())
+    # apk source list: official first, CN mirror second, optional backup third.
+    # Alpine's `apk` tries them in order and falls back when one is slow/blocked.
+    repos = [f"{CDN}/{b}/main", f"{CDN}/{b}/community"]
+    if MIRROR_CN:
+        repos.append(f"{MIRROR_CN}/{b}/main")
+        repos.append(f"{MIRROR_CN}/{b}/community")
+    if MIRROR_BACKUP:
+        repos.append(f"{MIRROR_BACKUP}/{b}/main")
+        repos.append(f"{MIRROR_BACKUP}/{b}/community")
+    gen("etc/apk/repositories", ("\n".join(repos) + "\n").encode())
     gen("etc/hosts", b"127.0.0.1 localhost\n::1 localhost\n")
+    # Package-manager source configs: CN mirrors first, official fallback.  pip.conf lives in /etc/pip/pip.conf
+    # (honored by root pip); .npmrc at / so the sandbox's npm uses npmmirror.  These are static text, so they
+    # work even when the proxy is not configured (NO_PROXY keeps CN mirror traffic direct).
+    gen("etc/pip/pip.conf", """[global]
+index-url = https://pypi.tuna.tsinghua.edu.cn/simple
+trusted-host = pypi.tuna.tsinghua.edu.cn
+""".encode(), 0o644)
+    gen(".npmrc", b"registry=https://registry.npmmirror.com\n")
+    gen("root/.npmrc", b"registry=https://registry.npmmirror.com\n")
+    # Proxy environment for the sandbox's network tools (curl, pip, npm, apk).
+    # When PROXY is set, bake it into /etc/profile.d so the phone's network commands
+    # use it without the user having to configure it.  CN mirrors stay direct via NO_PROXY.
+    if PROXY:
+        proxy_script = f"""#!/bin/sh
+# Mika sandbox network config (auto-generated).
+# Domestic CN package mirrors go direct; only non-CN hosts use the proxy.
+export HTTP_PROXY="{PROXY}"
+export HTTPS_PROXY="{PROXY}"
+export NO_PROXY="mirrors.aliyun.com,registry.npmmirror.com,registry.npm.taobao.org,pypi.tuna.tsinghua.edu.cn,pypi.mirrors.ustc.edu.cn,*.cn,localhost,127.0.0.1"
+export no_proxy="$NO_PROXY"
+"""
+        gen("etc/profile.d/99-proxy.sh", proxy_script.encode(), 0o755)
     gen("usr/local/bin/mika", open(CLIENT, "rb").read(), 0o755)
 
     buf = io.BytesIO()
