@@ -191,7 +191,7 @@ private fun AppKnowledgeItem(vm: MemoryViewModel, row: AppKnowledgeRow, first: B
 @Composable
 private fun SkillBody(r: SkillRow, expanded: Boolean) = ChangesAndText(r.changedLines, expanded) {
     val body = remember(r.markdown) { skillPreviewBody(r.markdown) }
-    MarkdownText(body, MikaType.Body.copy(color = MikaTheme.colors.ink), Modifier.fillMaxWidth().padding(top = 6.dp))
+    SkillReadingView(body)
 }
 
 /** Strip only a recognized skill header; horizontal rules in ordinary Markdown are content. */
