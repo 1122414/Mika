@@ -7,6 +7,7 @@ import com.wangzan101.mika.cap.sandbox.SandboxDirs
 import com.wangzan101.mika.chat.AttachFilesProvider
 import com.wangzan101.mika.chat.SharedFile
 import com.wangzan101.mika.chat.SharedDraftCopy
+import com.wangzan101.mika.core.cap.sandbox.ShareRules
 import com.wangzan101.mika.ui.viewer.FileViewer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -120,16 +121,23 @@ object LibraryFileActions {
         }
     }
 
+    /**
+     * 副本的文件名:路径分隔符和控制字符换成 `_`,按 UTF-8 字节截短(文件名上限 255 字节,复制时还要接 `.tmp`),
+     * 保留扩展名、不劈开字(放进草稿、预览都按扩展名认类型),和导出、导入附件用的是同一个函数。
+     */
+    internal fun copyName(raw: String): String =
+        ShareRules.fitName(raw.replace(Regex("[\\\\/\\u0000-\\u001f]"), "_"))
+            .takeUnless { it.isBlank() || it == "." || it == ".." } ?: "attachment"
+
     private data class Copy(val file: File, val attachment: PendingAttachment)
 
     private suspend fun stage(context: Context, source: LibraryFileHandle, forDraft: Boolean): Copy? =
         withContext(Dispatchers.IO + NonCancellable) {
             cleanupOrphanedDraftCopies(context)
-            val name = when (source) {
+            val name = copyName(when (source) {
                 is LibraryFileHandle.Workspace -> source.path.substringAfterLast('/')
                 is LibraryFileHandle.Exported -> source.file.name
-            }.replace(Regex("[\\\\/\\u0000-\\u001f]"), "_").take(180)
-                .takeUnless { it.isBlank() || it == "." || it == ".." } ?: "attachment"
+            })
             val root = if (forDraft) File(context.filesDir, "library-attachments") else File(context.cacheDir, "library-viewing")
             if (!forDraft) {
                 val cutoff = System.currentTimeMillis() - 24 * 60 * 60_000L
