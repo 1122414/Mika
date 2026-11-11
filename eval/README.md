@@ -1,5 +1,13 @@
 # Mika 评测任务集
 
+要比较两组手机导出的用量记录，在仓库根目录运行
+`python3 eval/usage_compare.py --before A.ndjson --after B.ndjson --verified A.ndjson B.ndjson`。
+`--verified` 只列已独立验收正确的运行；同组失败/取消的导出也要列入对应组。
+可选 `--tariffs prices.json` 按服务商 ID 与模型分别计价，文件格式如
+`{"provider-id":{"model-name":[2,0.2,4]}}`，依次为每百万未缓存输入、缓存输入、输出的单价（统一货币）。
+旧导出没有逐模型分组，只有确认所有调用适用同价时才传 `--uniform-prices 2 0.2 4`。
+缺用量或缺单价时不推定金额；汇总成本含失败尝试，仅作为运行期估计。缺少同条件成功对照时不推断成功率或收益。
+
 真机评测用的题目。一题一个 JSON 文件,放在 `tasks/<类别>/…/<id>.json`,文件名就是 `id`。
 评测器(`app/src/androidTest/.../eval/EvalRunTest`)从测试包的 assets 读题,经 `TaskService` 的真实路径一题一题地跑,打分并写汇总。
 

@@ -7,6 +7,20 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class RunUsageTallyTest {
+    @Test fun mixedModelsRetriesAndAuxiliaryWorkReconcileWithRunTotals() {
+        val t = RunUsageTally()
+        val a = UsageSource("a", "A", "same", UsagePurpose.Main)
+        val b = UsageSource("b", "B", "same", UsagePurpose.Light)
+        t.add(Usage(100, 8, 80), 1, a)
+        t.add(null, 1, b)
+        t.add(Usage(20, 2, 10), 2, b)
+        val e = t.event(1)
+        assertEquals(listOf("a", "b"), e.groups.map { it.provider })
+        assertEquals(2, e.groups.last().httpUnreported)
+        assertEquals(e.httpCalls, e.groups.sumOf { it.httpCalls })
+        assertEquals(e.inputTokens, e.groups.sumOf { it.inputTokens })
+        assertEquals(e.cachedTokens, e.groups.sumOf { it.cachedTokens })
+    }
     @Test fun inputPlusOutputReachesTheBudgetWithoutCountingCachedInputTwice() {
         val tally = RunUsageTally(tokenBudget = 5)
         tally.add(Usage(inputTokens = 3, outputTokens = 2, cachedInputTokens = 2), httpAttempts = 1)

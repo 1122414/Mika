@@ -78,7 +78,7 @@ private open class MeteredModel(
 
     private fun note(usage: Usage?, tally: RunUsageTally?, httpAttempts: Int) {
         runCatching { sink.record(source, usage, httpAttempts) }
-        tally?.add(usage, httpAttempts)
+        tally?.add(usage, httpAttempts, source)
     }
 }
 

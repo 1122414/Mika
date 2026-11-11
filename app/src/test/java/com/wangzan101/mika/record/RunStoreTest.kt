@@ -60,6 +60,15 @@ class RunStoreTest {
         assertEquals(log, events.readText())
     }
 
+    @Test fun exportsOnlyBillingFieldsInsideGroups() {
+        val id = "20250102-030405-abc123"
+        val dir = tmp.root.resolve("files/runs/$id").also { it.mkdirs() }
+        dir.resolve("events.jsonl").writeText("""{"type":"model_calls","groups":[{"model":"m","purpose":"light","inputTokens":9,"unexpected":"private body"}]}""")
+        val log = store().usageLog(id)
+        assertTrue(log.contains("light"))
+        assertFalse(log.contains("private"))
+    }
+
     @Test fun usageLogMarksADamagedLineAndPreservesMissingCounters() {
         val s = store()
         val id = s.open("g").also { it.close() }.runId

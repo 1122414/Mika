@@ -252,7 +252,15 @@ sealed interface RunEvent {
     data class ModelCalls(
         override val atMs: Long, val calls: Int, val unreported: Int, val inputTokens: Long, val outputTokens: Long, val cachedTokens: Long,
         val httpCalls: Int? = null, val httpUnreported: Int? = null,
+        val groups: List<UsageGroup> = emptyList(),
     ) : RunEvent
+
+    /** 仅计量标识和计数；不记录 URL、凭据、任务或请求正文。 */
+    @Serializable data class UsageGroup(
+        val provider: String, val model: String, val purpose: String, val calls: Int = 0,
+        val httpCalls: Int = 0, val unreported: Int = 0, val httpUnreported: Int = 0,
+        val inputTokens: Long = 0, val outputTokens: Long = 0, val cachedTokens: Long = 0,
+    )
 
     /**
      * 回答交给用户之后,另请模型按用户要的结果给这次运行判的结局(见 [com.wangzan101.mika.core.agent.OutcomeJudge]):

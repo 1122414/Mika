@@ -26,14 +26,24 @@ class RunUsageTally(val tokenBudget: Long? = null) : AbstractCoroutineContextEle
     private val input = AtomicLong()
     private val output = AtomicLong()
     private val cached = AtomicLong()
+    private val groups = linkedMapOf<Triple<String, String, String>, RunEvent.UsageGroup>()
 
     /** 记一次逻辑调用及其 [httpAttempts] 次实际请求;只有最终成功回复的 [usage] 可记 token。 */
-    fun add(usage: Usage?, httpAttempts: Int) {
+    @Synchronized fun add(usage: Usage?, httpAttempts: Int, source: UsageSource? = null) {
         logicalCalls.incrementAndGet()
         if (usage == null) unreported.incrementAndGet()
         val attempts = httpAttempts.coerceAtLeast(0)
         calls.addAndGet(attempts)
         httpUnreported.addAndGet((attempts - if (usage == null) 0 else 1).coerceAtLeast(0))
+        if (source != null) {
+            val key = Triple(source.providerId, source.model, source.purpose.key)
+            val g = groups[key] ?: RunEvent.UsageGroup(key.first, key.second, key.third)
+            groups[key] = g.copy(calls = g.calls + 1, httpCalls = g.httpCalls + attempts,
+                unreported = g.unreported + if (usage == null) 1 else 0,
+                httpUnreported = g.httpUnreported + (attempts - if (usage == null) 0 else 1).coerceAtLeast(0),
+                inputTokens = g.inputTokens + (usage?.inputTokens ?: 0), outputTokens = g.outputTokens + (usage?.outputTokens ?: 0),
+                cachedTokens = g.cachedTokens + (usage?.cachedInputTokens ?: 0))
+        }
         if (usage == null) return
         input.addAndGet(usage.inputTokens.toLong())
         output.addAndGet(usage.outputTokens.toLong())
@@ -51,7 +61,8 @@ class RunUsageTally(val tokenBudget: Long? = null) : AbstractCoroutineContextEle
     }
 
     /** 此刻的合计,作为运行记录里的一条 [RunEvent.ModelCalls]。 */
-    fun event(atMs: Long) = RunEvent.ModelCalls(
+    @Synchronized fun event(atMs: Long) = RunEvent.ModelCalls(
         atMs, logicalCalls.get(), unreported.get(), input.get(), output.get(), cached.get(), calls.get(), httpUnreported.get(),
+        groups.values.toList(),
     )
 }

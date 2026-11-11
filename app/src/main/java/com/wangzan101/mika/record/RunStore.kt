@@ -14,6 +14,7 @@ import com.wangzan101.mika.core.record.RunSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
@@ -111,7 +112,11 @@ class RunStore internal constructor(
                     val metadata = event.filter { (key, value) ->
                         value is JsonPrimitive && (key == "type" || key == "atMs" || key in fields)
                     }
-                    appendLine(JsonObject(metadata).toString())
+                    val groups = (event["groups"] as? JsonArray)?.takeIf { type.content == "model_calls" }
+                    val grouped = groups?.mapNotNull { row -> (row as? JsonObject)?.let { obj ->
+                        JsonObject(obj.filter { (k, v) -> k in USAGE_GROUP_FIELDS && v is JsonPrimitive })
+                    } }
+                    appendLine(JsonObject(if (grouped == null) metadata else metadata + ("groups" to JsonArray(grouped))).toString())
                 }
             }.ifEmpty { throw IOException("No run usage events") }
         }
@@ -167,6 +172,8 @@ class RunStore internal constructor(
     companion object {
         internal const val RUN_JSON = "run.json"
         internal const val EVENTS = "events.jsonl"
+        private val USAGE_GROUP_FIELDS = setOf("provider", "model", "purpose", "calls", "httpCalls", "unreported",
+            "httpUnreported", "inputTokens", "cachedTokens", "outputTokens")
         private val USAGE_FIELDS = mapOf(
             "task_started" to setOf("model"),
             "model_reply" to setOf("step", "model", "role", "tool", "inputTokens", "cachedTokens",
