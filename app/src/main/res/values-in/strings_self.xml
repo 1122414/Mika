@@ -2,6 +2,8 @@
 <resources>
     <string name="settings_self_operate">Izinkan Mika mengoperasikan layarnya sendiri</string>
     <string name="settings_self_operate_sub">Buka halaman dan file Mika; bertanya sebelum membuka tautan di browser Anda</string>
+    <string name="settings_pip_operate">Operasikan tampilan kecil secara langsung</string>
+    <string name="settings_pip_operate_sub">Ketuk dan geser di jendela kecil untuk mengontrol layar</string>
     <string name="self_notify_channel">Tindakan Mika</string>
     <string name="self_notify_channel_desc">Apa yang dibuka Mika atau diminta Anda lihat</string>
     <string name="self_notify_open">Lihat</string>

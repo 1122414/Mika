@@ -91,6 +91,7 @@ import com.wangzan101.mika.core.tool.ToolDispatcher
 import com.wangzan101.mika.core.vision.VisionService
 import com.wangzan101.mika.cap.phone.display.AgentDisplay
 import com.wangzan101.mika.cap.phone.display.LazyAgentDisplay
+import com.wangzan101.mika.cap.phone.display.PipInput
 import com.wangzan101.mika.record.RunHandle
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.settings.FeatureFlags
@@ -235,6 +236,8 @@ class TaskRun(
     }
     private val _steers = Mirrored<List<SteerNote>>(emptyList(), service.taskState._steers)
     private val _displayId = Mirrored(-1, env.agentDisplayId)
+    /** 小窗直接操作的口子:屏建好才有,释放时清空。 */
+    private val _pipInput = Mirrored<PipInput?>(null, service.taskState._pipInput)
     /** 虚拟屏上打开过 App:画中画据此才出来(只建了空屏、没打开过 App 时没有画面)。 */
     private val _appShown = Mirrored(false, env.agentAppShown)
     /** 正在用内置浏览器:画中画改显示网页画面。 */
@@ -252,12 +255,14 @@ class TaskRun(
     val activities: StateFlow<List<RunEvent.Activity>> = _activities.flow
     /** 本任务的虚拟屏编号;屏到用到系统命令、事件工具或第一次打开 App 时才建,之前和释放之后为 -1。 */
     val displayId: StateFlow<Int> = _displayId.flow
+    /** 本任务小窗的直接操作口;屏建好才有,释放后回到 null。 */
+    val pipInput: StateFlow<PipInput?> = _pipInput.flow
     /** 此刻在用内置浏览器(工具的界面是网页);没用、任务结束后为 false。 */
     val webOpen: StateFlow<Boolean> = _webOpen.flow
     /** 本任务进行中插的话和它们的去向;悬浮胶囊的对话卡片按任务取。 */
     val steers: StateFlow<List<SteerNote>> = _steers.flow
     // 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的(界面据此不把别的对话的状态接到屏上)
-    private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _appShown, _webOpen, _activities, _steers)
+    private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _appShown, _webOpen, _activities, _steers)
 
     private fun setState(s: TaskState) = synchronized(service.taskState.shownLock) {
         _tagged.value = conversationId to s
@@ -612,6 +617,7 @@ class TaskRun(
                         create()
                     }.also { d ->
                         _displayId.value = d.displayId
+                        _pipInput.value = PipInputImpl(shell, d)
                         side.launch {
                             combine(d.frames, _appShown.flow) { frame, shown -> frame to shown }.collect { (frame, shown) ->
                                 if (dispatcher?.surface != WEB) {
@@ -1087,6 +1093,7 @@ class TaskRun(
             phone = null
             // 屏释放后、对外报结束前清掉:界面看到任务结束时已经没有屏了
             _displayId.value = -1
+            _pipInput.value = null
             _appShown.value = false
             if (connection != null) phoneServices.sharedShell.release()
         }
@@ -1097,6 +1104,45 @@ class TaskRun(
         val shell: com.wangzan101.mika.shell.IMikaShell, val a11y: ScreenAccessibility, val screen: AndroidScreen,
         val display: LazyAgentDisplay, val audio: AppMuter,
     )
+
+    /**
+     * 小窗直接操作的口子:把预览画面上的归一化坐标换算成虚拟屏逻辑坐标,交给内置助手注入。
+     * 注入走后台线程:injectStroke 会按笔迹时长逐点 sleep,不能占着界面线程。
+     */
+    private class PipInputImpl(
+        private val shell: com.wangzan101.mika.shell.IMikaShell,
+        private val display: AgentDisplay,
+    ) : PipInput {
+        override suspend fun tap(fx: Float, fy: Float) {
+            withContext(Dispatchers.IO) {
+                runCatching { shell.injectTap(display.displayId, (fx * display.width).toInt(), (fy * display.height).toInt()) }
+            }
+        }
+
+        override suspend fun swipe(points: List<Pair<Float, Float>>, durationMs: Long) {
+            if (points.size < 2) {
+                if (points.size == 1) tap(points[0].first, points[0].second)
+                return
+            }
+            withContext(Dispatchers.IO) {
+                val n = points.size
+                runCatching {
+                    shell.injectStroke(
+                        display.displayId,
+                        IntArray(n) { (points[it].first * display.width).toInt() },
+                        IntArray(n) { (points[it].second * display.height).toInt() },
+                        LongArray(n) { durationMs * it / (n - 1) },
+                    )
+                }
+            }
+        }
+
+        override suspend fun back() {
+            withContext(Dispatchers.IO) {
+                runCatching { shell.injectKey(display.displayId, android.view.KeyEvent.KEYCODE_BACK) }
+            }
+        }
+    }
 
     /**
      * 这次任务的静音规则(见 [AppMuter]):Mika 自己不静;没有桌面入口的系统包不静(系统界面、选择框一类);

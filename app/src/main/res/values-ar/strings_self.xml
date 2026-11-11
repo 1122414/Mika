@@ -2,6 +2,8 @@
 <resources>
     <string name="settings_self_operate">السماح لـ Mika بتشغيل شاشاته</string>
     <string name="settings_self_operate_sub">فتح صفحات Mika وملفاته؛ يسأل قبل فتح رابط في متصفحك</string>
+    <string name="settings_pip_operate">التحكم المباشر في العرض المصغّر</string>
+    <string name="settings_pip_operate_sub">انقر واسحب في النافذة الصغيرة للتحكم في الشاشة</string>
     <string name="self_notify_channel">إجراءات Mika</string>
     <string name="self_notify_channel_desc">ما يفتحه Mika أو يطلب منك رؤيته</string>
     <string name="self_notify_open">عرض</string>

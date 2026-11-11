@@ -119,6 +119,16 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putBoolean(SELF_OPERATE, on).commit()
     }
 
+    /**
+     * 允许用户在对话里的虚拟屏小窗直接操作(点 / 滑 / 返回),不用把 App 整个挪到主屏。
+     * 默认关:开着时小窗展开后点画面会真实注入到虚拟屏,手滑一下可能点歪 AI 正在跑的任务。
+     */
+    fun pipOperate(): Boolean = prefs.getBoolean(PIP_OPERATE, false)
+
+    fun setPipOperate(on: Boolean) {
+        prefs.edit().putBoolean(PIP_OPERATE, on).commit()
+    }
+
     /** 悬浮胶囊:关闭、有任务时显示(默认)、一直显示。 */
     fun capsuleMode(): CapsuleMode = CapsuleMode.parse(prefs.getString(CAPSULE_MODE, null))
 
@@ -214,6 +224,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val OPERATING_PACE = "operating_pace"
         private const val SELF_CONFIG = "self_config"
         private const val SELF_OPERATE = "self_operate"
+        private const val PIP_OPERATE = "pip_operate"
         private const val THEME_MODE = "theme_mode"
         private const val PERSONAL_START = "personal_start"
         private const val CAPSULE_MODE = "capsule_mode"
