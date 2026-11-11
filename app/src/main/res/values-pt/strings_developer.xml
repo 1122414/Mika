@@ -25,4 +25,8 @@
     <string name="dev_speed">Velocidade</string>
     <string name="dev_experiments">Experimentos</string>
     <string name="dev_run_log">Registros de execução</string>
+    <string name="dev_history_view">Compactar o histórico</string>
+    <string name="dev_history_view_sub">Mantém as telas recentes e encurta as anteriores. Consulte os dados originais quando necessário.</string>
+    <string name="dev_history_summary">Resumir tarefas longas</string>
+    <string name="dev_history_summary_sub">Com o histórico compacto ativo, uma chamada adicional ao modelo seleciona evidências anteriores.</string>
 </resources>

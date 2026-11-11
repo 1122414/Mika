@@ -25,4 +25,8 @@
     <string name="dev_speed">Speed</string>
     <string name="dev_experiments">Experiments</string>
     <string name="dev_run_log">Run records</string>
+    <string name="dev_history_view">Compact task history</string>
+    <string name="dev_history_view_sub">Keep recent screens and shorten older ones. Open the original screen data when needed.</string>
+    <string name="dev_history_summary">Summarize long tasks</string>
+    <string name="dev_history_summary_sub">With compact history on, use an additional model call to select earlier evidence.</string>
 </resources>

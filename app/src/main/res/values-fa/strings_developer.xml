@@ -25,4 +25,8 @@
     <string name="dev_speed">سرعت</string>
     <string name="dev_experiments">آزمایش‌ها</string>
     <string name="dev_run_log">سوابق اجرا</string>
+    <string name="dev_history_view">فشرده‌سازی تاریخچهٔ کار</string>
+    <string name="dev_history_view_sub">صفحه‌های اخیر را نگه می‌دارد و صفحه‌های قدیمی را کوتاه می‌کند. در صورت نیاز می‌توان دادهٔ اصلی را دوباره خواند.</string>
+    <string name="dev_history_summary">خلاصهٔ کارهای طولانی</string>
+    <string name="dev_history_summary_sub">با روشن بودن تاریخچهٔ فشرده، یک فراخوانی اضافی مدل، شواهد قبلی را انتخاب می‌کند.</string>
 </resources>

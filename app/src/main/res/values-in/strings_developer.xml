@@ -25,4 +25,8 @@
     <string name="dev_speed">Kecepatan</string>
     <string name="dev_experiments">Eksperimen</string>
     <string name="dev_run_log">Catatan eksekusi</string>
+    <string name="dev_history_view">Ringkas riwayat tugas</string>
+    <string name="dev_history_view_sub">Simpan layar terbaru dan ringkas layar lama. Data asli dapat dibaca kembali bila perlu.</string>
+    <string name="dev_history_summary">Ringkas tugas panjang</string>
+    <string name="dev_history_summary_sub">Saat riwayat ringkas aktif, panggilan model tambahan memilih bukti terdahulu.</string>
 </resources>

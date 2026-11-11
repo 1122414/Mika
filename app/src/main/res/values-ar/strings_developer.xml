@@ -25,4 +25,8 @@
     <string name="dev_speed">السرعة</string>
     <string name="dev_experiments">التجارب</string>
     <string name="dev_run_log">سجلات التشغيل</string>
+    <string name="dev_history_view">ضغط سجل المهمة</string>
+    <string name="dev_history_view_sub">تُحفظ الشاشات الأخيرة وتُختصر الشاشات القديمة. يمكن الرجوع إلى البيانات الأصلية عند الحاجة.</string>
+    <string name="dev_history_summary">تلخيص المهام الطويلة</string>
+    <string name="dev_history_summary_sub">عند تفعيل ضغط السجل، يختار استدعاء إضافي للنموذج أدلة من السجل السابق.</string>
 </resources>

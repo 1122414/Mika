@@ -14,15 +14,15 @@ class DeveloperSwitchesTest {
     private val speed by lazy { DeveloperSwitches.speed(SpeedFlags.OFF) }
     private val experimental by lazy { DeveloperSwitches.experimental(SpeedFlags.OFF) }
 
-    /** 原「速度」下的八个开关,每个只在一组里出现一次,id 不重复。 */
+    /** 开发者开关,每个只在一组里出现一次,id 不重复。 */
     @Test
-    fun eightSwitchesInTwoGroups() {
+    fun tenSwitchesInTwoGroups() {
         assertEquals(
             listOf("adaptive-vision", "inline-screen", "batch-steps", "deep-links", "light-steps"),
             speed.map { it.id },
         )
-        assertEquals(listOf("replay", "parallel-tasks", "structured-compaction"), experimental.map { it.id })
-        assertEquals(8, (speed + experimental).map { it.id }.toSet().size)
+        assertEquals(listOf("reliable-context", "semantic-summaries", "replay", "parallel-tasks", "structured-compaction"), experimental.map { it.id })
+        assertEquals(10, (speed + experimental).map { it.id }.toSet().size)
     }
 
     /** 拨动一个开关只改它自己那一项,其余保持原值。 */
@@ -36,6 +36,7 @@ class DeveloperSwitchesTest {
                 base.batchSteps != after.batchSteps, base.deepLinks != after.deepLinks, base.lightSteps != after.lightSteps,
                 base.replay != after.replay, base.parallelTasks != after.parallelTasks,
                 base.structuredCompaction != after.structuredCompaction,
+                base.reliableContext != after.reliableContext, base.semanticSummaries != after.semanticSummaries,
             )
             assertEquals("${sw.id} should change exactly one flag", 1, changed.count { it })
         }

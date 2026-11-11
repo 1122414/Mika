@@ -13,7 +13,8 @@ data class FactRevision(val key: String, val version: Int, val obsId: Int, val s
 
 @Serializable
 data class TaskCheckpoint(val revision: Int = 0, val epoch: Int = 0, val facts: List<FactRevision> = emptyList(),
-                          val pendingEffect: String? = null, val lastEffect: String? = null)
+                          val pendingEffect: String? = null, val lastEffect: String? = null,
+                          val cursor: Int = 0, val blocks: List<SummaryBlock> = emptyList())
 
 /** CAS must durably replace the whole checkpoint or leave the old one intact. */
 interface CheckpointStore {
@@ -43,7 +44,7 @@ internal class TaskMemory(private val evidence: (Int) -> Observation?, private v
     }
 
     /** Advance even if there are no facts: an old proposal must never apply to a new instruction. */
-    fun steer() = commit(state.copy(epoch = state.epoch + 1)).also { if (it) missing.clear() }
+    fun steer() = commit(state.copy(epoch = state.epoch + 1, blocks = emptyList())).also { if (it) missing.clear() }
 
     fun record(key: String, expected: Int, obsId: Int, quote: String): Boolean {
         if (!KEY.matches(key) || quote.length !in 2..240 || quote.isBlank() || Redactor.evidence(quote) != quote || "***" in quote) return false
@@ -67,6 +68,10 @@ internal class TaskMemory(private val evidence: (Int) -> Observation?, private v
     }
 
     /** A dispatch acknowledgement is not proof of a booking. Until the call returns its outcome is unknown. */
+    fun summary(expected: Int, cursor: Int, blocks: List<SummaryBlock>): Boolean =
+        state.revision == expected && cursor > state.cursor && blocks.size <= 32 &&
+            commit(state.copy(cursor = cursor, blocks = blocks))
+
     fun beginEffect(kind: String) = state.pendingEffect == null && commit(state.copy(pendingEffect = kind))
     fun returned(kind: String) = state.pendingEffect == kind && commit(state.copy(pendingEffect = null, lastEffect = kind))
 

@@ -64,6 +64,7 @@ internal class ToolContext(
     val shots: Shots,
 ) {
     val taskMemory = if (config.reliableContext) com.wangzan101.mika.core.context.TaskMemory(evidence.ledger::read, config.checkpoint) else null
+    val archive = com.wangzan101.mika.core.context.ScreenArchive()
     var unresolvedPrior = false
     private val parts = HashMap<CapabilityKey<*>, Any>()
 

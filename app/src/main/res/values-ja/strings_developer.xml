@@ -25,4 +25,8 @@
     <string name="dev_speed">速度</string>
     <string name="dev_experiments">実験的機能</string>
     <string name="dev_run_log">実行ログ</string>
+    <string name="dev_history_view">タスク履歴を圧縮</string>
+    <string name="dev_history_view_sub">最近の画面を保持し、古い画面を短縮します。元の内容は必要な時に読み直せます。</string>
+    <string name="dev_history_summary">長いタスクを要約</string>
+    <string name="dev_history_summary_sub">履歴の圧縮が有効な場合、追加のモデル呼び出しで過去の記録を選びます。</string>
 </resources>

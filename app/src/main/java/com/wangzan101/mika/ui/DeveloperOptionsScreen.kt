@@ -30,6 +30,8 @@ object DeveloperSwitches {
     )
 
     fun experimental(flags: SpeedFlags): List<DevSwitch> = listOf(
+        DevSwitch("reliable-context", tr(R.string.dev_history_view), tr(R.string.dev_history_view_sub), flags.reliableContext) { flags.copy(reliableContext = it) },
+        DevSwitch("semantic-summaries", tr(R.string.dev_history_summary), tr(R.string.dev_history_summary_sub), flags.semanticSummaries) { flags.copy(semanticSummaries = it) },
         DevSwitch("replay", tr(R.string.dev_replay), tr(R.string.dev_replay_sub), flags.replay) { flags.copy(replay = it) },
         DevSwitch("parallel-tasks", tr(R.string.dev_parallel), tr(R.string.dev_parallel_sub), flags.parallelTasks) { flags.copy(parallelTasks = it) },
         DevSwitch("structured-compaction", tr(R.string.dev_compaction), tr(R.string.dev_compaction_sub), flags.structuredCompaction) { flags.copy(structuredCompaction = it) },

@@ -25,4 +25,8 @@
     <string name="dev_speed">速度</string>
     <string name="dev_experiments">实验</string>
     <string name="dev_run_log">运行记录</string>
+    <string name="dev_history_view">精简任务历史</string>
+    <string name="dev_history_view_sub">保留最近的屏幕，缩短旧页面；需要时可回读原文。</string>
+    <string name="dev_history_summary">长任务增量摘要</string>
+    <string name="dev_history_summary_sub">开启精简任务历史后，用额外的模型调用挑选早期证据。</string>
 </resources>

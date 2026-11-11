@@ -38,12 +38,15 @@ internal class ModelCaller(
     private val now: () -> Long,
     private val autonomous: Boolean = false,
     private val trace: RunTrace? = null,
+    private val summaryWriter: ChatModel? = null,
 ) {
     /** 每个模型一份压缩状态:各自的上下文、各自发出的那份历史,轻量模型那次压缩不连累主模型的请求前缀。 */
     private val compressors = java.util.IdentityHashMap<ChatModel, ContextCompressor>()
     private fun compressorFor(m: ChatModel) =
         compressors.getOrPut(m) { ContextCompressor(tools.index, structured = flags.structuredCompaction,
             diffScreens = tools.inlineScreen, reliable = flags.reliableContext, triggerOverride = m.capabilities.compactionTriggerTokens) }
+    private val archiveViews = ArchivedScreens(tools.ctx.archive)
+    private var summaries = com.wangzan101.mika.core.context.IncrementalSummary()
     private val compactions = java.util.IdentityHashMap<ChatModel, CompactionState>()
     /** 本任务里已为重试等过的时间(对着 [RetryPolicy.taskWaitBudgetMs])。 */
     private var taskRetryWaitMs = 0L
@@ -66,6 +69,8 @@ internal class ModelCaller(
     fun reset(prompt: String) {
         systemPrompt = prompt
         compactions.clear()
+        archiveViews.clear()
+        summaries = com.wangzan101.mika.core.context.IncrementalSummary()
         taskRetryWaitMs = 0
         compressors.values.forEach { it.forget() }
         lightReplies.clear()
@@ -164,12 +169,23 @@ internal class ModelCaller(
         }
     }
 
-    private suspend fun complete(history: List<Message>, specs: List<ToolSpec>, using: ChatModel, policy: RetryPolicy, step: Int,
+    private suspend fun complete(original: List<Message>, specs: List<ToolSpec>, using: ChatModel, policy: RetryPolicy, step: Int,
         onText: ((String) -> Unit)? = null): ModelReply {
         var retries = 0
         lastRetryWaitMs = 0
         val began = now()
-        val overhead = TokenEstimate.of(systemPrompt) + specs.sumOf { TokenEstimate.of(it.name + it.description + it.parametersJsonSchema) }
+        val memory = tools.ctx.taskMemory
+        if (flags.reliableContext && flags.semanticSummaries && memory != null && step >= 15 && archiveViews.useful(original)) {
+            val user = original.filter { it.author == com.wangzan101.mika.core.model.Author.User }.lastOrNull()
+                ?.parts?.filterIsInstance<Part.Text>()?.firstOrNull()?.text.orEmpty()
+            if (summaries.advance(memory, tools.ctx.evidence.ledger.all, step, summaryWriter ?: model, user))
+                emit(RunEvent.State(now(), "summary_committed", memory.state.cursor.toString()))
+        }
+        val history = if (memory != null && flags.reliableContext) archiveViews.project(original, memory) else original
+        val body = memory?.projection()
+        val working = body?.let { Message(Role.User, listOf(Part.Text(ContextBuilder.envelope(ContextKind.UserScreen,
+            "historical quotations; verify current state before external actions", it))), com.wangzan101.mika.core.model.Author.Mika) }
+        val overhead = (working?.let { TokenEstimate.of(listOf(it)) } ?: 0) + TokenEstimate.of(systemPrompt) + specs.sumOf { TokenEstimate.of(it.name + it.description + it.parametersJsonSchema) }
         val contextTokens = using.capabilities.contextTokens
         val compressor = compressorFor(using)
         var compaction = compactions[using] ?: CompactionState()
@@ -182,10 +198,7 @@ internal class ModelCaller(
             val raw = compressor.compress(history, contextTokens, currentTokens, compaction.aggressive, overhead, using.capabilities.maxImages)
             if (raw.rewritten) anchors.clear()
             val recovered = ContextRecovery.ensure(history, raw.messages)
-            val memory = tools.ctx.taskMemory?.projection()?.takeIf { raw.foldedSteps > 0 || raw.messages != history }
-            val restored = if (memory == null) recovered else recovered + Message(Role.User, listOf(Part.Text(
-                ContextBuilder.envelope(ContextKind.UserScreen, "recorded quotations; historical, verify before external changes", memory))),
-                com.wangzan101.mika.core.model.Author.Mika)
+            val restored = if (working == null) recovered else recovered + working
             val sent = if (restored === raw.messages) raw else raw.copy(messages = restored, estimate = TokenEstimate.of(restored))
             val (next, report) = CompactionPolicy.sent(compaction, sent.foldedSteps)
             if (report) emit(RunEvent.Compressed(now(), sent.foldedSteps))
@@ -213,7 +226,7 @@ internal class ModelCaller(
                 }
                 return reply.also { r ->
                     lastOverhead[using] = overhead
-                    r.usage?.let { compressor.calibrate(sent.estimate + overhead, it.inputTokens) }
+                    r.usage?.let { compressor.calibrate(raw.estimate + overhead, it.inputTokens) }
                 }
             } catch (e: ModelError.ContextTooLong) {
                 onText?.invoke("")
@@ -253,6 +266,7 @@ internal fun visibleReads(messages: List<Message>): Set<String> {
         if (p !is Part.ToolResult) continue
         val obj = try { Json.parseToJsonElement(p.content) as? JsonObject } catch (e: SerializationException) { null } ?: continue
         val shown = (obj["screen"] as? JsonObject) ?: obj.takeIf { it["elements"] is JsonArray } ?: continue
+        if ("historical" in shown) continue
         (shown["snapshotId"] as? JsonPrimitive)?.contentOrNull?.let(out::add)
     }
     return out

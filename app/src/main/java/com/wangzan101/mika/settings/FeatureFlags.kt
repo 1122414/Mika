@@ -189,6 +189,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private val SPEED_UPGRADES: List<Pair<String, (SpeedFlags) -> SpeedFlags>> = listOf(
             "speed_defaults_applied_v2" to { f -> f.copy(inlineScreen = true, batchSteps = true, adaptiveVision = true) },
             "speed_defaults_applied_v3" to { f -> f.copy(replay = true) },
+            "speed_defaults_context_fork_v1" to { f -> f.copy(reliableContext = true) },
         )
         private const val PARALLEL_MAX = "parallel_max"
         private const val TASK_STEP_LIMIT = "task_step_limit"

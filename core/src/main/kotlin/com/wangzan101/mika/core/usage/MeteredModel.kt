@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 
 /** 一次调用是为哪个用途发的。存储里记 [key];认不出的 key(以后的版本写的)读成 [Other]。 */
 enum class UsagePurpose(val key: String) {
-    Main("main"), Vision("vision"), Light("light"), Other("other");
+    Main("main"), Vision("vision"), Light("light"), Summary("summary"), Other("other");
 
     companion object {
         fun of(role: ModelRole): UsagePurpose = when (role) {
@@ -23,6 +23,10 @@ enum class UsagePurpose(val key: String) {
 
         fun of(key: String): UsagePurpose = entries.firstOrNull { it.key == key } ?: Other
     }
+}
+
+internal class PurposeOverride(val purpose: UsagePurpose) : kotlin.coroutines.AbstractCoroutineContextElement(Key) {
+    companion object Key : kotlin.coroutines.CoroutineContext.Key<PurposeOverride>
 }
 
 /** 一个模型是谁的、为哪个用途建的:记用量时原样带上。[providerName] 是建模型时服务商的名字(服务商删了也留着)。 */
@@ -64,19 +68,20 @@ private open class MeteredModel(
         val tally = currentCoroutineContext()[RunUsageTally]
         // 拒绝时不建请求计数、不调用适配器，也不记一笔不存在的逻辑调用。
         tally?.checkBudget()
-        beforeCall(source)
+        val attribution = currentCoroutineContext()[PurposeOverride]?.let { source.copy(purpose = it.purpose) } ?: source
+        beforeCall(attribution)
         val attempts = ModelHttpAttempts()
         val reply = try {
             withContext(attempts) { call() }
         } catch (e: Throwable) {
-            note(null, tally, attempts.started)
+            note(attribution, null, tally, attempts.started)
             throw e
         }
-        note(reply.usage, tally, attempts.started)
+        note(attribution, reply.usage, tally, attempts.started)
         return reply
     }
 
-    private fun note(usage: Usage?, tally: RunUsageTally?, httpAttempts: Int) {
+    private fun note(source: UsageSource, usage: Usage?, tally: RunUsageTally?, httpAttempts: Int) {
         runCatching { sink.record(source, usage, httpAttempts) }
         tally?.add(usage, httpAttempts, source)
     }

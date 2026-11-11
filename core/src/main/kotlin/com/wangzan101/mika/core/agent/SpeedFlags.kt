@@ -13,12 +13,13 @@ data class SpeedFlags(
     /** 元素优先,只有读不清或模型主动请求时才给主模型画面。 */
     val adaptiveVision: Boolean = false,
     val reliableContext: Boolean = false,
+    val semanticSummaries: Boolean = false,
 ) {
     private fun on(): Map<String, Boolean> = mapOf(
         "inlineScreen" to inlineScreen, "batchSteps" to batchSteps,
         "replay" to replay, "deepLinks" to deepLinks, "lightSteps" to lightSteps, "parallelTasks" to parallelTasks,
         "structuredCompaction" to structuredCompaction,
-        "adaptiveVision" to adaptiveVision, "reliableContext" to reliableContext,
+        "adaptiveVision" to adaptiveVision, "reliableContext" to reliableContext, "semanticSummaries" to semanticSummaries,
     )
 
     /** 打开的开关名按字母序用逗号连接;全关为 "none"。[parse] 可读回。 */
@@ -48,7 +49,7 @@ data class SpeedFlags(
                 }
             }
             fun f(k: String) = set[k] ?: false
-            return SpeedFlags(f("inlineScreen"), f("batchSteps"), f("replay"), f("deepLinks"), f("lightSteps"), f("parallelTasks"), f("structuredCompaction"), f("adaptiveVision"), f("reliableContext"))
+            return SpeedFlags(f("inlineScreen"), f("batchSteps"), f("replay"), f("deepLinks"), f("lightSteps"), f("parallelTasks"), f("structuredCompaction"), f("adaptiveVision"), f("reliableContext"), f("semanticSummaries"))
         }
     }
 }
