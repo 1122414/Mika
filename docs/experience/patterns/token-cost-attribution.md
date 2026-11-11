@@ -7,3 +7,7 @@
 **怎么核对**：对齐相同动作和工具结果，测发送视图本身省下多少；再独立从同一起点跑到任务终点，计入成功、失败、额外步骤与回读。[RunMetrics](../../../core/src/main/kotlin/com/wangzan101/mika/core/record/RunMetrics.kt) 区分主循环回复、全部逻辑调用和 HTTP 尝试；缺 usage 的尝试单列。比较费用时还要区分缓存与未缓存输入。[RunTrace](../../../core/src/main/kotlin/com/wangzan101/mika/core/trace/RunTrace.kt) 能定位首个变动块，但仅凭前缀变动不能推出服务商实际收了多少钱。
 
 **用量导出验证（一次）**：按 [RunStore 的导出字段](../../../app/src/main/java/com/wangzan101/mika/record/RunStore.kt) 和 [ModelCalls 的统计范围](../../../core/src/main/kotlin/com/wangzan101/mika/core/record/RunEvent.kt) 核对一份完整样本：逐步合计与运行汇总有差额，两者不能相加。用 `model_calls` 计运行总量，用 `model_reply` 定位相邻请求的输入增幅；工具名是该次回复提出的调用，导出不含工具结果正文，不能据此断定增量来自哪一块。运行结束后的记忆提取等调用不在该汇总内。
+
+**实机对照（一次，终点不同）**：一侧只有用量导出、另一侧只有 trace 时，用 `model_reply` 对齐带 usage 的主循环 `chat` 请求，另查重试或漏报。一次对照中，主循环总输入少了 28.3%，未缓存输入却多了 93.6%；8 次首个变化位于已有消息的请求占新版未缓存输入的 50.4%。这个比例能指引回放排查，不等于这 8 次变化导致的额外消耗。全程费用仍需要同次全调用用量和适用单价。
+
+**成功标签的边界**：若验收约定是停在指定页面，分别记录用户核实的页面及回复、运行器报告的 outcome、trace 自身的完整性。本次前者通过，运行以 `end_not_done` 收尾；另有 `partial: nesting_limit`，表示本地采集视图达到嵌套上限。三者可以同时成立。[导出实现](../../../core/src/main/kotlin/com/wangzan101/mika/core/trace/TraceFiles.kt) 的纯 protobuf 不含请求或回复正文，不能凭工具名还原页面、追问理由或逐条验证候选。比较成功率时给 A/B 写入相同终点，仍须做多次独立验证。
