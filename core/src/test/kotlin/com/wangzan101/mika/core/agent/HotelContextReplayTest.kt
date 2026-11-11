@@ -122,12 +122,13 @@ class HotelContextReplayTest {
         var a = 0L
         var b = 0L
         var prev = emptyList<Message>()
+        val rewrites = mutableListOf<Int>()
         for (end in 1..history.size step 2) {
             val original = history.take(end)
             val before = baseline.compress(original, 1_000_000).messages
             val after = candidate.compress(original, 1_000_000).messages
             a += TokenEstimate.of(before); b += TokenEstimate.of(after)
-            if (end < 19) assertEquals(before, after)
+            if ((end - 1) / 2 < 10) assertEquals(before, after)
             if (end >= source.size) assertEquals(Choice("样例乙店", "测试路3号", "¥510", 8), choose(after))
             val results = after.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
             val raw = original.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
@@ -140,9 +141,10 @@ class HotelContextReplayTest {
                 println("product replay rounds=${(end-1)/2} A=$a B=$b")
                 assertTrue(b < a)
             }
-            if (prev.isNotEmpty() && ((end-1)/2 - 3) % 6 != 0) assertEquals(prev, after.take(prev.size))
+            if (after.take(prev.size) != prev) rewrites += (end - 1) / 2
             prev = after
         }
+        assertEquals(listOf(10, 20, 40, 80), rewrites)
         assertEquals(source, history.take(source.size))
     }
 
@@ -220,6 +222,11 @@ class HotelContextReplayTest {
         }
         assertEquals(expected, selected)
         println("34-request hotel replay: $wire isolated=$changes")
+        assertEquals(listOf(11, 21), wire.rewrites)
+        assertEquals(wire.rewrites, changes["tables"])
+        assertEquals(wire.rewrites, changes["archive"])
+        // Same input fixture and price calculation as the pre-change run at 0c76c196.
+        assertTrue("regressed against the measured replay baseline: $wire", wire.estimatedCost < 0.84786696 * 0.90)
     }
 
     @Test fun cannotConfirmWinnerWithOneCompetitorsWalkMissing() {

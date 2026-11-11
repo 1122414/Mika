@@ -96,6 +96,16 @@ class ContextCompressorTest {
         assertTrue(s, "Step 1 phone_tap(按钮1) → applied" in s && "Step 28 phone_tap(按钮28) → applied" in s && "Step 29" !in s)
     }
 
+    @Test fun reliableHistoryStillCompactsBetweenScreenCheckpointsUnderPressure() {
+        val goal = Message(Role.User, listOf(Part.Text("保留本次目标")), Author.User)
+        val history = listOf(goal) + (1..18).flatMap { round("phone_tap", result = """{"page":"${"x".repeat(2_000)}"}""") }
+        val sent = ContextCompressor(TOOLS, reliable = true).compress(history, contextTokens = 8_000)
+        assertTrue(sent.rewritten)
+        assertTrue(TokenEstimate.of(sent.messages) < TokenEstimate.of(history))
+        assertEquals(goal, sent.messages.first())
+        assertEquals(history.takeLast(2), sent.messages.takeLast(2))
+    }
+
     @Test fun appendOnlyBetweenCompactions() {
         val all = head + taps(120)
         fun h(n: Int) = all.take(head.size + 2 * n)

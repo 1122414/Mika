@@ -20,7 +20,7 @@ internal class ReliableScreens {
     fun project(history: List<Message>): List<Message> {
         if (original.size > history.size || original != history.subList(0, original.size)) clear()
         val starts = history.indices.filter { i -> history[i].role == Role.Assistant && history[i].parts.any { it is Part.ToolCall } }
-        val rounds = ((starts.size - RECENT).coerceAtLeast(0) / BLOCK) * BLOCK
+        val rounds = historicalRounds(starts.size)
         val cut = if (rounds == 0) 0 else starts[rounds]
         if (cut > original.size) {
             val add = history.subList(original.size, cut)
@@ -41,8 +41,15 @@ internal class ReliableScreens {
     }
 
     companion object {
-        private const val RECENT = 3
-        private const val BLOCK = 6
+        private const val RECENT = 5
+
+        /** Tables, trees and duplicate images cross the same boundary. Wait for ten completed
+         * rounds, then double the interval; the five newest rounds at a checkpoint stay intact.
+         * The ordinary context limit and the provider's image cap still apply between checkpoints. */
+        fun historicalRounds(completed: Int): Int {
+            val intervals = completed / (2 * RECENT)
+            return if (intervals == 0) 0 else Integer.highestOneBit(intervals) * (2 * RECENT) - RECENT
+        }
         private const val COLUMNS = "columns"
         private const val ROWS = "rows"
 
@@ -50,7 +57,7 @@ internal class ReliableScreens {
         fun sameImages(messages: List<Message>): List<Message> {
             if (messages.none { m -> m.parts.any { it is Part.Image } }) return messages
             val starts = messages.indices.filter { i -> messages[i].role == Role.Assistant && messages[i].parts.any { it is Part.ToolCall } }
-            val older = (starts.size - RECENT).coerceAtLeast(0) / BLOCK * BLOCK
+            val older = historicalRounds(starts.size)
             if (older == 0) return messages
             val cut = starts[older]
             val sources = hashMapOf<Pixels, Int>()

@@ -95,6 +95,11 @@ class IncrementalSummaryTest {
             offset = page["nextOffset"]?.jsonPrimitive?.int ?: -1
         } while(offset>=0) }
         assertEquals(screen(2), joined)
+        // A newly arrived diff can depend on a previously archived screen between checkpoints.
+        val dependent = raw + listOf(
+            Message(Role.Assistant, listOf(Part.ToolCall("c12", "phone_observe", "{}")), Author.Mika),
+            Message(Role.Tool, listOf(Part.ToolResult("c12", """{"screen":{"base":"s2"}}""", false)), Author.Mika))
+        assertEquals(raw[3], projection.project(dependent, TaskMemory({ null }))[3])
         val tools = com.wangzan101.mika.core.assembly.toolDispatcher(com.wangzan101.mika.core.tool.FakeScreen(), reliableContext = true)
         val model = FakeModel(answer("ok"), answer("ok"))
         val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true), RetryPolicy.NONE, {}, { 0L })
