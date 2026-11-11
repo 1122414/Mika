@@ -59,7 +59,7 @@ class HotelContextReplayTest {
     private fun choose(view: List<Message>): Choice? {
         val screens = view.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().mapNotNull {
             val s = Json.parseToJsonElement(it.content).jsonObject["screen"] as? JsonObject ?: return@mapNotNull null
-            s.getValue("currentApp").jsonPrimitive.content to s.getValue("elements").jsonArray.map { e ->
+            s.getValue("currentApp").jsonPrimitive.content to (ReliableScreens.elements(s) ?: return@mapNotNull null).map { e ->
                 e.jsonObject.getValue("name").jsonPrimitive.content
             }
         }
@@ -104,6 +104,39 @@ class HotelContextReplayTest {
             }
         }
         assertTrue("Protected evidence should cost less than sending full history: ${totals.toList()}", totals[2] < totals[0])
+    }
+
+    @Test fun productProjectionRetainsEveryCandidateWithoutManualPins() {
+        fixture()
+        val source = history.toList()
+        repeat(83) { screen(maps, "线路图", "返回", "换乘", "步行", "详细信息", "切换城市") }
+        val baseline = ContextCompressor(TOOLS)
+        val candidate = ContextCompressor(TOOLS, reliable = true)
+        var a = 0L
+        var b = 0L
+        var prev = emptyList<Message>()
+        for (end in 1..history.size step 2) {
+            val original = history.take(end)
+            val before = baseline.compress(original, 1_000_000).messages
+            val after = candidate.compress(original, 1_000_000).messages
+            a += TokenEstimate.of(before); b += TokenEstimate.of(after)
+            if (end < 19) assertEquals(before, after)
+            if (end >= source.size) assertEquals(Choice("样例乙店", "测试路3号", "¥510", 8), choose(after))
+            val results = after.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
+            val raw = original.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
+            assertEquals(raw.map { it.callId }, results.map { it.callId })
+            results.zip(raw).forEach { (v, r) ->
+                fun elements(p: Part.ToolResult) = ReliableScreens.elements(Json.parseToJsonElement(p.content).jsonObject.getValue("screen").jsonObject)
+                assertEquals(elements(r), elements(v))
+            }
+            if ((end - 1) / 2 in listOf(30, 100)) {
+                println("product replay rounds=${(end-1)/2} A=$a B=$b")
+                assertTrue(b < a)
+            }
+            if (prev.isNotEmpty() && ((end-1)/2 - 3) % 6 != 0) assertEquals(prev, after.take(prev.size))
+            prev = after
+        }
+        assertEquals(source, history.take(source.size))
     }
 
     @Test fun cannotConfirmWinnerWithOneCompetitorsWalkMissing() {

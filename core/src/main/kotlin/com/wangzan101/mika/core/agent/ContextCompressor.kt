@@ -45,6 +45,7 @@ class ContextCompressor(
     private val structured: Boolean = false,
     private val diffScreens: Boolean = false,
     private val triggerOverride: Int? = null,
+    reliable: Boolean = false,
 ) {
     /** 「真实 / 粗估」比值:每次用量回来就平滑更新([TokenEstimate.calibrated]);只决定什么时候压缩、压到哪一级,不改发过的内容。 */
     private var observed: Double? = null
@@ -58,6 +59,7 @@ class ContextCompressor(
     private class View(val covered: List<Message>, val base: List<Message>, val folded: Int, val aggressive: Boolean) {
         val estimate = TokenEstimate.of(base)
     }
+    private val screens = if (reliable) ReliableScreens() else null
     private val views = HashMap<Int, View>()
 
     /** 一次请求发出后:[estimated] 是这次请求的粗估(含固定开销),[actual] 是服务商报的输入 token。 */
@@ -66,13 +68,15 @@ class ContextCompressor(
     }
 
     /** 新任务:压缩状态清空(校准比值留着,同一个模型)。 */
-    fun forget() = views.clear()
+    fun forget() { views.clear(); screens?.clear() }
+
+    fun consumeProjectionChange(): Boolean = screens?.consumeChange() == true
 
     private fun tokens(ms: List<Message>) = TokenEstimate.of(ms) * scale
 
     /** 上一次压缩之后实际会发出的消息(没有压缩过就是完整历史);调用方据此算当前上下文大小。 */
     fun current(history: List<Message>, contextTokens: Int): List<Message> =
-        sent(valid(views[contextTokens], history), history)
+        (screens?.project(history) ?: history).let { sent(valid(views[contextTokens], history), it) }
 
     /**
      * [currentTokens]:整份请求的大小(含固定开销,见 [UsageMeter]);null 时按 [current] 加 [fixedOverhead] 全量估算。越过触发点才压缩。
@@ -91,8 +95,9 @@ class ContextCompressor(
     ): Compressed {
         val limits = ContextLimits.of(contextTokens, triggerOverride)
         val last = views[contextTokens]
+        val input = screens?.project(history) ?: history
         val view = valid(last, history)
-        val sent = sent(view, history)
+        val sent = sent(view, input)
         val size = currentTokens ?: UsageMeter.of(sent, fixedOverhead, scale)
         // 回差:压缩之后至少再长一个 margin 才再压,压不到触发点以下的历史也不会每步都压;但不越过可用窗口,越过了每步都得压
         val trigger = view?.let {
@@ -100,7 +105,7 @@ class ContextCompressor(
         } ?: limits.trigger
         val compact = (last != null && view == null) || (aggressive && view?.aggressive != true) || size > trigger
         if (!compact) return Compressed(HistoryPruner.limitImages(sent, maxImages), view?.folded ?: 0)
-        val next = compact(history, limits, fixedOverhead, aggressive)
+        val next = compact(input, limits, fixedOverhead, aggressive, history)
         views[contextTokens] = next
         return Compressed(HistoryPruner.limitImages(next.base, maxImages), next.folded, rewritten = true)
     }
@@ -110,8 +115,9 @@ class ContextCompressor(
      * 压出来的比刚发出的小才换上并返回 true(调用方据此重发一次);一样大说明压不动了,返回 false。
      */
     fun overflow(history: List<Message>, contextTokens: Int, fixedOverhead: Int = 0): Boolean {
-        val current = sent(valid(views[contextTokens], history), history)
-        val next = compact(history, ContextLimits.of(contextTokens, triggerOverride), fixedOverhead, aggressive = true)
+        val input = screens?.project(history) ?: history
+        val current = sent(valid(views[contextTokens], history), input)
+        val next = compact(input, ContextLimits.of(contextTokens, triggerOverride), fixedOverhead, aggressive = true, original = history)
         if (next.estimate >= TokenEstimate.of(current)) return false
         views[contextTokens] = next
         return true
@@ -131,7 +137,7 @@ class ContextCompressor(
      * 最重的一级整份请求仍超过 [ContextLimits.usable](最近的结果本身太大)时,从最新的开始缩短大结果,直到放得下。
      * 比较的是消息的估算:目标和可用窗口先扣掉固定开销(同一个比值),固定开销只算这一次。
      */
-    private fun compact(history: List<Message>, limits: ContextLimits, fixedOverhead: Int, aggressive: Boolean): View {
+    private fun compact(history: List<Message>, limits: ContextLimits, fixedOverhead: Int, aggressive: Boolean, original: List<Message>): View {
         val overhead = UsageMeter.estimate(fixedOverhead, scale)
         val target = limits.target - overhead
         val window = limits.usable - overhead
@@ -151,7 +157,7 @@ class ContextCompressor(
         }
         if (tokens(chosen.messages) > window) chosen = chosen.copy(messages = HistoryPruner.shrinkOversized(chosen.messages) { tokens(it) <= window })
         // 副本:什么都没裁时 chosen 可能就是调用方那份还会追加的历史
-        return View(history.toList(), chosen.messages.toList(), chosen.foldedSteps, aggressive)
+        return View(original.toList(), chosen.messages.toList(), chosen.foldedSteps, aggressive)
     }
 
     private fun fold(pruned: List<Message>, keep: Int, aggressive: Boolean): Compressed {

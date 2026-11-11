@@ -43,7 +43,7 @@ internal class ModelCaller(
     private val compressors = java.util.IdentityHashMap<ChatModel, ContextCompressor>()
     private fun compressorFor(m: ChatModel) =
         compressors.getOrPut(m) { ContextCompressor(tools.index, structured = flags.structuredCompaction,
-            diffScreens = tools.inlineScreen, triggerOverride = m.capabilities.compactionTriggerTokens) }
+            diffScreens = tools.inlineScreen, reliable = flags.reliableContext, triggerOverride = m.capabilities.compactionTriggerTokens) }
     private val compactions = java.util.IdentityHashMap<ChatModel, CompactionState>()
     /** 本任务里已为重试等过的时间(对着 [RetryPolicy.taskWaitBudgetMs])。 */
     private var taskRetryWaitMs = 0L
@@ -177,6 +177,7 @@ internal class ModelCaller(
         var overflowRewrote = false
         while (true) {
             val current = ContextRecovery.ensure(history, compressor.current(history, contextTokens))
+            if (flags.reliableContext && compressor.consumeProjectionChange()) anchors.entries.removeAll { it.value.first === using }
             val currentTokens = requestTokens(current, using, overhead, compressor.scale)
             val raw = compressor.compress(history, contextTokens, currentTokens, compaction.aggressive, overhead, using.capabilities.maxImages)
             if (raw.rewritten) anchors.clear()
