@@ -627,4 +627,21 @@ class ConversationStoreTest {
         assertNull(store.archivedAt("a"))
         assertEquals(listOf("a"), store.list().map { it.id })
     }
+
+    /** 归档的对话来了新的一轮就自动取消归档;只改已有那一轮、只改标题不算。 */
+    @Test fun appendClearsArchiveButEditingAnExistingTurnDoesNot() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.setArchived("a", true, at = 1L)
+
+        store.updateTurn("a", runId = "missing") { it }
+        store.setTitle("a", "天气")
+        assertEquals(1L, store.archivedAt("a"))
+
+        store.append("a", Turn("那明天呢", "也晴", "succeeded"))
+
+        assertNull(store.archivedAt("a"))
+        assertTrue(store.list().any { it.id == "a" })
+    }
 }

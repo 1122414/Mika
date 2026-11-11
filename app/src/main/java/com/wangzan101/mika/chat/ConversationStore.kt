@@ -403,9 +403,15 @@ class ConversationStore(
         return SharedFile(field("name") ?: return null, field("size")?.toLongOrNull() ?: 0, field("savedAs").orEmpty(), field("uri").orEmpty(), field("sha256"))
     }
 
+    /**
+     * 往对话里存进一轮。有新的一轮就是又有动静了,归档的对话自动取消归档(和主流聊天软件一致);
+     * 只改已有那一轮的 [updateTurn] 不算。
+     */
     @Synchronized
     fun append(conversationId: String, turn: Turn, files: List<SharedFile> = emptyList()) {
         deleted -= safe(conversationId)
+        // 先解除归档再写:write 发出的 changes 里读到的就是取消归档后的状态
+        archiveFile(conversationId).delete()
         val f = file(conversationId)
         val prior = if (f.isFile) read(f) else emptyList()
         if (prior == null) {
