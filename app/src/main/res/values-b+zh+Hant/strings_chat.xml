@@ -122,6 +122,11 @@
     <string name="drawer_rename_title">改名</string>
     <string name="drawer_pinned">置頂</string>
     <string name="drawer_pinned_mark">已置頂</string>
+    <string name="drawer_archive">歸檔</string>
+    <string name="drawer_unarchive">取消歸檔</string>
+    <string name="drawer_archived">已歸檔</string>
+    <string name="drawer_archived_count">%1$d 條已歸檔</string>
+    <string name="drawer_archive_empty">還沒有歸檔的對話</string>
     <string name="drawer_search_hint">搜尋對話</string>
     <string name="drawer_search_results">搜尋結果</string>
     <string name="drawer_search_empty">找不到「%1$s」</string>

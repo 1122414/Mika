@@ -138,6 +138,11 @@
     <string name="drawer_rename_title">Renomear conversa</string>
     <string name="drawer_pinned">Fixadas</string>
     <string name="drawer_pinned_mark">Fixada</string>
+    <string name="drawer_archive">Arquivar</string>
+    <string name="drawer_unarchive">Desarquivar</string>
+    <string name="drawer_archived">Arquivada</string>
+    <string name="drawer_archived_count">%1$d arquivadas</string>
+    <string name="drawer_archive_empty">Nenhuma conversa arquivada</string>
     <string name="drawer_search_hint">Buscar conversas</string>
     <string name="drawer_search_results">Resultados da busca</string>
     <string name="drawer_search_empty">Nenhuma conversa corresponde a “%1$s”</string>

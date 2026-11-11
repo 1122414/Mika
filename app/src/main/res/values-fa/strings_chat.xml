@@ -104,6 +104,11 @@
     <string name="drawer_rename_title">تغییر نام گفتگو</string>
     <string name="drawer_pinned">سنجاق‌شده</string>
     <string name="drawer_pinned_mark">سنجاق‌شده</string>
+    <string name="drawer_archive">بایگانی</string>
+    <string name="drawer_unarchive">خارج کردن از بایگانی</string>
+    <string name="drawer_archived">بایگانی‌شده</string>
+    <string name="drawer_archived_count">%1$d بایگانی‌شده</string>
+    <string name="drawer_archive_empty">هیچ گفتگویی بایگانی نشده است</string>
     <string name="settings_title">تنظیمات</string>
     <string name="chat_unconfirmed">تأیید ممکن نشد: %1$s</string>
     <string name="chat_unverified">انجام شد، اما تأیید نتیجه ممکن نشد</string>

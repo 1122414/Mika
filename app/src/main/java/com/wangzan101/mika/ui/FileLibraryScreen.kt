@@ -137,7 +137,7 @@ internal fun FileLibraryScreen(
         value = try { withContext(Dispatchers.IO) {
             val result = loadLibraryData(
                 snapshot = { FileLibrary(store).snapshot() },
-                titles = { vm.withDrafts(store.list()).associate { it.id to ChatCopy.plainTitle(it.title) } },
+                titles = { vm.withDrafts(store.list(includeArchived = true)).associate { it.id to ChatCopy.plainTitle(it.title) } },
                 draftTitles = drafts.associate { it.id to ChatCopy.plainTitle(it.title) },
                 fallbackTitle = { id -> store.title(id)?.let(ChatCopy::plainTitle) },
             )

@@ -126,6 +126,29 @@ class ChatCopyTest {
         assertTrue(fresh.running.single().enabled)
     }
 
+    /** 归档的对话不进置顶和最近;当前正在看的那个留着(带归档标记),还在跑任务的仍列在进行中。 */
+    @Test fun drawerHidesArchivedExceptCurrentAndRunning() {
+        val all = listOf(
+            ConversationSummary("a", "一", 30L),
+            ConversationSummary("b", "二", 20L, archivedAt = 5L),
+            ConversationSummary("c", "三", 10L, archivedAt = 6L),
+            ConversationSummary("d", "四", 5L, archivedAt = 7L),
+        )
+        val s = drawerSections(all, CurrentConversation("a", false, "一", ""), others = listOf("d"), { null }, canSwitch = true, now = 0L, zone = zone)
+        assertEquals(listOf("d"), s.running.map { it.id })
+        assertTrue(s.running.single().archived)
+        assertEquals(listOf("a"), s.recent.map { it.id })
+        assertTrue(s.recent.none { it.archived })
+        // 当前看的就是归档的那个:留着,不然不知道自己在哪
+        val cur = drawerSections(all, CurrentConversation("b", false, "二", ""), emptyList(), { null }, canSwitch = true, now = 0L, zone = zone)
+        assertEquals(listOf("a", "b"), cur.recent.map { it.id })
+        assertTrue(cur.recent.last().archived)
+        assertTrue(cur.recent.last().current)
+        // 没归档时一条不少
+        val plain = drawerSections(all.map { it.copy(archivedAt = null) }, CurrentConversation("a", false, "一", ""), emptyList(), { null }, true, 0L, zone)
+        assertEquals(listOf("a", "b", "c", "d"), plain.recent.map { it.id })
+    }
+
     @Test fun greetingFollowsTheTimeOfDay() {
         assertEquals("早上好", ChatCopy.greeting(7))
         assertEquals("中午好", ChatCopy.greeting(12))

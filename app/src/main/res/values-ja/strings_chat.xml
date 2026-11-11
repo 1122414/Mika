@@ -122,6 +122,11 @@
     <string name="drawer_rename_title">チャットの名前を変更</string>
     <string name="drawer_pinned">ピン留め</string>
     <string name="drawer_pinned_mark">ピン留め</string>
+    <string name="drawer_archive">アーカイブ</string>
+    <string name="drawer_unarchive">アーカイブを解除</string>
+    <string name="drawer_archived">アーカイブ済み</string>
+    <string name="drawer_archived_count">%1$d 件をアーカイブ済み</string>
+    <string name="drawer_archive_empty">アーカイブしたチャットはありません</string>
     <string name="drawer_search_hint">チャットを検索</string>
     <string name="drawer_search_results">検索結果</string>
     <string name="drawer_search_empty">「%1$s」に一致するチャットはありません</string>

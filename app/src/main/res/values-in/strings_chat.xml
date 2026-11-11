@@ -122,6 +122,11 @@
     <string name="drawer_rename_title">Ganti nama obrolan</string>
     <string name="drawer_pinned">Disematkan</string>
     <string name="drawer_pinned_mark">Disematkan</string>
+    <string name="drawer_archive">Arsipkan</string>
+    <string name="drawer_unarchive">Batalkan arsip</string>
+    <string name="drawer_archived">Diarsipkan</string>
+    <string name="drawer_archived_count">%1$d diarsipkan</string>
+    <string name="drawer_archive_empty">Belum ada obrolan yang diarsipkan</string>
     <string name="drawer_search_hint">Cari chat</string>
     <string name="drawer_search_results">Hasil pencarian</string>
     <string name="drawer_search_empty">Tidak ada chat yang cocok dengan “%1$s”</string>

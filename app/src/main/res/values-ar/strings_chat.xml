@@ -162,6 +162,11 @@
     <string name="drawer_rename_title">إعادة تسمية المحادثة</string>
     <string name="drawer_pinned">مثبّتة</string>
     <string name="drawer_pinned_mark">مثبّتة</string>
+    <string name="drawer_archive">أرشفة</string>
+    <string name="drawer_unarchive">إلغاء الأرشفة</string>
+    <string name="drawer_archived">مؤرشفة</string>
+    <string name="drawer_archived_count">%1$d مؤرشفة</string>
+    <string name="drawer_archive_empty">لا توجد محادثات مؤرشفة</string>
     <string name="drawer_search_hint">البحث في المحادثات</string>
     <string name="drawer_search_results">نتائج البحث</string>
     <string name="drawer_search_empty">لا توجد محادثات تطابق «%1$s»</string>

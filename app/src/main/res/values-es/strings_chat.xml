@@ -138,6 +138,11 @@
     <string name="drawer_rename_title">Cambiar el nombre del chat</string>
     <string name="drawer_pinned">Fijados</string>
     <string name="drawer_pinned_mark">Fijado</string>
+    <string name="drawer_archive">Archivar</string>
+    <string name="drawer_unarchive">Desarchivar</string>
+    <string name="drawer_archived">Archivada</string>
+    <string name="drawer_archived_count">%1$d archivadas</string>
+    <string name="drawer_archive_empty">No hay conversaciones archivadas</string>
     <string name="drawer_search_hint">Buscar chats</string>
     <string name="drawer_search_results">Resultados de la búsqueda</string>
     <string name="drawer_search_empty">Ningún chat coincide con «%1$s»</string>

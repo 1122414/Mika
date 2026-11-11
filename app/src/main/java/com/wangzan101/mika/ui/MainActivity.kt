@@ -523,7 +523,7 @@ private fun MikaRoot(
                 vm = app.chat,
                 check = check,
                 reduceMotion = MikaTheme.reduceMotion,
-                conversations = { ConversationStore.shared(context).list() },
+                conversations = { ConversationStore.shared(context).list(includeArchived = true) },
                 conversationChanges = ConversationStore.shared(context).changes,
                 conversationTitle = { ConversationStore.shared(context).title(it) },
                 search = ConversationStore.shared(context).search,

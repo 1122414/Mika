@@ -130,6 +130,11 @@
     <string name="drawer_rename_title">Rename chat</string>
     <string name="drawer_pinned">Pinned</string>
     <string name="drawer_pinned_mark">Pinned</string>
+    <string name="drawer_archive">Archive</string>
+    <string name="drawer_unarchive">Unarchive</string>
+    <string name="drawer_archived">Archived</string>
+    <string name="drawer_archived_count">%1$d archived</string>
+    <string name="drawer_archive_empty">No archived chats</string>
     <string name="drawer_search_hint">Search chats</string>
     <string name="drawer_search_results">Search results</string>
     <string name="drawer_search_empty">No chats match “%1$s”</string>
