@@ -198,6 +198,7 @@ fun DuringWorkScreen(
     selfConfig: Boolean = false, onSelfConfig: (Boolean) -> Unit = {},
     selfOperate: Boolean = false, onSelfOperate: (Boolean) -> Unit = {},
     pipOperate: Boolean = false, onPipOperate: (Boolean) -> Unit = {},
+    externalSchedule: Boolean = false, onExternalSchedule: (Boolean) -> Unit = {},
     stepLimit: Int? = null, onStepLimit: (Int?) -> Unit = {},
     tokenBudget: Long? = null, onTokenBudget: (Long?) -> Unit = {},
 ) {
@@ -283,6 +284,17 @@ fun DuringWorkScreen(
                 onClick = { onPipOperate(!pipOperate) },
             ) {
                 MikaSwitch(pipOperate, onPipOperate, Modifier.testTag("work-pip-operate"))
+            }
+        }
+        // 允许外部脚本经广播建定时任务;默认关,开着时仍受每分钟限流并标记来源
+        GroupCard {
+            ListRow(
+                MikaIcons.Code, stringResource(R.string.settings_external_schedule),
+                stringResource(R.string.settings_external_schedule_sub),
+                first = true,
+                onClick = { onExternalSchedule(!externalSchedule) },
+            ) {
+                MikaSwitch(externalSchedule, onExternalSchedule, Modifier.testTag("work-external-schedule"))
             }
         }
         GroupLabel(stringResource(R.string.settings_pace))

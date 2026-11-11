@@ -125,6 +125,7 @@ fun SettingsScreen(
     var selfConfig by remember { mutableStateOf(flags.selfConfig()) }
     var selfOperate by remember { mutableStateOf(flags.selfOperate()) }
     var pipOperate by remember { mutableStateOf(flags.pipOperate()) }
+    var externalSchedule by remember { mutableStateOf(flags.externalSchedule()) }
     var capsuleMode by remember { mutableStateOf(flags.capsuleMode()) }
     var capsuleIdleOpacity by remember { mutableStateOf(flags.capsuleIdleOpacity()) }
     // 换语言时界面会重建,这里每次进来读一次即可
@@ -230,6 +231,7 @@ fun SettingsScreen(
             selfConfig = selfConfig, onSelfConfig = { flags.setSelfConfig(it); selfConfig = it },
             selfOperate = selfOperate, onSelfOperate = { flags.setSelfOperate(it); selfOperate = it },
             pipOperate = pipOperate, onPipOperate = { flags.setPipOperate(it); pipOperate = it },
+            externalSchedule = externalSchedule, onExternalSchedule = { flags.setExternalSchedule(it); externalSchedule = it },
         )
         SettingsPage.Language -> LanguageScreen(language, onLanguage = { AppLanguage.set(context, it) }, onBack = toHome)
         SettingsPage.Recommendations -> RecommendedTasksScreen(recommendedTasks, onBack = toHome)
