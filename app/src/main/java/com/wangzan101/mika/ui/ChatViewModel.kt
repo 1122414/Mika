@@ -506,7 +506,7 @@ class ChatViewModel(
     fun withDrafts(history: List<ConversationSummary>): List<ConversationSummary> =
         draftConversations.value.filter { draft -> history.none { it.id == draft.id } }.map {
             it.copy(title = store.title(it.id) ?: it.title, pinnedAt = store.pinnedAt(it.id),
-                page = store.pageOrigin(it.id), branchOf = store.branchOrigin(it.id))
+                page = store.pageOrigin(it.id), branchOf = store.branchOrigin(it.id), archivedAt = store.archivedAt(it.id))
         } + history
 
     private fun draftConversation(): String {
@@ -1891,6 +1891,31 @@ class ChatViewModel(
     fun setPinned(id: String, pinned: Boolean) {
         if (id in _deleted.value) return
         runCatching { store.setPinned(id, pinned, clock()) }
+    }
+
+    /**
+     * 侧栏里归档对话 [id]:从列表收起,内容、工作区、定时任务都不动。
+     * 归档的是屏上这个对话时,先确认现在能换对话,再换成一个新的空对话(草稿留着,取消归档后接着用)。
+     * 跑着或排着任务的对话不归档,返回 false。
+     */
+    fun archiveConversation(id: String): Boolean {
+        if (id in _deleted.value || id in deleting) return false
+        if (id in activeConversations.value) return false
+        val current = _ui.value.conversationId == id
+        if (current) {
+            refreshParallel()
+            if (busy()) return false
+        }
+        val ok = runCatching { store.setArchived(id, true, clock()) }.getOrDefault(false)
+        // 先归档再换:换到新对话时侧栏重读,原来那个已经不在列表里了
+        if (ok && current) newConversation()
+        return ok
+    }
+
+    /** 侧栏里取消归档对话 [id];它回到原来的位置(置顶的还回置顶)。 */
+    fun unarchiveConversation(id: String) {
+        if (id in _deleted.value) return
+        runCatching { store.setArchived(id, false) }
     }
 
     /** 屏上的对话被删了:不再跟它的任务(还没交给服务的开始直接作废),换成新的空对话。 */
