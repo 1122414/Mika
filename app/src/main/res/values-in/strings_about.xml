@@ -25,6 +25,8 @@
     <string name="about_save_qr">Simpan kode QR</string>
     <string name="about_qr_saved">Kode QR disimpan ke Foto</string>
     <string name="about_qr_save_failed">Gagal menyimpan. Ambil tangkapan layar saja.</string>
+    <string name="about_follow">Ikuti pembuat</string>
+    <string name="about_follow_sub">X %1$s, jadi yang pertama tahu fitur baru</string>
     <string name="about_repo">Kode sumber</string>
     <string name="about_repo_sub">%1$s · beri bintang ya</string>
     <string name="about_guide">Panduan &amp; cara berkontribusi</string>

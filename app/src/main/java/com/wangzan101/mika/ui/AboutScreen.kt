@@ -143,6 +143,7 @@ fun AboutScreen(
         }
         GroupCard {
             ListRow(MikaIcons.Chats, AboutCopy.GROUP, AboutCopy.GROUP_SUB, first = true, onClick = { sheet = AboutSheet.Group }) { RowChevron() }
+            ListRow(MikaIcons.XMark, AboutCopy.FOLLOW, AboutCopy.FOLLOW_SUB, onClick = { onOpenUrl(MikaLinks.X) }) { ExternalMark() }
             ListRow(MikaIcons.Bug, AboutCopy.FEEDBACK, AboutCopy.FEEDBACK_SUB, onClick = { sheet = AboutSheet.Feedback }) { RowChevron() }
         }
         GroupCard {

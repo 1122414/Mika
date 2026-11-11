@@ -25,6 +25,8 @@
     <string name="about_save_qr">حفظ رمز QR</string>
     <string name="about_qr_saved">تم حفظ رمز QR في الصور</string>
     <string name="about_qr_save_failed">تعذّر الحفظ. يمكنك التقاط لقطة شاشة بدلاً من ذلك.</string>
+    <string name="about_follow">متابعة المطوّر</string>
+    <string name="about_follow_sub">X %1$s، كن أول من يعرف عن الميزات الجديدة</string>
     <string name="about_repo">الشيفرة المصدرية</string>
     <string name="about_repo_sub">%1$s · نرحب بنجوم GitHub</string>
     <string name="about_guide">الدليل والمساهمة</string>
