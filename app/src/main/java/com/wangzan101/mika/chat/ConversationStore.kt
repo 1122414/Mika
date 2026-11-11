@@ -91,9 +91,11 @@ class ConversationStore(
     /**
      * 对话列表,最近改过的在前;[ConversationSummary.title] 是标题(用户改的或起好的),没有时是第一句话;
      * [ConversationSummary.pinnedAt] 是置顶的时间;[ConversationSummary.page] 是从哪一页开始的;
-     * [ConversationSummary.branchOf] 是从哪个对话的第几轮分出来的。没有内容的对话不列。
+     * [ConversationSummary.branchOf] 是从哪个对话的第几轮分出来的;[ConversationSummary.archivedAt] 是归档的时间。
+     * 没有内容的对话不列;归档的对话默认不列,见 [includeArchived]。
      */
-    fun list(): List<ConversationSummary> = listPage(0, Int.MAX_VALUE)
+    fun list(includeArchived: Boolean = false): List<ConversationSummary> =
+        listPage(0, Int.MAX_VALUE, includeArchived = includeArchived)
 
     /**
      * 侧栏搜索用的正文索引:标题由调用方连同 [ConversationSummary] 一起传进来,正文按对话文件的修改时间缓存。
@@ -101,17 +103,26 @@ class ConversationStore(
      */
     val search: ConversationSearch = ConversationSearch(::file) { read(it)?.map { record -> record.first } }
 
-    /** 尚未保存首轮的活动对话排在前面，与磁盘上的对话共用一套分页。 */
+    /** 尚未保存首轮的活动对话排在前面，与磁盘上的对话共用一套分页。归档的对话默认不列。 */
     @Synchronized
-    fun listPage(offset: Int, limit: Int, pending: List<ConversationSummary> = emptyList()): List<ConversationSummary> {
-        val unsaved = pending.asSequence().filter { firstMessage(file(it.id)) == null }
+    fun listPage(
+        offset: Int,
+        limit: Int,
+        pending: List<ConversationSummary> = emptyList(),
+        includeArchived: Boolean = false,
+    ): List<ConversationSummary> {
+        val unsaved = pending.asSequence()
+            .filter { firstMessage(file(it.id)) == null }
+            .filter { includeArchived || archivedAt(it.id) == null }
         val saved = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }.orEmpty()
             .map { it to it.lastModified() }
             .sortedWith(compareByDescending<Pair<File, Long>> { it.second }.thenBy { it.first.name })
             .asSequence().mapNotNull { (f, updatedAt) ->
                 val first = firstMessage(f) ?: return@mapNotNull null
                 val id = f.nameWithoutExtension
-                ConversationSummary(id, title(id) ?: first, updatedAt, pinnedAt(id), pageOrigin(id), branchOrigin(id))
+                val archivedAt = archivedAt(id)
+                if (!includeArchived && archivedAt != null) return@mapNotNull null
+                ConversationSummary(id, title(id) ?: first, updatedAt, pinnedAt(id), pageOrigin(id), branchOrigin(id), archivedAt)
             }
         return (unsaved + saved).drop(offset).take(limit).toList()
     }
@@ -149,7 +160,7 @@ class ConversationStore(
     fun delete(conversationId: String) {
         val main = file(conversationId).name
         val metadata = setOf(titleFile(conversationId).name, pinFile(conversationId).name,
-            pageFile(conversationId).name, branchFile(conversationId).name)
+            pageFile(conversationId).name, branchFile(conversationId).name, archiveFile(conversationId).name)
         val files = dir.listFiles { f -> f.name == main || f.name.startsWith("$main.") || f.name in metadata }
             ?: if (Files.notExists(dir.toPath())) emptyArray() else throw IOException("Cannot list conversation files")
         // Leave the history in place if any of its companion files cannot be removed.
@@ -200,6 +211,24 @@ class ConversationStore(
         if (safe(conversationId) in deleted) return false
         val f = pinFile(conversationId)
         val ok = if (pinned) {
+            dir.mkdirs()
+            runCatching { f.writeText(at.toString()) }.isSuccess
+        } else !f.exists() || f.delete()
+        if (ok) _changes.tryEmit(conversationId)
+        return ok
+    }
+
+    /** 对话归档的时间;没归档、读不到为 null。放在对话文件旁边的 `.archive` 文件里。 */
+    @Synchronized
+    fun archivedAt(conversationId: String): Long? =
+        runCatching { archiveFile(conversationId).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull() }.getOrNull()
+
+    /** 归档([archived] 为真,记下时间 [at])或取消归档。删掉的对话不动。改了返回 true。 */
+    @Synchronized
+    fun setArchived(conversationId: String, archived: Boolean, at: Long = System.currentTimeMillis()): Boolean {
+        if (safe(conversationId) in deleted) return false
+        val f = archiveFile(conversationId)
+        val ok = if (archived) {
             dir.mkdirs()
             runCatching { f.writeText(at.toString()) }.isSuccess
         } else !f.exists() || f.delete()
@@ -470,6 +499,7 @@ class ConversationStore(
     private fun pinFile(id: String) = File(dir, "${safe(id)}.pin")
     private fun pageFile(id: String) = File(dir, "${safe(id)}.page")
     private fun branchFile(id: String) = File(dir, "${safe(id)}.branch")
+    private fun archiveFile(id: String) = File(dir, "${safe(id)}.archive")
 
     /** 用户此刻在哪个对话,见 [CurrentChat];不是 `.json`,不进 [list]。 */
     private fun currentFile() = File(dir, "current")
@@ -483,6 +513,7 @@ data class ConversationSummary(
     val pinnedAt: Long? = null,
     val page: PageOrigin? = null,
     val branchOf: BranchOrigin? = null,
+    val archivedAt: Long? = null,
 )
 
 /** 分支来源:从 [parentId] 的第 [parentTurn] 轮(0 起)分出来的;[afterTurn] 为 false 时是复制到这一轮之前(第 2 阶段从用户消息重新问)。 */
