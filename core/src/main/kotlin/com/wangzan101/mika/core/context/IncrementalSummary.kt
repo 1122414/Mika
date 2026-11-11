@@ -48,6 +48,7 @@ internal class IncrementalSummary {
         val ids = array.map { (it as? JsonPrimitive)?.takeUnless { p -> p.isString }?.intOrNull ?: return false }
         if (ids.size !in 1..4 || ids.size != ids.distinct().size || ids.any { id -> batch.none { it.id == id } }) return false
         currentCoroutineContext().ensureActive()
+        if (batch.any { o -> memory.source(o.id)?.let { it.step == o.step && it.text == o.text && it.source == o.source } != true }) return false
         val fresh = SummaryBlock(batch.first().id, batch.last().id, 1, ids.sorted(), batch.map { it.id })
         val blocks = (before.blocks + fresh).toMutableList()
         // Merge contiguous equal levels without asking a model to re-summarize old material.
@@ -76,7 +77,8 @@ internal class ScreenArchive(private val maxChars: Int = 2_000_000) {
     fun page(key: String, offset: Int): JsonObject? {
         val raw = values[key] ?: return null
         if (offset !in 0 until raw.length) return null
-        val end = minOf(raw.length, offset + 2000)
+        var end = minOf(raw.length, offset + 2000)
+        if (end < raw.length && raw[end-1].isHighSurrogate() && raw[end].isLowSurrogate()) end--
         return buildJsonObject {
             put("snapshot", key); put("offset", offset); put("totalChars", raw.length)
             put("data", Untrusted.wrap(raw.substring(offset, end)))

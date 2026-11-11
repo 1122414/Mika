@@ -175,13 +175,14 @@ internal class ModelCaller(
         lastRetryWaitMs = 0
         val began = now()
         val memory = tools.ctx.taskMemory
-        if (flags.reliableContext && flags.semanticSummaries && memory != null && step >= 15 && archiveViews.useful(original)) {
+        val canRecall = specs.any { it.name == com.wangzan101.mika.core.general.HISTORY_READ && "\"snapshot\"" in it.parametersJsonSchema }
+        if (canRecall && flags.reliableContext && flags.semanticSummaries && memory != null && step >= 15 && archiveViews.useful(original)) {
             val user = original.filter { it.author == com.wangzan101.mika.core.model.Author.User }.lastOrNull()
                 ?.parts?.filterIsInstance<Part.Text>()?.firstOrNull()?.text.orEmpty()
-            if (summaries.advance(memory, tools.ctx.evidence.ledger.all, step, summaryWriter ?: model, user))
+            if (summaries.advance(memory, tools.ctx.evidence.ledger.all.filter { it.id > tools.ctx.runFloor }, step, summaryWriter ?: model, user))
                 emit(RunEvent.State(now(), "summary_committed", memory.state.cursor.toString()))
         }
-        val history = if (memory != null && flags.reliableContext) archiveViews.project(original, memory) else original
+        val history = if (canRecall && memory != null && flags.reliableContext) archiveViews.project(original, memory) else original
         val body = memory?.projection()
         val working = body?.let { Message(Role.User, listOf(Part.Text(ContextBuilder.envelope(ContextKind.UserScreen,
             "historical quotations; verify current state before external actions", it))), com.wangzan101.mika.core.model.Author.Mika) }
@@ -265,7 +266,7 @@ internal fun visibleReads(messages: List<Message>): Set<String> {
     for (m in messages) for (p in m.parts) {
         if (p !is Part.ToolResult) continue
         val obj = try { Json.parseToJsonElement(p.content) as? JsonObject } catch (e: SerializationException) { null } ?: continue
-        val shown = (obj["screen"] as? JsonObject) ?: obj.takeIf { it["elements"] is JsonArray } ?: continue
+        val shown = (obj["screen"] as? JsonObject) ?: obj.takeIf { it["elements"] is JsonArray || it["elementTables"] is JsonArray } ?: continue
         if ("historical" in shown) continue
         (shown["snapshotId"] as? JsonPrimitive)?.contentOrNull?.let(out::add)
     }

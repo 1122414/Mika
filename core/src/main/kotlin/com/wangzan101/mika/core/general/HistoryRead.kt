@@ -95,9 +95,9 @@ internal object HistoryRead : AgentTool {
         if (ctx.taskMemory != null && ("obsId" in a.o || "query" in a.o)) {
             if ("turn" in a.o || ("obsId" in a.o && "query" in a.o)) return fail("ambiguous_scope", "Use only one evidence selector.")
             val id = a.int("obsId", 1, Int.MAX_VALUE)
-            val items = if (id == null) ctx.evidence.ledger.find(a.str("query", 1, 100).orEmpty()) else listOfNotNull(ctx.evidence.ledger.read(id))
+            val items = if (id == null) ctx.evidence.ledger.find(a.str("query", 1, 100).orEmpty()).filter { it.id > ctx.runFloor } else listOfNotNull(ctx.taskMemory.source(id))
             val selector = if (id == null) "query:" + a.str("query", 1, 100) else "obs:$id"
-            if (items.isEmpty()) return fail("evidence_unavailable", "No matching source in this run. Re-observe before relying on it.").also { ctx.taskMemory.missing(selector) }
+            if (items.isEmpty()) return fail("evidence_unavailable", "No matching source in this run. Re-observe before relying on it.").also { if (id != null) ctx.taskMemory.missing(selector) }
             ctx.taskMemory.resolved(selector)
             val offset = a.int("offset", 0, Int.MAX_VALUE) ?: 0
             return ToolExecution(okObj { put("items", JsonArray(items.map { o -> buildJsonObject {

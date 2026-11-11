@@ -29,7 +29,10 @@ internal class ArchivedScreens(private val archive: ScreenArchive) {
 
     fun project(history: List<Message>, memory: TaskMemory): List<Message> {
         val starts = history.indices.filter { i -> history[i].role == Role.Assistant && history[i].parts.any { it is Part.ToolCall } }
-        val count = (starts.size - 4).coerceAtLeast(0) / 6 * 6
+        if (starts.size < 10) return history
+        val recentCost = TokenEstimate.of(history.subList(starts[starts.size - 5], history.size))
+        val recent = when { recentCost > 20_000 -> 3; recentCost > 12_000 -> 4; else -> 5 }
+        val count = (starts.size - recent).coerceAtLeast(0) / 6 * 6
         if (count == 0) return history
         val cut = starts[count]
         val bases = history.asSequence().flatMap { it.parts.asSequence() }.filterIsInstance<Part.ToolResult>()

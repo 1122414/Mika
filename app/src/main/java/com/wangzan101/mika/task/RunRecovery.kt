@@ -111,7 +111,7 @@ class RunRecovery(
                 val summary = interruptedSummary(run, said, checkpoint)
                 conversations.append(run.threadId, Turn(said, listOfNotNull(reason,
                     if (uncertain) tr(R.string.recover_effect_check) else null, summary).joinToString("\n"),
-                    "failed", runId = turnId, evidenceRunId = run.recordId, uncertainEffect = uncertain))
+                    "failed", runId = turnId, evidenceRunId = run.recordId, uncertainEffect = uncertain, steers = checkpoint?.steers.orEmpty()))
             }
             outbox.deliver(channel, peer, Delivery.Notice(turnId, run.threadId,
                 tr(R.string.recover_interrupted, said.take(40))))

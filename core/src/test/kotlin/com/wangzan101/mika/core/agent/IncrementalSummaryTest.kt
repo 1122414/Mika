@@ -56,7 +56,22 @@ class IncrementalSummaryTest {
         assertEquals(0, m.state.cursor)
     }
 
-    @Test fun historicalTreeRestoresByteForByteWhileADiffBaseRemainsVisible() {
+    @Test fun onlyRedundantHistoricalScreensAreReplacedNeverUserImagesOrUniquePixels() {
+        val original = (1..14).flatMap { i ->
+            val owner = if (i == 3) Author.User else Author.Mika
+            listOf(Message(Role.Assistant,listOf(Part.ToolCall("c$i","phone_observe","{}")),Author.Mika),
+                Message(Role.Tool,listOf(Part.ToolResult("c$i","{}",false)),Author.Mika),
+                Message(Role.User,listOf(Part.Image(if (i == 4) "unique" else "same", screenshotId=i)),owner))
+        }
+        val view = ReliableScreens.sameImages(original)
+        assertEquals(original[2],view[2])
+        assertTrue(view[5].parts.single() is Part.Text)
+        assertEquals(original[8],view[8]); assertEquals(original[11],view[11])
+        assertEquals(original.takeLast(9),view.takeLast(9))
+        assertEquals(original.take(15),ReliableScreens.sameImages(original.take(15)))
+    }
+
+    @Test fun historicalTreeRestoresByteForByteWhileADiffBaseRemainsVisible() = runTest {
         val archive = ScreenArchive()
         val projection = ArchivedScreens(archive)
         fun screen(i:Int) = buildJsonObject {
@@ -80,6 +95,13 @@ class IncrementalSummaryTest {
             offset = page["nextOffset"]?.jsonPrimitive?.int ?: -1
         } while(offset>=0) }
         assertEquals(screen(2), joined)
+        val tools = com.wangzan101.mika.core.assembly.toolDispatcher(com.wangzan101.mika.core.tool.FakeScreen(), reliableContext = true)
+        val model = FakeModel(answer("ok"), answer("ok"))
+        val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true), RetryPolicy.NONE, {}, { 0L })
+        caller.ask(raw, tools.definitions(), 12)
+        assertTrue("archiveKey" in model.requests.last()[3].parts.filterIsInstance<Part.ToolResult>().single().content)
+        caller.ask(raw, emptyList(), 13)
+        assertEquals(screen(2), model.requests.last()[3].parts.filterIsInstance<Part.ToolResult>().single().content)
         assertNull(ScreenArchive().page(key,0))
         assertNull(archive.page(key,Int.MAX_VALUE))
         assertNull(archive.put("""{"secret":true,"text":"${"x".repeat(500)}"}"""))

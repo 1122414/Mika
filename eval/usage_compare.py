@@ -7,7 +7,7 @@ from pathlib import Path
 
 def read_run(path):
     total = outcome = None
-    replies = missing = 0
+    replies = missing = lookups = 0
     with path.open(encoding="utf-8") as stream:
         for line in stream:
             if not line.strip():
@@ -20,21 +20,24 @@ def read_run(path):
                 total = event
             elif kind == "model_reply":
                 replies += 1
+                lookups += event.get("tool") in {"history_read", "view_past_screens"}
             elif kind == "task_ended":
                 outcome = event["outcome"]
             elif kind == "unreadable_event":
                 missing += 1
-    return outcome, replies, total, missing
+    return outcome, replies, total, missing, lookups
 
 
 def summarize(paths, verified, prices=None, tariffs=None):
     logical = http = uncached = cached = output = replies = passed = reported_success = 0
     missing = unknown_http = no_totals = unfinished = 0
+    lookups = 0
     grouped_cost = Decimal(0)
     priced_all_groups = True
     by_source = {}
     for path in paths:
-        outcome, steps, total, gaps = read_run(path)
+        outcome, steps, total, gaps, queries = read_run(path)
+        lookups += queries
         passed += path.resolve() in verified
         reported_success += outcome == "succeeded"
         unfinished += outcome is None
@@ -80,7 +83,8 @@ def summarize(paths, verified, prices=None, tariffs=None):
     elif tariffs is not None and complete and priced_all_groups:
         cost = grouped_cost
     return dict(tasks=len(paths), reported_success=reported_success, verified_success=passed,
-                unfinished=unfinished, main_replies=replies, known_calls=logical, known_http=http,
+                unfinished=unfinished, main_replies=replies, proposed_history_lookups=lookups,
+                known_input=uncached + cached, known_cache_share=round(cached / (uncached + cached), 6) if uncached + cached else None, known_calls=logical, known_http=http,
                 known_uncached=uncached, known_cached=cached, known_output=output,
                 total_tokens_per_task=round(reported / len(paths), 1) if complete else None,
                 total_tokens_per_verified_success=round(reported / passed, 1) if passed and complete else None,

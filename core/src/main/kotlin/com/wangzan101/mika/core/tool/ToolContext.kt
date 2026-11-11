@@ -63,7 +63,19 @@ internal class ToolContext(
     val scripts: BundledScripts?,
     val shots: Shots,
 ) {
-    val taskMemory = if (config.reliableContext) com.wangzan101.mika.core.context.TaskMemory(evidence.ledger::read, config.checkpoint) else null
+    var runFloor = 0
+        private set
+    private var started = false
+    val taskMemory = if (config.reliableContext) com.wangzan101.mika.core.context.TaskMemory(
+        { id -> if (id > runFloor) evidence.ledger.read(id) else null }, config.checkpoint) else null
+
+    fun beginRun() {
+        if (started) {
+            runFloor = evidence.ledger.lastId
+            taskMemory?.resetForNewRun()
+        }
+        started = true
+    }
     val archive = com.wangzan101.mika.core.context.ScreenArchive()
     var unresolvedPrior = false
     private val parts = HashMap<CapabilityKey<*>, Any>()

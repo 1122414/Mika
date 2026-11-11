@@ -196,7 +196,9 @@ object HistoryPruner {
 
     private fun shrinkScreen(content: String): String {
         val obj = parse(content) ?: return content
-        return JsonObject(obj + (SCREEN to JsonPrimitive(OMITTED))).toString()
+        val key = (obj[SCREEN] as? JsonObject)?.get("archiveKey") as? JsonPrimitive
+        return JsonObject(obj + (SCREEN to JsonPrimitive(OMITTED)) +
+            (key?.let { mapOf("archiveKey" to it) } ?: emptyMap())).toString()
     }
 
     private fun parse(content: String): JsonObject? = try {

@@ -264,6 +264,7 @@ class AgentLoop(
             override suspend fun handBack(result: HandBack, askId: String?) = user.resumeAfterTakeover(result, askId)
             override fun cancel() = this@AgentLoop.cancel()
         })
+        tools.ctx.beginRun()
         caller.reset(basePrompt)
         // 同意只在一次任务内有效
         confirmations?.reset()
@@ -843,8 +844,8 @@ class AgentLoop(
         appendSteers(history, inbox?.takeSteers().orEmpty())
 
     private suspend fun appendSteers(history: MutableList<Message>, updates: List<RunInbox.UserSteer>): Boolean {
-        if (updates.isNotEmpty()) check(tools.ctx.taskMemory?.steer() != false) { "Cannot checkpoint updated instructions" }
         updates.forEach { update ->
+            check(tools.ctx.taskMemory?.steer(update.text, tools.ledgerMark()) != false) { "Cannot checkpoint updated instructions" }
             val shown = screens?.render(update.text)
             val words = ownWords(update.text, shown)
             if (words.isNotBlank()) latestWords = words

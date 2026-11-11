@@ -72,6 +72,10 @@ class ContextCompressor(
 
     fun consumeProjectionChange(): Boolean = screens?.consumeChange() == true
 
+    private fun images(ms: List<Message>, limit: Int) = HistoryPruner.limitImages(ms, limit).let {
+        if (screens == null) it else ReliableScreens.sameImages(it)
+    }
+
     private fun tokens(ms: List<Message>) = TokenEstimate.of(ms) * scale
 
     /** 上一次压缩之后实际会发出的消息(没有压缩过就是完整历史);调用方据此算当前上下文大小。 */
@@ -104,10 +108,10 @@ class ContextCompressor(
             maxOf(limits.trigger, UsageMeter.estimate(it.estimate + fixedOverhead, scale) + limits.margin).coerceAtMost(limits.usable)
         } ?: limits.trigger
         val compact = (last != null && view == null) || (aggressive && view?.aggressive != true) || size > trigger
-        if (!compact) return Compressed(HistoryPruner.limitImages(sent, maxImages), view?.folded ?: 0)
+        if (!compact) return Compressed(images(sent, maxImages), view?.folded ?: 0)
         val next = compact(input, limits, fixedOverhead, aggressive, history)
         views[contextTokens] = next
-        return Compressed(HistoryPruner.limitImages(next.base, maxImages), next.folded, rewritten = true)
+        return Compressed(images(next.base, maxImages), next.folded, rewritten = true)
     }
 
     /**
@@ -221,11 +225,11 @@ class ContextCompressor(
         val verbs = round.flatMap { it.parts }.filterIsInstance<Part.ToolCall>().associate { it.id to tools.verb(it.name) }
         var kind = ScreenKind.NONE
         for (r in round.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()) {
-            val obj = (if ("\"elements\":[" in r.content || "\"screen\":{" in r.content) parse(r.content) else null) ?: continue
+            val obj = (if ("\"elements\":[" in r.content || "\"elementTables\":[" in r.content || "\"screen\":{" in r.content) parse(r.content) else null) ?: continue
             val screen = obj["screen"] as? JsonObject
             when {
-                verbs[r.callId] in OBSERVATIONS && obj["elements"] is JsonArray -> return ScreenKind.FULL
-                screen != null && screen["full"] == JsonPrimitive(true) -> return ScreenKind.FULL
+                verbs[r.callId] in OBSERVATIONS && (obj["elements"] is JsonArray || obj["elementTables"] is JsonArray) -> return ScreenKind.FULL
+                screen != null && "historical" !in screen && screen["full"] == JsonPrimitive(true) -> return ScreenKind.FULL
                 screen != null -> kind = ScreenKind.DIFF
             }
         }
@@ -241,7 +245,7 @@ class ContextCompressor(
         val bases = HashSet<String>()
         for (r in kept.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()) {
             val obj = (if ("\"snapshotId\"" in r.content) parse(r.content) else null) ?: continue
-            val screens = listOfNotNull(obj.takeIf { it["elements"] is JsonArray }, obj["screen"] as? JsonObject)
+            val screens = listOfNotNull(obj.takeIf { it["elements"] is JsonArray || it["elementTables"] is JsonArray }, obj["screen"] as? JsonObject)
             for (s in screens) {
                 (s["snapshotId"] as? JsonPrimitive)?.contentOrNull?.let(ids::add)
                 (s["base"] as? JsonPrimitive)?.contentOrNull?.let(bases::add)
@@ -281,7 +285,10 @@ class ContextCompressor(
         val shot = result?.let { parse(it.content) }?.let { o -> if (tools.verb(call.name) in OBSERVATIONS) o["screenshotId"] else (o["screen"] as? JsonObject)?.get("screenshotId") ?: o["screenshotId"] }
             ?.let { it as? JsonPrimitive }?.contentOrNull?.let { " #$it" }.orEmpty()
         val refs = if (screens != null) result?.reads?.map { it.obsId }?.distinct()?.takeIf { it.isNotEmpty() }?.joinToString(",", " obs=" ).orEmpty() else ""
-        return "Step $step ${clip(call.name)}$target$shot$refs → ${outcome(result)}"
+        val archive = if (screens != null && result?.content?.contains("\"archiveKey\":") == true) parse(result.content)?.let { obj ->
+            ((obj["archiveKey"] ?: (obj["screen"] as? JsonObject)?.get("archiveKey")) as? JsonPrimitive)?.contentOrNull
+        }?.takeIf { it.matches(Regex("[a-f0-9]{32}")) }?.let { " snapshot=$it" }.orEmpty() else ""
+        return "Step $step ${clip(call.name)}$target$shot$refs$archive → ${outcome(result)}"
     }
 
     private fun outcome(r: Part.ToolResult?): String {

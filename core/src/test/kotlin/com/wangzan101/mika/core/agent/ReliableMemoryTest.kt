@@ -20,8 +20,32 @@ class ReliableMemoryTest {
         assertTrue(m.steer()); assertTrue(m.active().isEmpty())
         assertTrue(m.record("routeA", 2, b.id, "walk 12 min"))
         ledger.add(Observation(ObsKind.Read, "X".repeat(99)), 3)
+        assertNull(ledger.read(b.id))
+        assertTrue("walk 12 min" in m.projection().orEmpty())
+        assertTrue(m.steer("use a different destination", ledger.lastId))
+        assertFalse(m.record("routeA", 3, b.id, "walk 12 min"))
         assertNull(m.projection())
         assertFalse(m.record("unknown", 0, 44, "guess"))
+    }
+
+    @Test fun sameNameAndTwoCorrectionsRequireTheNewSelectionSource() {
+        val ledger = EvidenceLedger()
+        val m = TaskMemory(ledger::read)
+        fun seen(label: String) = ledger.add(Observation(ObsKind.Read, label, source = "contacts"), 1)!!
+        val a = seen("张三 · 研发一组")
+        val b = seen("张三 · 客服二组")
+        assertTrue(m.record("recipient", 0, a.id, a.text))
+        assertTrue(m.steer("改成客服二组的张三", ledger.lastId))
+        assertFalse(m.record("recipient", 1, b.id, b.text))
+        val fresh = seen(b.text)
+        assertTrue(m.record("recipient", 1, fresh.id, fresh.text))
+        assertTrue(m.steer("先不发送，改为只查看研发一组", ledger.lastId))
+        assertTrue(m.active().isEmpty())
+        val latest = seen(a.text)
+        assertTrue(m.record("recipient", 2, latest.id, latest.text))
+        assertEquals(listOf(1,2,3), m.state.facts.map { it.version })
+        assertEquals("张三 · 研发一组", m.active().single().quote)
+        assertEquals(2, m.state.steers.size)
     }
 
     @Test fun newMetricCannotCompletePreviousDimensions() {

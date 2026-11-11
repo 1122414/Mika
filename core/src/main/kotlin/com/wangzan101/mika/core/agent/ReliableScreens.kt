@@ -46,6 +46,25 @@ internal class ReliableScreens {
         private const val COLUMNS = "columns"
         private const val ROWS = "rows"
 
+        private data class Pixels(val data: String, val width: Int, val height: Int, val mime: String)
+        fun sameImages(messages: List<Message>): List<Message> {
+            if (messages.none { m -> m.parts.any { it is Part.Image } }) return messages
+            val starts = messages.indices.filter { i -> messages[i].role == Role.Assistant && messages[i].parts.any { it is Part.ToolCall } }
+            val older = (starts.size - RECENT).coerceAtLeast(0) / BLOCK * BLOCK
+            if (older == 0) return messages
+            val cut = starts[older]
+            val sources = hashMapOf<Pixels, Int>()
+            return messages.mapIndexed { i, m ->
+                if (i >= cut || m.author != com.wangzan101.mika.core.model.Author.Mika || m.role != Role.User) return@mapIndexed m
+                val parts = m.parts.map { p ->
+                    if (p !is Part.Image || p.screenshotId == null) return@map p
+                    val first = sources.putIfAbsent(Pixels(p.pngBase64, p.width, p.height, p.mime), p.screenshotId)
+                    if (first == null) p else Part.Text("(screen #${p.screenshotId}: identical pixels to screen #$first shown above)")
+                }
+                if (parts == m.parts) m else m.copy(parts = parts)
+            }
+        }
+
         private fun pack(raw: String): String? {
             if (raw.length !in 180..2_000_000 || "\"elements\"" !in raw) return null
             val obj = try { Json.parseToJsonElement(raw) as? JsonObject } catch (_: SerializationException) { null } ?: return null

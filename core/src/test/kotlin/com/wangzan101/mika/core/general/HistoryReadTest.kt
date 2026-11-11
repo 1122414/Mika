@@ -63,6 +63,7 @@ class HistoryReadTest {
 
     @Test fun currentReadAndFactRequireExactLiveRunEvidence() = runBlocking {
         val t = toolDispatcher(FakeScreen(), reliableContext = true)
+        t.ctx.beginRun()
         val ledger = t.ctx.evidence.ledger
         val o = ledger.add(com.wangzan101.mika.core.observation.Observation(ObsKind.Read, "A to B: walk 8 min"))!!
         suspend fun read(args: String) = t.execute(Part.ToolCall("q", HISTORY_READ, args), ActionPass()).content
@@ -73,6 +74,9 @@ class HistoryReadTest {
         assertEquals(JsonPrimitive("fact_unavailable"), read("""{"fact":"route","version":2}""")["error"])
         assertTrue(t.ctx.taskMemory.blocked)
         assertEquals(JsonPrimitive("ambiguous_scope"), read("""{"turn":1,"obsId":1}""")["error"])
+        t.ctx.beginRun()
+        assertEquals(JsonPrimitive("evidence_unavailable"), read("""{"query":"walk"}""")["error"])
+        assertEquals(JsonPrimitive("evidence_unavailable"), read("""{"obsId":1}""")["error"])
         val other = toolDispatcher(FakeScreen(), reliableContext = true)
         assertEquals(JsonPrimitive("evidence_unavailable"), other.execute(Part.ToolCall("q", HISTORY_READ, """{"obsId":1}"""), ActionPass()).content["error"])
     }

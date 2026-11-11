@@ -39,7 +39,7 @@ internal data class CompletionPlan(
     val allCriteriaMet: Boolean = false,
     val strict: Boolean = false,
 ) {
-    val complete: Boolean get() = allCriteriaMet || (!strict || criteria.size <= 1) && metric?.reached == true
+    val complete: Boolean get() = allCriteriaMet || (!strict && metric?.reached == true)
 
     fun apply(u: CompletionUpdate): CompletionPlan {
         val metric = u.metric?.let { change ->

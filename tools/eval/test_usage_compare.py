@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from decimal import Decimal
 from pathlib import Path
-from usage_compare import summarize
+from runpy import run_path
+
+summarize = run_path(str(Path(__file__).resolve().parents[2] / "eval/usage_compare.py"))["summarize"]
 
 
 class CompareTest(unittest.TestCase):
