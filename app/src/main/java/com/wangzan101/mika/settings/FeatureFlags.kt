@@ -18,6 +18,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** 功能开关。提速开关存成 [SpeedFlags.describe] 的格式,评测跑器可用参数覆盖。 */
 class FeatureFlags(private val prefs: SharedPreferences) {
+    fun personalStart(): Boolean = prefs.getBoolean(PERSONAL_START, false)
+
+    fun setPersonalStart(on: Boolean) {
+        prefs.edit().putBoolean(PERSONAL_START, on).apply()
+    }
+
     /** 还没做过的默认值升级(见 [SPEED_UPGRADES])各做一次;升级之后用户手动关掉就保持关闭。 */
     fun speedFlags(): SpeedFlags {
         val flags = prefs.getString(SPEED_FLAGS, null)?.let { runCatching { SpeedFlags.parse(it) }.getOrNull() } ?: SpeedFlags.OFF
@@ -198,6 +204,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val OPERATING_PACE = "operating_pace"
         private const val SELF_CONFIG = "self_config"
         private const val THEME_MODE = "theme_mode"
+        private const val PERSONAL_START = "personal_start"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
         private const val QUIT_REQUESTED = "quit_requested"

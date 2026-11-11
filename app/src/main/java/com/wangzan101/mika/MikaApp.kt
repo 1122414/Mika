@@ -273,6 +273,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     /** 各 Run 的队列与展示状态跟 App 进程走，Service 重建时继续使用同一份。 */
     val taskState = TaskCenterState()
 
+    /** 长期个人主会话与其独立任务，由进程持有。 */
+    val personal by lazy { com.wangzan101.mika.personal.PersonalRuntime(this) }
+
     /** Mika 自己的界面此刻看不看得见。 */
     val foreground = AppForeground()
 

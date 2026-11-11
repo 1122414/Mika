@@ -29,7 +29,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.produceState
 import com.wangzan101.mika.confirm.ConfirmationNotifier
 import com.wangzan101.mika.memory.MemoryRuntime
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +48,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import androidx.compose.ui.platform.LocalContext
+import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.cap.web.WebHandover
 import com.wangzan101.mika.cap.web.WebSites
 import com.wangzan101.mika.browser.UserBrowser
@@ -66,7 +67,6 @@ import com.wangzan101.mika.chat.SharedDraftStore
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.replay.FileRouteStore
 import com.wangzan101.mika.task.TaskService
-import com.wangzan101.mika.core.knowledge.GuideCatalog
 import com.wangzan101.mika.settings.Prerequisites
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.SystemStatusMonitor
@@ -74,6 +74,7 @@ import com.wangzan101.mika.cap.phone.PhoneServices
 import com.wangzan101.mika.cap.phone.setup.DeveloperSettings
 import com.wangzan101.mika.cap.phone.setup.PairingNotifier
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
+import com.wangzan101.mika.core.knowledge.GuideCatalog
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.animationsOff
 import com.wangzan101.mika.ui.theme.appearanceDark
@@ -366,7 +367,9 @@ private fun MikaRoot(
     openTeach: Boolean,
     onTeachOpened: () -> Unit,
 ) {
-    val nav = rememberNavStack()
+    val context = LocalContext.current
+    val personalStart = remember { FeatureFlags.get(context).personalStart() }
+    val nav = rememberNavStack(if (personalStart && requestedConversation == null) Route.Personal else Route.Chat)
     var filesFromDrawer by rememberSaveable { mutableStateOf(false) }
     var filesConversation by rememberSaveable { mutableStateOf<String?>(null) }
     // 从设置页「重新配对」进来时先回到配对一步
@@ -390,7 +393,6 @@ private fun MikaRoot(
     val roles by store.roles.collectAsState()
     val hasMain = roles.main != null
     val check = Prerequisites.check(status, hasMain)
-    val context = LocalContext.current
     val app = context.applicationContext as MikaApp
     // 查到的新版本:侧栏、设置首页、关于页的红点都看它
     val updateState by app.updates.state.collectAsState()
@@ -398,8 +400,11 @@ private fun MikaRoot(
     val readyUpdate by app.automaticUpdates.ready.collectAsState()
     LaunchedEffect(requestedConversation) {
         if (requestedConversation != null) {
-            app.chat.openConversation(requestedConversation)
-            nav.reset()
+            if (requestedConversation == "personal-main") nav.show(Route.Personal)
+            else {
+                app.chat.openConversation(requestedConversation)
+                nav.reset()
+            }
             onConversationOpened()
         }
     }
@@ -448,7 +453,9 @@ private fun MikaRoot(
         }
     }
     LaunchedEffect(Unit) {
-        if (onboarding == null) Onboarding.start(onboardingInputs())?.let(::goOnboarding)
+        if (onboarding == null && requestedConversation == null && nav.current != Route.Personal) {
+            Onboarding.start(onboardingInputs())?.let(::goOnboarding)
+        }
     }
     val phoneSetupNeeded by phoneSetup.needed.collectAsState()
     // 页面有自己的返回处理时(设置页里的子页、侧栏)由它们先接;这里只管退回上一页
@@ -475,7 +482,7 @@ private fun MikaRoot(
                 },
             )
         }
-        Route.Chat -> screenStates.SaveableStateProvider(Route.Chat.name) {
+        Route.Chat, Route.Personal -> screenStates.SaveableStateProvider(nav.current.name) {
             // 对话页重新看得见(回到前台、从别的页面回来):补上别处存进来的轮次,接上别处开始的任务
             LifecycleStartEffect(Unit) {
                 app.chat.refresh()
@@ -499,13 +506,23 @@ private fun MikaRoot(
                 updateAvailable = AboutCopy.drawerDot(updateState),
                 reopen = nav.reopenDrawer,
                 onReopened = nav::drawerReopened,
+                onPersonal = { nav.show(Route.Personal) },
+                onRegularChat = nav::reset,
                 resetKey = nav.resetSerial,
             ) { openDrawer ->
                 Box(Modifier.fillMaxSize()) {
                     val readyRelease = readyUpdate?.takeIf { autoUpdate && it.apkUrl == updateState.update?.apkUrl }
                     val updateBackdrop = if (readyRelease != null) rememberGlassBackdrop() else null
                     Box(Modifier.fillMaxSize().glassSource(updateBackdrop)) {
-                        ChatScreen(
+                        if (nav.current == Route.Personal) PersonalAgentScreen(
+                            runtime = app.personal,
+                            voice = app.voice,
+                            onOpenDrawer = openDrawer,
+                            onOpenTask = { id -> app.chat.openPersonalTask(id); nav.reset() },
+                            memoryRuntime = memoryRuntime,
+                            onModels = { nav.push(Route.Models) },
+                            onPickSpeech = { nav.push(Route.SpeechModel) },
+                        ) else ChatScreen(
                             vm = app.chat,
                             check = check,
                             frames = app.taskState.frames,

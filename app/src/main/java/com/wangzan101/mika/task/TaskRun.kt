@@ -225,6 +225,7 @@ class TaskRun(
     private val _tagged = Mirrored<Pair<String, TaskState>?>(conversationId to _state.value, service.taskState._shownTask)
     private val _takeoverStage = Mirrored(Takeover.Stage.None, service.taskState._takeoverStage)
     private val _frames = Mirrored<Bitmap?>(null, service.taskState._frames)
+    private val _phoneFrames = MutableStateFlow<Bitmap?>(null)
     private val _activities = Mirrored<List<RunEvent.Activity>>(emptyList(), service.taskState._activities)
     /** 活动只追加;发布的是前 n 条的只读视图,每来一条不复制已有的。 */
     private val activityLog = ArrayList<RunEvent.Activity>()
@@ -245,6 +246,8 @@ class TaskRun(
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.flow
     val takeoverStage: StateFlow<Takeover.Stage> = _takeoverStage.flow
     val frames: StateFlow<Bitmap?> = _frames.flow
+    /** 个人助手的缩略图只收本任务获准展示的手机画面。 */
+    val phoneFrames: StateFlow<Bitmap?> = _phoneFrames.asStateFlow()
     /** 本任务到此刻的活动(实际做过的事);悬浮胶囊的卡片按任务取,不只看显示中的那个。 */
     val activities: StateFlow<List<RunEvent.Activity>> = _activities.flow
     /** 本任务的虚拟屏编号;屏到用到系统命令、事件工具或第一次打开 App 时才建,之前和释放之后为 -1。 */
@@ -609,8 +612,25 @@ class TaskRun(
                         create()
                     }.also { d ->
                         _displayId.value = d.displayId
-                        side.launch { d.frames.collect { if (dispatcher?.surface != WEB) _frames.value = if (previewAllowed()) it else null } }
-                        side.launch { appAccess.state.collect { if (dispatcher?.surface != WEB && !previewAllowed()) _frames.value = null } }
+                        side.launch {
+                            combine(d.frames, _appShown.flow) { frame, shown -> frame to shown }.collect { (frame, shown) ->
+                                if (dispatcher?.surface != WEB) {
+                                    val allowed = frame.takeIf { previewAllowed() }
+                                    if (dispatcher?.surface != WEB) {
+                                        _frames.value = allowed
+                                        _phoneFrames.value = allowed.takeIf { shown }
+                                    }
+                                }
+                            }
+                        }
+                        side.launch {
+                            appAccess.state.collect {
+                                if (dispatcher?.surface != WEB && !previewAllowed()) {
+                                    _frames.value = null
+                                    _phoneFrames.value = null
+                                }
+                            }
+                        }
                     }
                 }
                 val audio = recovery.audioMute(shell, key).also { mute = it }
@@ -744,6 +764,7 @@ class TaskRun(
                     while (true) {
                         delay(WEB_FRAME_MS)
                         val surface = dispatcher?.surface
+                        if (surface == WEB) _phoneFrames.value = null
                         if (surface != last) {
                             _frames.value = null
                             last = surface
@@ -1014,6 +1035,7 @@ class TaskRun(
             handoffUnconsumed()
             side.cancel()
             _frames.value = null
+            _phoneFrames.value = null
             _webOpen.value = false
             synchronized(publishLock) { ended = true }
             if (awake != null && service.hasQueuedRuns()) wakeHandoff = service.wakeLock.lease().also { it.acquire() }

@@ -3385,4 +3385,19 @@ class ChatViewModelTest {
         assertTrue(vm.send("新一句", ok))
         assertNull(vm.branchBefore(0))
     }
+    @Test fun personalTaskCanBeOpenedWhileOrdinaryConversationIsBusyWithoutStartingWork() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        store.append("personal-work", Turn("整理资料", "整理完成", "succeeded"))
+        val vm = vm(store)
+        vm.send("正在做原来的事", ok)
+        emit(TaskState.Running(1, "处理中"))
+        val originalId = vm.ui.value.conversationId
+        vm.openConversation("personal-work")
+        assertEquals(originalId, vm.ui.value.conversationId)
+        vm.openPersonalTask("personal-work")
+        assertEquals("personal-work", vm.ui.value.conversationId)
+        assertEquals("整理资料", vm.ui.value.exchanges.first().goal)
+        assertEquals(1, calls.count { it.startsWith("start:") })
+    }
+
 }

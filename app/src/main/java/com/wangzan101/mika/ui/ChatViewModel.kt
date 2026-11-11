@@ -1344,6 +1344,20 @@ class ChatViewModel(
         follow(conversationId, unpark(conversationId))
     }
 
+    /** 个人助手打开其委派任务：只切换展示，不启动另一项工作。 */
+    fun openPersonalTask(conversationId: String) {
+        refreshParallel()
+        lingerJob?.cancel()
+        if (conversationId != _ui.value.conversationId) parkLive()
+        val past = saved(conversationId)
+        liveIndex = -1
+        // 没有任务的对话不带别的任务的接管进度
+        _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None) }
+        markCurrent(CurrentChat.Open(conversationId))
+        if (conversationId !in activeConversations.value) { unpark(conversationId); return }
+        follow(conversationId, unpark(conversationId))
+    }
+
     /**
      * 接上屏上这个对话正在跑的任务(不论从哪里开始的:这里、悬浮胶囊、定时任务)。没在跟时先摆好那一问一答
      * (切走时停着的 [p],或按任务的原话新起一条),再让服务显示它,并按服务此刻对外的各项补齐。
