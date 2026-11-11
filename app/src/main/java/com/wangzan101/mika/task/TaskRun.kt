@@ -47,6 +47,7 @@ import com.wangzan101.mika.core.agent.FailKind
 import com.wangzan101.mika.core.agent.ModelRouter
 import com.wangzan101.mika.core.memory.MemoryExtractor
 import com.wangzan101.mika.core.memory.MemoryStore
+import com.wangzan101.mika.core.memory.TaskMemoryRecorder
 import com.wangzan101.mika.core.memory.UserUtterances
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ModelSession
@@ -745,6 +746,7 @@ class TaskRun(
                 sw.copy(learnSkills = env.evalHooks.learnSkills ?: sw.learnSkills, autoRemember = env.evalHooks.rememberMemory ?: sw.autoRemember)
             }
             val memory = if (switches.useMemory) withContext(Dispatchers.IO) { memoryRuntime.store() } else null
+            val taskMemory = if (switches.rememberTasks) withContext(Dispatchers.IO) { memoryRuntime.taskMemory() } else null
             val profileSnapshot = if (switches.useMemory) withContext(Dispatchers.IO) {
                 runCatching { memoryRuntime.profile().snapshot() }.onFailure { Log.w(TAG, "profile unavailable", it) }.getOrDefault(emptyList())
             } else emptyList()
@@ -861,6 +863,7 @@ class TaskRun(
                 stableRefs = speed.inlineScreen, inlineScreen = speed.inlineScreen,
                 adaptiveVision = speed.adaptiveVision,
                 deepLinks = speed.deepLinks, memory = memory, profile = if (memory != null) memoryRuntime.profile() else null,
+                taskMemory = taskMemory,
                 utterances = utterances, conversationId = conversationId,
                 web = web,
                 // 同一个网站一页一页看:换页前补足停留,不连着秒开
@@ -1312,6 +1315,7 @@ class TaskRun(
      * 在进程级的作用域里跑,服务退出也不中断。
      */
     suspend fun learnAfter(end: TaskState, outcome: RunOutcome?, conversations: ConversationStore) {
+        rememberTask()
         val k = kit ?: return
         val runId = _runId.value
         val learning = RunLearning(
@@ -1338,6 +1342,24 @@ class TaskRun(
             runCatching {
                 conversations.updateTurn(conversationId, runId) { it.copy(memoryNotes = notes.memoryNotes, usedMemory = notes.usedMemory, skillNotes = notes.skillNotes) }
             }.onFailure { Log.w(TAG, "could not save memory notes", it) }
+        }
+    }
+
+    /**
+     * 任务结束之后:按这次运行的事件记一条跨会话摘要(不拖慢交付,失败不影响任务结局)。
+     * 开关关着、没有运行编号、没读到事件、没什么可记的都不记。
+     */
+    private suspend fun rememberTask() {
+        val runId = _runId.value ?: return
+        if (!memoryRuntime.settings().switches.value.rememberTasks) return
+        val events = withContext(Dispatchers.IO) { runCatching { kit?.runStore?.events(runId) }.getOrNull() } ?: return
+        val labels = ToolLabels(knownTools())
+        val task = TaskMemoryRecorder.record(goal, events, System.currentTimeMillis(), UUID.randomUUID().toString(), labels::label) {
+            ConfirmationNotifier.appLabel(service, it)
+        } ?: return
+        withContext(Dispatchers.IO) {
+            runCatching { memoryRuntime.taskMemory().add(task) }
+                .onFailure { Log.w(TAG, "task memory not saved", it) }
         }
     }
 
