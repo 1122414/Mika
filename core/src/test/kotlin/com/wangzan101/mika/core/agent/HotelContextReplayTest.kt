@@ -1,5 +1,12 @@
 package com.wangzan101.mika.core.agent
 
+import com.wangzan101.mika.core.context.ScreenArchive
+import com.wangzan101.mika.core.context.TaskMemory
+import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.model.ModelReply
+import com.wangzan101.mika.core.model.StopReason
+import com.wangzan101.mika.core.tool.FakeScreen
+import kotlinx.coroutines.test.runTest
 import com.wangzan101.mika.core.model.Author
 import com.wangzan101.mika.core.model.Message
 import com.wangzan101.mika.core.model.Part
@@ -137,6 +144,82 @@ class HotelContextReplayTest {
             prev = after
         }
         assertEquals(source, history.take(source.size))
+    }
+
+    /**
+     * The 33 tool actions and the two tool errors follow the verified 34-request run. The export
+     * has no bodies: page contents, trees and arguments below are a fixed, synthetic fixture.
+     */
+    @Test fun replayOrderPageAndPriceOnTheSame34Requests() = runTest {
+        fixture()
+        val evidencePages = history.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
+            .filter { it.callId in evidence }.map { Json.parseToJsonElement(it.content).jsonObject.getValue("screen").jsonObject }
+        val pages = listOf(12, 18, 23, 29).zip(evidencePages).toMap()
+        val actions = (1..33).associateWith { step -> when (step) {
+            1 -> "phone_list_apps"; 2, 13, 30 -> "phone_launch_app"; 3 -> "task_progress"; 7 -> "do_steps"
+            15, 20, 24, 28 -> "phone_type_text"; 19, 23, 27 -> "phone_clear_text"; else -> "phone_tap"
+        } }
+        val expected = Choice("样例乙店", "测试路3号", "¥510", 8)
+        val raw = mutableListOf(goal)
+        val tools = toolDispatcher(FakeScreen(), reliableContext = true)
+        val model = FakeModel(ModelReply(listOf(Part.Text("fixture")), StopReason.EndTurn, null),
+            repeatLast = true, contextTokens = 1_000_000)
+        val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true, semanticSummaries = false),
+            RetryPolicy.NONE, {}, { 0L })
+        val wire = HotelReplayMeter()
+        // Isolate each projection on exactly the same input, independently of the pricing model.
+        val tables = ContextCompressor(TOOLS, reliable = true)
+        val archive = ArchivedScreens(ScreenArchive())
+        val memory = TaskMemory({ null })
+        val previous = mutableMapOf<String, List<Message>>()
+        val changes = mutableMapOf<String, MutableList<Int>>()
+        var selected: Choice? = null
+        for (step in 1..34) {
+            val specs = tools.definitions()
+            caller.ask(raw, specs, step)
+            val view = model.requests.last()
+            wire.observe(step, view, specs)
+            for ((kind, projected) in listOf("tables" to tables.compress(raw, 1_000_000).messages,
+                "archive" to archive.project(raw, memory))) {
+                val prev = previous.put(kind, projected.toList()).orEmpty()
+                if (projected.take(prev.size) != prev) changes.getOrPut(kind) { mutableListOf() }.add(step)
+            }
+            if (step == 32) selected = choose(view)
+            if (step == 34) {
+                val page = Json.parseToJsonElement((view.last().parts.single() as Part.ToolResult).content)
+                    .jsonObject.getValue("screen").jsonObject
+                assertEquals("携程", page.getValue("currentApp").jsonPrimitive.content)
+                assertEquals("订单填写：${expected.name}；2026-11-20", page.getValue("title").jsonPrimitive.content)
+                assertEquals(expected, choose(view))
+                break
+            }
+            val id = "c$step"
+            val isError = step == 3 || step == 7
+            val response = when {
+                isError -> """{"ok":false,"error":"unavailable"}"""
+                step == 1 -> """{"apps":["携程","高德"]}"""
+                else -> {
+                    val source = pages[step]
+                    val page = buildJsonObject {
+                        put("currentApp", if (step in 13..29) maps else listing)
+                        put("title", if (step == 33) "订单填写：${requireNotNull(selected).name}；2026-11-20" else "页面 $step")
+                        put("full", true); put("snapshotId", "s$step")
+                        putJsonArray("elements") {
+                            source?.get("elements")?.jsonArray?.forEach(::add)
+                            repeat(90) { n -> addJsonObject {
+                                put("ref", "@n$n"); put("role", "text"); put("name", "导航 $step/$n"); put("clickable", false)
+                            } }
+                        }
+                        put("tree", "screen $step: " + "layout bounds and accessibility node; ".repeat(550))
+                    }
+                    buildJsonObject { put("ok", true); put("screen", page) }.toString()
+                }
+            }
+            raw += Message(Role.Assistant, listOf(Part.ToolCall(id, actions.getValue(step), "{}")), Author.Mika)
+            raw += Message(Role.Tool, listOf(Part.ToolResult(id, response, isError)), Author.Mika)
+        }
+        assertEquals(expected, selected)
+        println("34-request hotel replay: $wire isolated=$changes")
     }
 
     @Test fun cannotConfirmWinnerWithOneCompetitorsWalkMissing() {
