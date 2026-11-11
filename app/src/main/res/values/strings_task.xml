@@ -81,4 +81,5 @@
     <string name="screens_waiting">Waiting</string>
     <string name="screens_needs_you">Needs you</string>
     <string name="screens_zoom">Enlarge this screen</string>
+    <string name="recover_effect_check">The previous action may already have taken effect. Check the order or receipt before attempting it again.</string>
 </resources>

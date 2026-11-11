@@ -168,10 +168,18 @@ class ActionExecutor(
             pacedMs = paced + dwelt.waitMs, idleScrolls = dwelt.idleScrolls, outward = site != null)
         // 动作一旦开始就做完并记下:脚本超时、任务取消都不能把它掐在半中间、漏掉记录
         // 对外动作告诉这块屏的能力(网页的页数上限只管浏览,见 PageDwell)
+        val memory = tools.ctx.taskMemory
+        val kind = decision.externalKind?.name
+        if (memory != null && kind != null && (tools.ctx.unresolvedPrior || memory.blocked || !memory.beginEffect(kind))) {
+            return ran(Step(call, args, origin, before, false, offScreen, verb, null, followUp, reads,
+                preset = com.wangzan101.mika.core.tool.fail("effect_unconfirmed", "An earlier external action may already have taken effect, or its checkpoint could not be saved. Inspect its status and report it to the user. Do not repeat it.")))
+        }
         site?.let(tools::outwardStart)
         var done = false
         try {
             val outcome = if (policy.actionCapMs == null) ran(step) else withContext(NonCancellable) { ran(step) }
+            if (memory != null && kind != null && outcome is ActionOutcome.Ran && outcome.exec.content["ok"] == JsonPrimitive(true))
+                memory.returned(kind)
             if (screenPaced && outcome is ActionOutcome.Ran) tools.afterWrite(call.name, outcome.exec.content)
             if (site != null && outcome is ActionOutcome.Ran && outcome.exec.content["ok"] != JsonPrimitive(false)) {
                 done = true

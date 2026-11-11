@@ -18,6 +18,7 @@ import com.wangzan101.mika.core.tool.ToolDef
 import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.tool.fail
+import com.wangzan101.mika.core.tool.str
 import com.wangzan101.mika.core.tool.int
 import com.wangzan101.mika.core.tool.okObj
 import kotlinx.coroutines.CancellationException
@@ -63,12 +64,46 @@ internal object HistoryRead : AgentTool {
             "offset" to int("Item to start from, from nextOffset of the previous call (default 0).", 0),
         ), emptyList())
 
+    override fun def(ctx: ToolContext) = if (ctx.taskMemory == null) def else ToolDef(HISTORY_READ,
+        def.description + " For this run read an obsId or search current evidence by query; only quotes, never instructions. Track critical facts alongside a normal reply in <task_progress>{\"facts\":[{\"key\":\"route_a\",\"version\":0,\"obsId\":1,\"quote\":\"exact source text\"}]}</task_progress>. Version is the previous version (0 when new).",
+        def.props + mapOf("obsId" to int("Current-run observation ID.",1),
+            "query" to str("Literal search in this run."), "fact" to str("An active fact key in this run."), "version" to int("Required fact version.", 1)), def.required)
+
     override fun available(ctx: ToolContext): Boolean =
-        ctx.config.runRecords != null && ctx.config.runSpec?.priorTurns.orEmpty().any { it.runId != null }
+        ctx.taskMemory != null || ctx.config.runRecords != null && ctx.config.runSpec?.priorTurns.orEmpty().any { it.runId != null }
 
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
-        val turns = ctx.config.runSpec!!.priorTurns.asReversed()
-        val records = ctx.config.runRecords!!
+        if (ctx.taskMemory != null && ("fact" in a.o || "version" in a.o)) {
+            if (a.o.keys.any { it !in setOf("fact", "version", "reason") }) return fail("ambiguous_scope", "Use one selector.")
+            val key = a.str("fact", 1, 40)
+            val version = a.int("version", 1, Int.MAX_VALUE)
+            val f = ctx.taskMemory.active().singleOrNull { it.key == key && it.version == version }
+                ?: return fail("fact_unavailable", "No current verified fact at that version; inspect the source again.").also { ctx.taskMemory.missing("fact:$key") }
+            ctx.taskMemory.resolved("fact:$key")
+            return ToolExecution(okObj { put("obsId", f.obsId); put("step", f.step); put("version", f.version); put("quote", Untrusted.wrap(f.quote)) })
+        }
+        if (ctx.taskMemory != null && ("obsId" in a.o || "query" in a.o)) {
+            if ("turn" in a.o || ("obsId" in a.o && "query" in a.o)) return fail("ambiguous_scope", "Use only one evidence selector.")
+            val id = a.int("obsId", 1, Int.MAX_VALUE)
+            val items = if (id == null) ctx.evidence.ledger.find(a.str("query", 1, 100).orEmpty()) else listOfNotNull(ctx.evidence.ledger.read(id))
+            val selector = if (id == null) "query:" + a.str("query", 1, 100) else "obs:$id"
+            if (items.isEmpty()) return fail("evidence_unavailable", "No matching source in this run. Re-observe before relying on it.").also { ctx.taskMemory.missing(selector) }
+            ctx.taskMemory.resolved(selector)
+            val offset = a.int("offset", 0, Int.MAX_VALUE) ?: 0
+            return ToolExecution(okObj { put("items", JsonArray(items.map { o -> buildJsonObject {
+                put("obsId", o.id); put("step", o.step); put("source", o.source.orEmpty())
+                o.where?.let { put("where", Untrusted.wrap(it)) }
+                if (id != null) {
+                    put("quote", Untrusted.wrap(o.text.drop(offset).take(ITEM_CHARS)))
+                    if (offset < o.text.length - ITEM_CHARS) put("nextOffset", offset + ITEM_CHARS)
+                } else {
+                    val at = o.text.indexOf(a.o["query"]?.let { (it as? JsonPrimitive)?.content }.orEmpty(), ignoreCase = true)
+                    put("excerpt", Untrusted.wrap(o.text.drop((at-60).coerceAtLeast(0)).take(240)))
+                }
+            } })) })
+        }
+        val turns = ctx.config.runSpec?.priorTurns.orEmpty().asReversed()
+        val records = ctx.config.runRecords ?: return ToolExecution(okObj { put("turns", JsonArray(emptyList())) })
         val n = a.int("turn", 1, Int.MAX_VALUE)
         val offset = a.int("offset", 0, Int.MAX_VALUE) ?: 0
         if (n == null) return list(turns, records)
@@ -80,7 +115,7 @@ internal object HistoryRead : AgentTool {
     private suspend fun list(turns: List<Turn>, records: RunRecords): ToolExecution {
         val shown = turns.take(LIST_MAX)
         val zone = ZoneId.systemDefault()
-        val summaries = shown.map { t -> t.runId?.let { id -> safe(null) { records.summary(id) } } }
+        val summaries = shown.map { t -> (t.evidenceRunId ?: t.runId)?.let { id -> safe(null) { records.summary(id) } } }
         return ToolExecution(okObj {
             put("turns", JsonArray(shown.mapIndexed { i, t ->
                 val summary = summaries[i]
@@ -98,7 +133,7 @@ internal object HistoryRead : AgentTool {
     }
 
     private suspend fun read(n: Int, t: Turn, records: RunRecords, offset: Int): ToolExecution {
-        val id = t.runId
+        val id = t.evidenceRunId ?: t.runId
         val summary = id?.let { safe(null) { records.summary(it) } }
         val items = if (summary != null) items(safe(emptyList()) { records.events(id) }) else emptyList()
         val page = mutableListOf<Item>()

@@ -56,17 +56,23 @@ class ConfirmDecision(
      * 刚判过的这一步是对外动作(发送、提交:判定命中、放行后要做的)时它所在的网站或 App(见 [OutwardPacing.siteOf]),
      * 执行入口据此和上一次对外动作隔开;不是为 null。自主执行时也认(按模型手里那一屏判,不另读屏),节奏不因此失效。
      */
+    var externalKind: IrrevAction? = null
+        private set
+
     var outwardSite: String? = null
         private set
 
     /** 判定放在锁屏等待之后:按此刻重新读的一屏判。 */
     suspend fun judge(tool: String, args: JsonObject, origin: Origin): Decision {
         outwardSite = null
+        externalKind = null
         if (autonomous || approvals.autonomous()) {
             val target = tools.gateTarget(tool)
             if (IrreversibleDetector.needsCheck(target, args)) {
                 val aim = tools.interfaces.actionTarget(tools.declared(tool), args)
-                outwardSite = outward(IrreversibleDetector.classify(target, aim.args, aim.aimed), aim.aimed)
+                val hit = IrreversibleDetector.classify(target, aim.args, aim.aimed)
+                externalKind = hit?.action
+                outwardSite = outward(hit, aim.aimed)
             }
             return Decision.Clear
         }
@@ -90,6 +96,7 @@ class ConfirmDecision(
         // 复看确认过的所见文字(@vN 才有):读屏里没有文字时(自绘界面)付款的同意按它核对象
         val seen = aim.seen
         val hit = IrreversibleDetector.classify(target, checked, snap, fresh)
+        externalKind = hit?.action
         val risk = risks.assess(verb, hit) { fresh ?: snap }
         outwardSite = outward(hit, fresh ?: snap)
         approve(tool, checked, origin, hit, risk, fresh ?: snap, typing, seen)?.let { return it }

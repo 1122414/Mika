@@ -165,6 +165,21 @@ class RunRecoveryTest {
         assertEquals("任务中断了，可以重新发起。", turns.single().outcome)
     }
 
+    @Test fun unknownOrderIsCarriedIntoTheNextTurnWithoutReplayingIt() = runTest(UnconfinedTestDispatcher()) {
+        val records = object : RunRecords {
+            override suspend fun summary(runId: String) = null
+            override suspend fun events(runId: String) = emptyList<RunEvent>()
+            override suspend fun checkpoint(runId: String) = com.wangzan101.mika.core.context.TaskCheckpoint(1, pendingEffect = "order")
+        }
+        val rig = Rig(this, records = records)
+        rig.store.save(run("a").copy(recordId = "private-a"))
+        rig.recovery.recover()
+        val turn = rig.conversations.turns("thread-a").single()
+        assertTrue(turn.uncertainEffect)
+        assertEquals("private-a", turn.evidenceRunId)
+        assertEquals(1, rig.channel.sent.size)
+    }
+
     @Test fun interruptionIncludesPersistedProgressButNotificationStaysShort() = runTest(UnconfinedTestDispatcher()) {
         val events = listOf(
             RunEvent.Activity(1, 1, "act", "phone_calendar_bulk_insert", "日历"),

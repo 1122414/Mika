@@ -46,6 +46,8 @@ internal class ToolConfig(
     val runRecords: com.wangzan101.mika.core.record.RunRecords? = null,
     /** 用户配置并启用的网页搜索;为空时不提供 web_search。 */
     val webSearch: com.wangzan101.mika.core.search.WebSearch? = null,
+    val reliableContext: Boolean = false,
+    val checkpoint: com.wangzan101.mika.core.context.CheckpointStore? = null,
 )
 
 /**
@@ -61,6 +63,8 @@ internal class ToolContext(
     val scripts: BundledScripts?,
     val shots: Shots,
 ) {
+    val taskMemory = if (config.reliableContext) com.wangzan101.mika.core.context.TaskMemory(evidence.ledger::read, config.checkpoint) else null
+    var unresolvedPrior = false
     private val parts = HashMap<CapabilityKey<*>, Any>()
 
     /** 能力在任务开始时放进来的东西;没放为 null。 */

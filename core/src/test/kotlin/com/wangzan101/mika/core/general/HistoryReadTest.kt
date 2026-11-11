@@ -61,6 +61,22 @@ class HistoryReadTest {
         assertFalse(HISTORY_READ in tools(records, prior = listOf(Turn("你好", "你好!", "succeeded"))).definitions().map { it.name })
     }
 
+    @Test fun currentReadAndFactRequireExactLiveRunEvidence() = runBlocking {
+        val t = toolDispatcher(FakeScreen(), reliableContext = true)
+        val ledger = t.ctx.evidence.ledger
+        val o = ledger.add(com.wangzan101.mika.core.observation.Observation(ObsKind.Read, "A to B: walk 8 min"))!!
+        suspend fun read(args: String) = t.execute(Part.ToolCall("q", HISTORY_READ, args), ActionPass()).content
+        assertTrue("walk 8 min" in read("""{"query":"walk"}""").toString())
+        assertTrue("<untrusted>" in read("""{"obsId":1}""").toString())
+        assertTrue(t.ctx.taskMemory!!.record("route", 0, o.id, "walk 8 min"))
+        assertTrue("walk 8 min" in read("""{"fact":"route","version":1}""").toString())
+        assertEquals(JsonPrimitive("fact_unavailable"), read("""{"fact":"route","version":2}""")["error"])
+        assertTrue(t.ctx.taskMemory.blocked)
+        assertEquals(JsonPrimitive("ambiguous_scope"), read("""{"turn":1,"obsId":1}""")["error"])
+        val other = toolDispatcher(FakeScreen(), reliableContext = true)
+        assertEquals(JsonPrimitive("evidence_unavailable"), other.execute(Part.ToolCall("q", HISTORY_READ, """{"obsId":1}"""), ActionPass()).content["error"])
+    }
+
     @Test fun listsEarlierTurnsNewestFirst() {
         val r = call(FakeRecords(mapOf("run-a" to searchRun)), "{}").content
         val list = r["turns"] as JsonArray

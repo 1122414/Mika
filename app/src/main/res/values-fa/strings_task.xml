@@ -81,4 +81,5 @@
     <string name="screens_waiting">در انتظار</string>
     <string name="screens_needs_you">به توجه شما نیاز دارد</string>
     <string name="screens_zoom">بزرگ کردن این صفحه</string>
+    <string name="recover_effect_check">ممکن است اقدام قبلی انجام شده باشد. پیش از تلاش دوباره، سفارش یا رسید را بررسی کنید.</string>
 </resources>

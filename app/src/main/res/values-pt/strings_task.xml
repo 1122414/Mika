@@ -84,4 +84,5 @@
     <string name="screens_waiting">Aguardando</string>
     <string name="screens_needs_you">Precisa de você</string>
     <string name="screens_zoom">Ampliar esta tela</string>
+    <string name="recover_effect_check">A ação anterior pode já ter sido concluída. Confira o pedido ou o recibo antes de tentar novamente.</string>
 </resources>

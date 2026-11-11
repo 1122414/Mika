@@ -55,6 +55,9 @@ class RunStore internal constructor(
 
     private val root = File(filesDir, "runs")
 
+    private val checkpoints = File(filesDir, "private-run-checkpoints")
+    internal fun checkpoint(runId: String) = dirOf(runId)?.let { TaskCheckpointFile(File(checkpoints, runId)) }
+
     /** 每次运行的小结;运行记录关上时由写线程记一份(见 [RunHandle])。 */
     val metrics = RunMetricsStore(File(filesDir, RunMetricsStore.FILE_NAME))
 
@@ -83,6 +86,7 @@ class RunStore internal constructor(
     /** 只读地交给核心(查这个对话之前几轮的记录,见 history_read);在 IO 线程上读。 */
     fun reader(): RunRecords = object : RunRecords {
         override suspend fun summary(runId: String) = withContext(Dispatchers.IO) { this@RunStore.summary(runId) }
+        override suspend fun checkpoint(runId: String) = withContext(Dispatchers.IO) { this@RunStore.checkpoint(runId)?.load() }
         override suspend fun events(runId: String) = withContext(Dispatchers.IO) { this@RunStore.events(runId) }
     }
 
@@ -166,7 +170,7 @@ class RunStore internal constructor(
         parent.listFiles { f -> f.isDirectory && ID_RE.matches(f.name) }.orEmpty().sortedBy { it.name }
 
     private fun prune() {
-        runDirs().dropLast(keep).forEach { it.deleteRecursively() }
+        runDirs().dropLast(keep).forEach { if (it.deleteRecursively()) File(checkpoints, it.name).delete() }
     }
 
     companion object {

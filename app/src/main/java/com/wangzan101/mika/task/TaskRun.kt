@@ -825,6 +825,7 @@ class TaskRun(
                 } else null,
                 stableRefs = speed.inlineScreen, inlineScreen = speed.inlineScreen,
                 adaptiveVision = speed.adaptiveVision,
+                reliableContext = speed.reliableContext, checkpoint = record?.runId?.let { runStore?.checkpoint(it) } ?: com.wangzan101.mika.core.context.CheckpointStore.Unavailable,
                 deepLinks = speed.deepLinks, memory = memory, profile = if (memory != null) memoryRuntime.profile() else null,
                 utterances = utterances, conversationId = conversationId,
                 web = web,

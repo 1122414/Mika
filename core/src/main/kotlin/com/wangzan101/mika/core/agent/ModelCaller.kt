@@ -181,7 +181,11 @@ internal class ModelCaller(
             val currentTokens = requestTokens(current, using, overhead, compressor.scale)
             val raw = compressor.compress(history, contextTokens, currentTokens, compaction.aggressive, overhead, using.capabilities.maxImages)
             if (raw.rewritten) anchors.clear()
-            val restored = ContextRecovery.ensure(history, raw.messages)
+            val recovered = ContextRecovery.ensure(history, raw.messages)
+            val memory = tools.ctx.taskMemory?.projection()?.takeIf { raw.foldedSteps > 0 || raw.messages != history }
+            val restored = if (memory == null) recovered else recovered + Message(Role.User, listOf(Part.Text(
+                ContextBuilder.envelope(ContextKind.UserScreen, "recorded quotations; historical, verify before external changes", memory))),
+                com.wangzan101.mika.core.model.Author.Mika)
             val sent = if (restored === raw.messages) raw else raw.copy(messages = restored, estimate = TokenEstimate.of(restored))
             val (next, report) = CompactionPolicy.sent(compaction, sent.foldedSteps)
             if (report) emit(RunEvent.Compressed(now(), sent.foldedSteps))

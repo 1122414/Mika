@@ -90,6 +90,19 @@ class DescribedActionsTest {
         assertEquals(listOf("tap @e4"), screen.calls)
     }
 
+    @Test fun interruptedOrderNeverTapsSubmitAgain() = runTest {
+        for (fromPreviousRun in listOf(true, false)) {
+            val screen = Shop()
+            val tools = toolDispatcher(screen, reliableContext = true)
+            if (fromPreviousRun) tools.ctx.unresolvedPrior = true else assertTrue(tools.ctx.taskMemory!!.beginEffect("order"))
+            val e = ActionExecutor(tools, OperationGuards(), null, gate = {}, recorder = ActionRecorder(sink), autonomous = true)
+            val result = run(e, "phone_tap", """{"element":"提交订单"}""")
+            assertEquals(JsonPrimitive("effect_unconfirmed"), content(result)["error"])
+            assertTrue(screen.calls.isEmpty())
+            assertEquals(JsonPrimitive(true), content(run(e, "phone_observe", "{}"))["ok"])
+        }
+    }
+
     @Test fun descriptionWithARefIsRejected() = runTest {
         val screen = Shop()
         val c = content(run(executor(toolDispatcher(screen)), "phone_tap", """{"element":"登录","ref":"@e1","snapshotId":"s1"}"""))

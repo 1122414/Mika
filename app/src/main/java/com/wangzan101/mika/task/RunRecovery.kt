@@ -105,8 +105,13 @@ class RunRecovery(
             val turnId = "interrupted:${run.id.value}"
             if (conversations.turns(run.threadId).none { it.runId == turnId }) {
                 val reason = tr(R.string.recover_interrupted_turn)
-                val summary = interruptedSummary(run, said)
-                conversations.append(run.threadId, Turn(said, listOfNotNull(reason, summary).joinToString("\n"), "failed", runId = turnId))
+                val checkpoint = try { run.recordId?.let { records?.checkpoint(it) } }
+                    catch (e: CancellationException) { throw e } catch (_: Exception) { com.wangzan101.mika.core.context.TaskCheckpoint(pendingEffect = "unknown") }
+                val uncertain = checkpoint?.let { it.pendingEffect != null || it.lastEffect != null } == true
+                val summary = interruptedSummary(run, said, checkpoint)
+                conversations.append(run.threadId, Turn(said, listOfNotNull(reason,
+                    if (uncertain) tr(R.string.recover_effect_check) else null, summary).joinToString("\n"),
+                    "failed", runId = turnId, evidenceRunId = run.recordId, uncertainEffect = uncertain))
             }
             outbox.deliver(channel, peer, Delivery.Notice(turnId, run.threadId,
                 tr(R.string.recover_interrupted, said.take(40))))
@@ -114,7 +119,7 @@ class RunRecovery(
     }
 
     /** 只读上次落盘的事件补交代;记录已清理或读不出时仍保留通用中断原因。 */
-    private suspend fun interruptedSummary(run: StoredRun, said: String): String? {
+    private suspend fun interruptedSummary(run: StoredRun, said: String, checkpoint: com.wangzan101.mika.core.context.TaskCheckpoint?): String? {
         val id = run.recordId ?: return null
         val events = try {
             records?.events(id).orEmpty()
@@ -123,8 +128,15 @@ class RunRecovery(
         } catch (_: Exception) {
             return null
         }
-        if (!StopSummary.worthSaying(events, null)) return null
-        val text = StopSummary.plain(said, events, null, label, appLabel)
+        val observations = events.filterIsInstance<com.wangzan101.mika.core.record.RunEvent.Observed>().associateBy { it.id }
+        val quotes = checkpoint?.facts.orEmpty().associateBy { it.key }.values.mapNotNull { fact ->
+            val o = observations[fact.obsId] ?: return@mapNotNull null
+            if (fact.epoch != checkpoint?.epoch || fact.step != o.step || fact.source != o.source ||
+                fact.quote !in o.text || fact.digest != com.wangzan101.mika.core.context.evidenceDigest(o.text)) return@mapNotNull null
+            com.wangzan101.mika.core.observation.Untrusted.wrap(fact.quote)
+        }
+        if (!StopSummary.worthSaying(events, null) && quotes.isEmpty()) return null
+        val text = (quotes + StopSummary.plain(said, events, null, label, appLabel)).joinToString("\n")
         return text.take(RECOVERY_SUMMARY_CHARS) + if (text.length > RECOVERY_SUMMARY_CHARS) "…" else ""
     }
 

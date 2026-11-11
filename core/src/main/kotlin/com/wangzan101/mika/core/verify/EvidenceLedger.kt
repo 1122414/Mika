@@ -104,6 +104,11 @@ class EvidenceLedger(private val capChars: Int = STORE_CHARS) {
     fun supporting(goal: String, answer: String): List<Observation> =
         entries.mapNotNull(::withoutEcho).filter { e -> Grounding.check(goal, answer, listOf(e.text)).let { it.claims.size > it.unmatched.size } }
 
+    fun read(id: Int): Observation? = entries.firstOrNull { it.id == id }?.let(::withoutEcho)
+
+    fun find(query: String, limit: Int = 8): List<Observation> = if (query.isBlank()) emptyList() else
+        entries.asReversed().asSequence().mapNotNull(::withoutEcho).filter { it.text.contains(query, ignoreCase = true) }.take(limit.coerceIn(0, 8)).toList()
+
     private fun withoutEcho(e: Observation): Observation? {
         if (typed.isEmpty() || e.kind != ObsKind.Read) return e
         val lines = e.text.lines()

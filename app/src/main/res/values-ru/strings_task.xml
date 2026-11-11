@@ -87,4 +87,5 @@
     <string name="screens_waiting">Ожидание</string>
     <string name="screens_needs_you">Нужны вы</string>
     <string name="screens_zoom">Увеличить этот экран</string>
+    <string name="recover_effect_check">Предыдущее действие уже могло выполниться. Проверьте заказ или квитанцию перед повторной попыткой.</string>
 </resources>

@@ -353,6 +353,7 @@ class ConversationStore(
                 atMs = field("atMs")?.toLongOrNull(),
                 verified = field("verified")?.toBooleanStrictOrNull(),
                 remoteTaskId = field("remoteTaskId"),
+                uncertainEffect = field("uncertainEffect") == "true", evidenceRunId = field("evidenceRunId"),
             )
             turn to (o["files"] as? JsonArray).orEmpty().mapNotNull(::fileOf)
         }
@@ -407,6 +408,8 @@ class ConversationStore(
                 put("userText", it.userText); put("outcome", it.outcome); put("status", it.status)
                 it.note?.let { n -> put("note", n) }; it.runId?.let { r -> put("runId", r) }; it.result?.let { r -> put("result", r) }
                 it.verified?.let { v -> put("verified", v) }
+                if (it.uncertainEffect) put("uncertainEffect", true)
+                it.evidenceRunId?.let { id -> put("evidenceRunId", id) }
                 it.remoteTaskId?.let { id -> put("remoteTaskId", id) }
                 // 只存种类和编号:记忆内容只在加密的记忆文件里,界面现取
                 if (it.memoryNotes.isNotEmpty()) put("memoryNotes", JsonArray(it.memoryNotes.map { n ->

@@ -37,12 +37,13 @@ internal data class CompletionPlan(
     val criteria: List<String> = emptyList(),
     val metric: ProgressMetric? = null,
     val allCriteriaMet: Boolean = false,
+    val strict: Boolean = false,
 ) {
-    val complete: Boolean get() = allCriteriaMet || metric?.reached == true
+    val complete: Boolean get() = allCriteriaMet || (!strict || criteria.size <= 1) && metric?.reached == true
 
     fun apply(u: CompletionUpdate): CompletionPlan {
         val metric = u.metric?.let { change ->
-            val old = metric
+            val old = metric?.takeIf { !strict || change.name == null || change.name == it.name }
             ProgressMetric(
                 change.name ?: old?.name ?: throw IllegalArgumentException("metric.name is required"),
                 change.done ?: old?.done,
@@ -50,17 +51,19 @@ internal data class CompletionPlan(
                 change.boundary ?: old?.boundary,
             )
         } ?: metric
-        return CompletionPlan(u.criteria ?: criteria, metric, u.allCriteriaMet ?: allCriteriaMet)
+        return CompletionPlan(u.criteria ?: criteria, metric, u.allCriteriaMet ?: (allCriteriaMet && (!strict || u.criteria == null || u.criteria == criteria)), strict)
     }
 
     fun event(atMs: Long) = RunEvent.Criteria(atMs, criteria, emptyList(), progress = metric?.event(), complete = complete)
 }
 
 internal data class MetricUpdate(val name: String? = null, val done: Int? = null, val total: Int? = null, val boundary: String? = null)
+internal data class FactProposal(val key: String, val version: Int, val obsId: Int, val quote: String)
 internal data class CompletionUpdate(
     val criteria: List<String>? = null,
     val metric: MetricUpdate? = null,
     val allCriteriaMet: Boolean? = null,
+    val facts: List<FactProposal> = emptyList(),
 )
 
 /**
@@ -70,7 +73,7 @@ internal data class CompletionUpdate(
 internal object CompletionPlanBlock {
     private const val OPEN = "<task_progress>"
     private val BLOCK = Regex("$OPEN(.*?)</task_progress>", RegexOption.DOT_MATCHES_ALL)
-    private val ROOT_KEYS = setOf("criteria", "metric", "complete")
+    private val ROOT_KEYS = setOf("criteria", "metric", "complete", "facts")
     private val METRIC_KEYS = setOf("name", "done", "total", "boundary")
 
     class Extracted(val text: String, val updates: List<CompletionUpdate>, val errors: List<String>)
@@ -138,8 +141,16 @@ internal object CompletionPlanBlock {
         }
         val complete = (root["complete"] as? JsonPrimitive)?.booleanOrNull
         if (root.containsKey("complete")) require(complete != null) { "complete must be boolean" }
-        require(criteria != null || metric != null || complete != null) { "empty task_progress update" }
-        return CompletionUpdate(criteria, metric, complete)
+        val facts = root["facts"]?.let { raw ->
+            val rows = raw as? JsonArray ?: throw IllegalArgumentException("facts must be an array")
+            require(rows.size in 1..8)
+            rows.map { r ->
+                val f = r as? JsonObject ?: throw IllegalArgumentException("invalid fact")
+                FactProposal(requireNotNull(f.string("key")), requireNotNull(f.int("version")), requireNotNull(f.int("obsId")), requireNotNull(f.string("quote")))
+            }
+        }.orEmpty()
+        require(criteria != null || metric != null || complete != null || facts.isNotEmpty()) { "empty task_progress update" }
+        return CompletionUpdate(criteria, metric, complete, facts)
     }
 
     private fun JsonObject.string(key: String): String? = this[key]?.let {
@@ -177,6 +188,8 @@ internal class NewDataTracker {
         stale++
         return stale >= LIMIT
     }
+
+    fun reset() { seen.clear(); stale = 0 }
 
     private fun fingerprint(o: Observation): Long {
         var h = -0x340d631b7bdddcdbL

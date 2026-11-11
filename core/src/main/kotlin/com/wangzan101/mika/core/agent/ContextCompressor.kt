@@ -280,7 +280,8 @@ class ContextCompressor(
         // 写操作结果带的屏幕(screen)也有截图编号;没带屏幕时动作后附的画面编号在结果顶层
         val shot = result?.let { parse(it.content) }?.let { o -> if (tools.verb(call.name) in OBSERVATIONS) o["screenshotId"] else (o["screen"] as? JsonObject)?.get("screenshotId") ?: o["screenshotId"] }
             ?.let { it as? JsonPrimitive }?.contentOrNull?.let { " #$it" }.orEmpty()
-        return "Step $step ${clip(call.name)}$target$shot → ${outcome(result)}"
+        val refs = if (screens != null) result?.reads?.map { it.obsId }?.distinct()?.takeIf { it.isNotEmpty() }?.joinToString(",", " obs=" ).orEmpty() else ""
+        return "Step $step ${clip(call.name)}$target$shot$refs → ${outcome(result)}"
     }
 
     private fun outcome(r: Part.ToolResult?): String {

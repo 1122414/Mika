@@ -7,4 +7,5 @@ package com.wangzan101.mika.core.record
 interface RunRecords {
     suspend fun summary(runId: String): RunSummary?
     suspend fun events(runId: String): List<RunEvent>
+    suspend fun checkpoint(runId: String): com.wangzan101.mika.core.context.TaskCheckpoint? = null
 }

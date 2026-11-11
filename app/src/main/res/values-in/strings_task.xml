@@ -78,4 +78,5 @@
     <string name="screens_waiting">Menunggu</string>
     <string name="screens_needs_you">Perlu Anda</string>
     <string name="screens_zoom">Perbesar layar ini</string>
+    <string name="recover_effect_check">Tindakan sebelumnya mungkin sudah berhasil. Periksa pesanan atau tanda terima sebelum mencoba lagi.</string>
 </resources>
