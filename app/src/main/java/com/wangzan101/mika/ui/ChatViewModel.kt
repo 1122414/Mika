@@ -1918,6 +1918,11 @@ class ChatViewModel(
         runCatching { store.setArchived(id, false) }
     }
 
+    /** 归档视图里多选恢复:一条条取消归档;已经删掉的跳过。 */
+    fun unarchiveConversations(ids: Collection<String>) {
+        ids.filter { it !in _deleted.value }.forEach { runCatching { store.setArchived(it, false) } }
+    }
+
     /** 屏上的对话被删了:不再跟它的任务(还没交给服务的开始直接作废),换成新的空对话。 */
     private fun startOver(id: String) {
         draftStateChanged = true

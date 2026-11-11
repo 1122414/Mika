@@ -149,6 +149,20 @@ class ChatCopyTest {
         assertEquals(listOf("a", "b", "c", "d"), plain.recent.map { it.id })
     }
 
+    /** 多选的勾选范围跟着视图走:普通侧栏是列出来的对话,归档视图里是归档的那些;草稿没有编号,勾不了。 */
+    @Test fun drawerSelectableIdsFollowTheView() {
+        val sections = DrawerSections(
+            running = listOf(DrawerConversation("a", "一", "", running = true, current = true, enabled = true)),
+            recent = listOf(
+                DrawerConversation("b", "二", "", running = false, current = false, enabled = true),
+                DrawerConversation(null, "新对话", "", running = false, current = false, enabled = true),
+            ),
+        )
+        val archived = listOf(DrawerConversation("c", "三", "", running = false, current = false, enabled = true, archived = true))
+        assertEquals(setOf("a", "b"), drawerSelectableIds(sections, archived, archivedView = false))
+        assertEquals(setOf("c"), drawerSelectableIds(sections, archived, archivedView = true))
+    }
+
     @Test fun greetingFollowsTheTimeOfDay() {
         assertEquals("早上好", ChatCopy.greeting(7))
         assertEquals("中午好", ChatCopy.greeting(12))

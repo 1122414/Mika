@@ -150,6 +150,15 @@ data class DrawerSections(
     val pinned: List<DrawerConversation> = emptyList(),
 )
 
+/** 多选能勾的对话:普通侧栏是此刻列出来的;归档视图里是收起来的那些。草稿没有编号,勾不了。 */
+fun drawerSelectableIds(
+    sections: DrawerSections,
+    archived: List<DrawerConversation>,
+    archivedView: Boolean,
+): Set<String> =
+    if (archivedView) archived.mapNotNull { it.id }.toSet()
+    else (sections.running + sections.pinned + sections.recent).mapNotNull { it.id }.toSet()
+
 /** 搜索拿到的原始命中;显示前再按此刻的置顶、运行、时间换成侧栏里的行。 */
 private data class SearchOutcome(
     val query: String,
@@ -280,6 +289,8 @@ fun ChatDrawer(
     onToggleSelect: (DrawerConversation) -> Unit = {},
     onSelectAll: () -> Unit = {},
     onDeleteSelected: () -> Unit = {},
+    /** 归档视图里多选后「取消归档」;普通侧栏里用不到。 */
+    onUnarchiveSelected: () -> Unit = {},
     /** 批量删除的进度和结果;在底部显示,删完过几秒由外面清掉。 */
     deleteBatch: DeleteBatch? = null,
     /** 归档视图里列出的对话;按归档时间倒序。 */
@@ -290,9 +301,9 @@ fun ChatDrawer(
     onExitArchive: () -> Unit = {},
 ) {
     val c = MikaTheme.colors
-    // 能勾的就是列在侧栏里、已经存过的对话(还没存过的当前草稿没有编号,删不了)
-    val selectableIds = remember(sections) {
-        (sections.running + sections.pinned + sections.recent).mapNotNull { it.id }.toSet()
+    // 能勾的就是此刻列在侧栏里、已经存过的对话(还没存过的当前草稿没有编号,删不了);归档视图里是归档的那些
+    val selectableIds = remember(sections, archived, archivedView) {
+        drawerSelectableIds(sections, archived, archivedView)
     }
     val selectedCount = selected.count { it in selectableIds }
     val allSelected = selectableIds.isNotEmpty() && selectedCount == selectableIds.size
@@ -321,7 +332,7 @@ fun ChatDrawer(
             // 多选从顶上这个按钮进;进去以后这里换成「取消」,返回键同样能退出
             when {
                 selecting -> HeaderAction(stringResource(R.string.cancel), "drawer-select-cancel", c.ink2, onExitSelect)
-                selectableIds.isNotEmpty() && !searchActive && !archivedView ->
+                selectableIds.isNotEmpty() && !searchActive ->
                     HeaderAction(stringResource(R.string.drawer_select), "drawer-select", c.accent, onStartSelect)
             }
         }
@@ -375,7 +386,10 @@ fun ChatDrawer(
                 item("h-archive") { ArchiveHeader(archived.size, onExitArchive) }
                 if (archived.isEmpty()) item("archive-empty") { ArchiveEmpty() }
                 items(archived, key = { "a-${it.id}" }) {
-                    ConversationEntry(it, onOpen, onActions, showArchivedMark = false)
+                    ConversationEntry(
+                        it, onOpen, onActions, showArchivedMark = false,
+                        selecting = selecting, selected = it.id in selected, onToggleSelect = onToggleSelect,
+                    )
                 }
             } else {
                 if (sections.running.isNotEmpty()) {
@@ -419,7 +433,7 @@ fun ChatDrawer(
         // 批量删除的进度 / 结果在底部停留几秒
         deleteBatch?.let { DeleteStatusBar(it) }
         if (selecting) {
-            SelectBar(selectedCount, allSelected, onSelectAll, onDeleteSelected)
+            SelectBar(selectedCount, allSelected, onSelectAll, archivedView, onUnarchiveSelected, onDeleteSelected)
         } else {
             // 设置和关于并排固定在侧栏最底下,对话再多也不被挤走:设置靠左,关于靠右,中间留空
             Row(
@@ -490,9 +504,12 @@ private fun ArchiveEntry(count: Int, onClick: () -> Unit) {
     }
 }
 
-/** 多选时的底部操作条:已选几条、全选 / 取消全选、删除。 */
+/** 多选时的底部操作条:已选几条、全选 / 取消全选、删除;归档视图里多一个「取消归档」。 */
 @Composable
-private fun SelectBar(selectedCount: Int, allSelected: Boolean, onSelectAll: () -> Unit, onDelete: () -> Unit) {
+private fun SelectBar(
+    selectedCount: Int, allSelected: Boolean, onSelectAll: () -> Unit,
+    archived: Boolean, onUnarchive: () -> Unit, onDelete: () -> Unit,
+) {
     val c = MikaTheme.colors
     Row(
         Modifier.fillMaxWidth().drawBehind { drawLine(c.hair, Offset(0f, 0f), Offset(size.width, 0f), 0.5.dp.toPx()) }
@@ -506,6 +523,11 @@ private fun SelectBar(selectedCount: Int, allSelected: Boolean, onSelectAll: () 
         )
         TextButton(onClick = onSelectAll, modifier = Modifier.testTag("drawer-select-all")) {
             Text(stringResource(if (allSelected) R.string.drawer_select_none else R.string.drawer_select_all), style = MikaType.Label, color = c.accent)
+        }
+        if (archived) {
+            TextButton(onClick = onUnarchive, enabled = selectedCount > 0, modifier = Modifier.testTag("drawer-unarchive-selected")) {
+                Text(stringResource(R.string.drawer_unarchive), style = MikaType.Label, color = if (selectedCount > 0) c.accent else c.ink3)
+            }
         }
         TextButton(onClick = onDelete, enabled = selectedCount > 0, modifier = Modifier.testTag("drawer-delete-selected")) {
             Text(stringResource(R.string.confirm_delete), style = MikaType.Label, color = if (selectedCount > 0) c.bad else c.ink3)
@@ -1013,11 +1035,16 @@ fun ChatWithDrawer(
                             )
                         }
                 }
-                // 能勾的就是此刻列在侧栏里的对话;别处删了、列表变了,勾选里已经不存在的当场去掉
-                val selectableIds = remember(sections) {
-                    (sections.running + sections.pinned + sections.recent).mapNotNull { it.id }.toSet()
+                // 能勾的就是此刻列在侧栏里的对话;别处删了、列表变了,勾选里已经不存在的当场去掉。归档视图里换成归档的对话
+                val selectableIds = remember(sections, archivedRows, archivedView) {
+                    drawerSelectableIds(sections, archivedRows, archivedView)
                 }
                 LaunchedEffect(selectableIds) { selected = selected intersect selectableIds }
+                // 普通侧栏和归档视图之间换,勾选不带过去
+                LaunchedEffect(archivedView) {
+                    selecting = false
+                    selected = emptySet()
+                }
                 ChatDrawer(
                     check, sections, canSwitch,
                     query = query,
@@ -1066,11 +1093,23 @@ fun ChatWithDrawer(
                         val ids = selectableIds.filter { it in selected }
                         if (ids.isNotEmpty()) confirmingMany = ids
                     },
+                    onUnarchiveSelected = {
+                        val ids = selectableIds.filter { it in selected }
+                        if (ids.isNotEmpty()) {
+                            selecting = false
+                            selected = emptySet()
+                            vm.unarchiveConversations(ids)
+                        }
+                    },
                     deleteBatch = deleteBatch,
                     archived = archivedRows,
                     archivedView = archivedView,
                     onOpenArchive = { archivedView = true },
-                    onExitArchive = { archivedView = false },
+                    onExitArchive = {
+                        archivedView = false
+                        selecting = false
+                        selected = emptySet()
+                    },
                 )
             },
             drawerState = drawer,

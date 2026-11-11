@@ -3462,6 +3462,23 @@ class ChatViewModelTest {
         assertNotNull(store.pinnedAt("a"))
     }
 
+    /** 归档视图里多选恢复:选中的回到列表,没选的还收着。 */
+    @Test fun unarchiveConversationsRestoresSelectedOnes() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.append("b", Turn("订票", "好了", "succeeded"))
+        store.append("c", Turn("记账", "记好了", "succeeded"))
+        val vm = vm(store)
+        listOf("a", "b", "c").forEach { assertTrue(store.setArchived(it, true)) }
+
+        vm.unarchiveConversations(listOf("a", "c"))
+
+        assertNull(store.archivedAt("a"))
+        assertNull(store.archivedAt("c"))
+        assertNotNull(store.archivedAt("b"))
+        assertEquals(setOf("a", "c"), store.list().map { it.id }.toSet())
+    }
+
     @Test fun personalTaskCanBeOpenedWhileOrdinaryConversationIsBusyWithoutStartingWork() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("personal-work", Turn("整理资料", "整理完成", "succeeded"))
