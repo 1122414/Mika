@@ -17,8 +17,6 @@ class FrontMatterTest {
         val (m, body) = FrontMatter.parse("只有正文")
         assertEquals(emptyMap<String, Any>(), m); assertEquals("只有正文", body)
     }
-}
-
 
     @Test fun handlesBomCrLfCommentsAndQuotedCommas() {
         val (m, body) = FrontMatter.parse("\ufeff---\r\nname: demo\r\n# 注释: 不进头部\r\naliases: [\"a, b\", 'c']\r\n---\r\n正文\r\n")
@@ -41,3 +39,4 @@ class FrontMatterTest {
         assertEquals("demo", m2["name"])
         assertEquals(1, m2.size)
     }
+}
