@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.R
@@ -25,7 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun TaskReportEntry(onReport: () -> Unit) {
+internal fun TaskReportEntries(onReport: () -> Unit, onReplay: () -> Unit) {
     val c = MikaTheme.colors
     Column(Modifier.fillMaxWidth().padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surface)
@@ -34,14 +36,22 @@ internal fun TaskReportEntry(onReport: () -> Unit) {
             Icon(MikaIcons.Doc, null, Modifier.size(26.dp), tint = c.accent)
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.report_title), style = MikaType.BodyStrong, color = c.ink)
+                Text(stringResource(R.string.report_entry_hint), style = MikaType.Hint, color = c.ink2)
             }
+            Icon(MikaIcons.Chevron, null, Modifier.size(16.dp), tint = c.ink3)
+        }
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable(onClick = onReplay)
+            .heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(MikaIcons.Route, null, Modifier.size(18.dp), tint = c.accent)
+            Text(stringResource(R.string.playback_title), Modifier.weight(1f), style = MikaType.Caption, color = c.accent)
             Icon(MikaIcons.Chevron, null, Modifier.size(16.dp), tint = c.ink3)
         }
     }
 }
 
 @Composable
-private fun rememberReport(vm: TaskReportViewModel): Pair<Boolean, TaskReport?> {
+internal fun rememberReport(vm: TaskReportViewModel): Pair<Boolean, TaskReport?> {
     var loaded by remember(vm) { mutableStateOf(false) }
     var report by remember(vm) { mutableStateOf<TaskReport?>(null) }
     LaunchedEffect(vm) { report = withContext(Dispatchers.IO) { vm.load() }; loaded = true }
@@ -49,7 +59,7 @@ private fun rememberReport(vm: TaskReportViewModel): Pair<Boolean, TaskReport?> 
 }
 
 @Composable
-fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onTimeline: () -> Unit) {
+fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onReplay: (Int?) -> Unit, onTimeline: () -> Unit) {
     BackHandler(onBack = onBack)
     val (loaded, report) = rememberReport(vm)
     val c = MikaTheme.colors
@@ -77,7 +87,24 @@ fun TaskReportScreen(vm: TaskReportViewModel, onBack: () -> Unit, onTimeline: ()
                         else MarkdownText(TaskReportExport.displayMarkdown(r.answer, r.header.goal), MikaType.Body.copy(color = c.ink, lineHeight = 25.sp), Modifier.fillMaxWidth(), reportStyle = true)
                     }
                 }
+                if (r.pages.isNotEmpty()) {
+                    item("screens-heading") { Text(stringResource(R.string.report_screens), style = MikaType.BodyStrong, color = c.ink) }
+                    itemsIndexed(r.pages, key = { _, p -> "page-${p.screenshotId}" }) { _, page ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surface)
+                            .clickable { onReplay(page.screenshotId) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StaticPlaybackImage(vm, page.screenshotId, Modifier.size(46.dp, 72.dp))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(page.title, style = MikaType.BodyStrong, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(R.string.report_view_step, page.stepIndex + 1), style = MikaType.Hint, color = c.ink2)
+                            }
+                            Icon(MikaIcons.Chevron, null, Modifier.size(14.dp), tint = c.ink3)
+                        }
+                    }
+                }
+                item("replay") { MikaButton(stringResource(R.string.playback_title), { onReplay(null) }, Modifier.fillMaxWidth(), kind = ButtonKind.Primary) }
                 item("timeline") { MikaButton(stringResource(R.string.chat_view_process), onTimeline, Modifier.fillMaxWidth(), kind = ButtonKind.Tonal, size = ButtonSize.Small) }
+                item("privacy") { Text(stringResource(R.string.report_local_note), style = MikaType.Hint, color = c.ink2) }
             }
         }
     }

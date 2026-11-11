@@ -9,7 +9,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class TaskReportExportTest {
     private val report = TaskReport(TimelineHeader("查询 <车票> & 时间", emptyList(), "已完成", verdict = "", duration = "2 分钟", modelCalls = 1),
-        "## 结果\n\n**最低票价： **302 元。**正常粗体**\n\n| 车次 | 票价 |\n| --- | --- |\n| G6042 | ¥302 |\n\n- 中文项目\n- 第二项\n\n[来源](https://example.com/?a=1&b=2)\n\n```\na < b && c\nline2\n```")
+        "## 结果\n\n**最低票价： **302 元。**正常粗体**\n\n| 车次 | 票价 |\n| --- | --- |\n| G6042 | ¥302 |\n\n- 中文项目\n- 第二项\n\n[来源](https://example.com/?a=1&b=2)\n\n```\na < b && c\nline2\n```", emptyList())
 
     @Test fun markdownAndPlainTextKeepFullAnswerAndUnicode() {
         val md = ByteArrayOutputStream().also { TaskReportExport.write(report, TaskReportExport.Format.Markdown, it) }.toString("UTF-8")

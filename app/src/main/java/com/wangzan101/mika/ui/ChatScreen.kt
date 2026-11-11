@@ -204,6 +204,7 @@ fun ChatScreen(
     /** 首页推荐任务。不传时用本机保存的那一份;测试传入单独的存储,避免改到用户的数据。 */
     recommendations: RecommendedTaskStore? = null,
     openReport: (String) -> Unit = {},
+    openPlayback: (String) -> Unit = {},
 ) {
     val recommendationStore = recommendations
         ?: (LocalContext.current.applicationContext as? MikaApp)?.recommendedTasks
@@ -403,7 +404,7 @@ fun ChatScreen(
                             val label = if (resume) R.string.chat_resume_request else R.string.chat_restart_request
                             vm.send(context.getString(label, ex.goal), check)
                         },
-                        openReport = openReport,
+                        openReport = openReport, openPlayback = openPlayback,
                     )
                 }
                 if (phoneSetupNeeded && ui.exchanges.isNotEmpty()) item("phone-setup") { PhoneSetupLine(openPhoneSetup) }
@@ -721,7 +722,7 @@ private fun LazyListScope.exchange(
     tokens: Long? = null,
     /** 终态后的两个新运行入口:true 从摘要断点继续,false 按原目标重新开始。 */
     recover: (Boolean) -> Unit = {},
-    openReport: (String) -> Unit = {},
+    openReport: (String) -> Unit = {}, openPlayback: (String) -> Unit = {},
 ) {
     if (ex.goal.isNotEmpty()) item("u$index") {
         JumpHighlight(highlightKey == "u$index", reduceMotion) { UserBubble(ex.goal, conversationId, key = "u$index") }
@@ -763,7 +764,7 @@ private fun LazyListScope.exchange(
     item("r$index") {
         JumpHighlight(highlightKey == "r$index", reduceMotion) {
             StatusCard(ex.status, stage, vm, ex.recordedRun, loadSource, openSource, "r$index",
-                recover = recover, goal = ex.goal, openReport = openReport)
+                recover = recover, goal = ex.goal, openReport = openReport, openPlayback = openPlayback)
         }
     }
     // 这一轮结束后留在后台运行的那一页:还开着是绿色一行(能关),关了是一句原因
@@ -1163,7 +1164,7 @@ private fun StatusCard(
     /** 回答的长按菜单认这一条用的(见 [MessageArea])。 */
     key: String,
     recover: (Boolean) -> Unit = {},
-    goal: String, openReport: (String) -> Unit,
+    goal: String, openReport: (String) -> Unit, openPlayback: (String) -> Unit,
 ) {
     when (status) {
         ExchangeStatus.Working -> Unit
@@ -1230,7 +1231,7 @@ private fun StatusCard(
                     if (runId != null && status.answer.length > 240) TextLink(stringResource(if (expanded) R.string.collapse else R.string.expand)) { expanded = !expanded }
                     // 来源:旧记录里模型写的依据文字,或运行记录里代码记下的来源;都没有就不显示
                     if (status.evidence != null || runId != null) SourceChip(status.evidence, runId, loadSource, openSource)
-                    if (runId != null) TaskReportEntry { openReport(runId) }
+                    if (runId != null) TaskReportEntries({ openReport(runId) }, { openPlayback(runId) })
                 }
             }
         }
@@ -1241,7 +1242,7 @@ private fun StatusCard(
             }
             Text(status.reason, Modifier.padding(top = 4.dp), style = CardBody, color = MikaTheme.colors.ink2)
             RecoveryActions(runId, recover)
-            if (runId != null) TaskReportEntry { openReport(runId) }
+            if (runId != null) TaskReportEntries({ openReport(runId) }, { openPlayback(runId) })
         }
         // 停止后补上的交代当作这一轮的回答,排在「已停止」下面;还在写时一行小字
         is ExchangeStatus.Cancelled -> Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
@@ -1257,7 +1258,7 @@ private fun StatusCard(
                 }
             }
             RecoveryActions(runId, recover)
-            if (runId != null) TaskReportEntry { openReport(runId) }
+            if (runId != null) TaskReportEntries({ openReport(runId) }, { openPlayback(runId) })
         }
     }
 }
