@@ -6,6 +6,7 @@ import com.wangzan101.mika.core.record.ConversationTokens
 import com.wangzan101.mika.core.cap.web.AttachedPage
 import com.wangzan101.mika.ui.components.DirectionalIcon
 import com.wangzan101.mika.ui.components.keepsKeyboard
+import com.wangzan101.mika.ui.components.pageBackground
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -1411,7 +1412,7 @@ internal fun Composer(
     val turn by animateFloatAsState(if (panel == Panel.Open) 45f else 0f, if (reduceMotion) snap() else tween(200), label = "plus")
     Box(
         modifier.fillMaxWidth()
-            .background(fade)
+            .pageBackground(c.bg, fade)
             .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
     ) {

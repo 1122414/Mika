@@ -1,5 +1,7 @@
 package com.wangzan101.mika.ui
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.i18n.trPlural
 import com.wangzan101.mika.R
@@ -14,6 +16,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import com.wangzan101.mika.ui.theme.accentTone
+import com.wangzan101.mika.ui.theme.SkinImage
+import com.wangzan101.mika.ui.components.SegmentedControl
+import com.wangzan101.mika.settings.SkinBlur
+import com.wangzan101.mika.settings.SkinSpec
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.wangzan101.mika.ui.components.MikaSwitch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -474,6 +486,13 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
     // 跟着设置走:任务里改了外观,这页也对得上
     val themeMode by remember(flags) { flags.themeModeChanges() }.collectAsState(flags.themeMode())
     val themeAccent by remember(flags) { flags.themeAccentChanges() }.collectAsState(flags.themeAccent())
+    val skin by remember(flags) { flags.skinChanges() }.collectAsState(flags.skin())
+    val scope = rememberCoroutineScope()
+    val pickSkin = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            if (!SkinImage.import(context, uri)) Toast.makeText(context, R.string.skin_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
     PageScaffold(stringResource(R.string.appearance_title), onBack) {
         // 语言和外观放在同一页:都是「界面长什么样」
         GroupLabel(stringResource(R.string.appearance_group))
@@ -492,9 +511,11 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
         GroupLabel(stringResource(R.string.accent_group))
         GroupCard {
             val dark = MikaTheme.colors.isDark
+            // 背景图片的颜色在当强调色时,这里选的暂时不用,行变灰
+            val followingImage = skin.accentHue != null
             ThemeAccent.entries.forEachIndexed { idx, a ->
                 RadioRow(
-                    accentLabel(a), selected = a == themeAccent, first = idx == 0,
+                    accentLabel(a), selected = a == themeAccent, first = idx == 0, enabled = !followingImage,
                     subtitle = if (a == ThemeAccent.Blue) stringResource(R.string.accent_default) else null,
                     onClick = { if (a != themeAccent) flags.setThemeAccent(a) },
                 ) {
@@ -502,6 +523,14 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
                     Box(Modifier.size(18.dp).background(accentTone(a, dark).first, CircleShape))
                 }
             }
+        }
+        GroupLabel(stringResource(R.string.skin_group))
+        GroupCard {
+            ListRow(
+                null, stringResource(if (skin.active) R.string.skin_change else R.string.skin_pick), first = true,
+                onClick = { pickSkin.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            )
+            if (skin.active) SkinControls(skin, flags::setSkin, onClear = { SkinImage.clear(context) })
         }
         GroupLabel(stringResource(R.string.language_title))
         GroupCard {
@@ -600,6 +629,44 @@ fun appearanceLabel(mode: ThemeMode): String = tr(
         ThemeMode.Dark -> R.string.appearance_dark
     },
 )
+
+/**
+ * 背景图片的调节:遮罩浓度、图片位置、模糊、强调色跟不跟图片、换回纯色。
+ * 页面底下就是这张图,拖的时候当场看到效果;值变了才写设置(整数百分比、位置按 5% 一档),不是每一帧都写。
+ */
+@Composable
+private fun SkinControls(skin: SkinSpec, onChange: (SkinSpec) -> Unit, onClear: () -> Unit) {
+    val scrimLabel = stringResource(R.string.skin_scrim)
+    ListRow(null, scrimLabel) { RowValue("${skin.scrim}%") }
+    Slider(
+        value = skin.scrim.toFloat(),
+        onValueChange = { v -> v.roundToInt().let { if (it != skin.scrim) onChange(skin.copy(scrim = it)) } },
+        valueRange = SkinSpec.MIN_SCRIM.toFloat()..SkinSpec.MAX_SCRIM.toFloat(),
+        modifier = Modifier.padding(horizontal = 16.dp).semantics { contentDescription = scrimLabel }.testTag("skin-scrim"),
+    )
+    val positionLabel = stringResource(R.string.skin_position)
+    ListRow(null, positionLabel)
+    Slider(
+        value = skin.focus,
+        onValueChange = { v -> ((v * 20).roundToInt() / 20f).let { if (it != skin.focus) onChange(skin.copy(focus = it)) } },
+        valueRange = -1f..1f,
+        modifier = Modifier.padding(horizontal = 16.dp).semantics { contentDescription = positionLabel }.testTag("skin-position"),
+    )
+    ListRow(null, stringResource(R.string.skin_blur))
+    SegmentedControl(
+        listOf(stringResource(R.string.skin_blur_off), stringResource(R.string.skin_blur_light), stringResource(R.string.skin_blur_strong)),
+        selected = skin.blur.ordinal,
+        onSelect = { onChange(skin.copy(blur = SkinBlur.entries[it])) },
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+    )
+    ListRow(
+        null, stringResource(R.string.skin_accent_follow), stringResource(R.string.skin_accent_follow_sub),
+        onClick = { onChange(skin.copy(accentFromImage = !skin.accentFromImage)) },
+    ) {
+        MikaSwitch(skin.accentFromImage, { onChange(skin.copy(accentFromImage = it)) }, Modifier.testTag("skin-accent-follow"))
+    }
+    ListRow(null, stringResource(R.string.skin_clear), onClick = onClear)
+}
 
 fun accentLabel(accent: ThemeAccent): String = tr(
     when (accent) {

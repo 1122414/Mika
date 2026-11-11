@@ -95,7 +95,7 @@ fun ComponentActivity.systemBarsFor(dark: Boolean) {
 }
 
 /**
- * 深浅色按设置里的外观([appearanceDark]),强调色按设置里的强调色([appearanceAccent]);
+ * 深浅色按设置里的外观([appearanceDark]),强调色按设置里的强调色([appearanceAccent],背景图片要求跟随图片时用图上的主色);
  * 同时把 Material 组件(弹窗、输入框、底部面板)的颜色对上。
  */
 @Composable
@@ -105,7 +105,12 @@ fun MikaTheme(
     reduceMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colors = remember(dark, accent) { palette(dark, accent) }
+    // 背景图片设了「强调色跟随图片」时,用图上的主色代替设置里选的强调色
+    val imageHue = appearanceSkin().accentHue
+    val colors = remember(dark, accent, imageHue) {
+        val base = palette(dark, accent)
+        if (imageHue == null) base else SkinAccent.tone(imageHue, dark).let { (color, on) -> base.withAccent(color, on) }
+    }
     val materialColors = remember(colors) { scheme(colors) }
     val layoutDirection = if (LocalContext.current.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
         LayoutDirection.Rtl

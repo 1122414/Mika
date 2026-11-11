@@ -1,5 +1,7 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.ui.theme.LocalSkinBackdrop
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -345,7 +347,9 @@ private enum class CallWorkspaceTab(val label: Int) {
 
 @Composable
 private fun CallWorkspaceTabs(selected: CallWorkspaceTab, onSelect: (CallWorkspaceTab) -> Unit) {
-    TabRow(selectedTabIndex = selected.ordinal, containerColor = MikaTheme.colors.bg, contentColor = MikaTheme.colors.accent) {
+    // 页面底有背景图片时标签栏透出它,不留一条纯色
+    val tabBg = if (LocalSkinBackdrop.current != null) Color.Transparent else MikaTheme.colors.bg
+    TabRow(selectedTabIndex = selected.ordinal, containerColor = tabBg, contentColor = MikaTheme.colors.accent) {
         CallWorkspaceTab.entries.forEach { tab ->
             Tab(
                 selected = tab == selected, onClick = { onSelect(tab) },

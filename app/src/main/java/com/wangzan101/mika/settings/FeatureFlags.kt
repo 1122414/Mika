@@ -116,6 +116,36 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putString(THEME_ACCENT, accent.name).commit()
     }
 
+    /** 背景图片怎么显示(见 [SkinSpec]);存的值超出范围时拉回范围内。跟着 [skinChanges] 当场换,不用重建。 */
+    fun skin(): SkinSpec = SkinSpec(
+        version = prefs.getLong(SKIN_VERSION, 0L),
+        scrim = prefs.getInt(SKIN_SCRIM, SkinSpec.DEFAULT_SCRIM).coerceIn(SkinSpec.MIN_SCRIM, SkinSpec.MAX_SCRIM),
+        blur = SkinBlur.parse(prefs.getString(SKIN_BLUR, null)),
+        focus = prefs.getFloat(SKIN_FOCUS, 0f).coerceIn(-1f, 1f),
+        accentFromImage = prefs.getBoolean(SKIN_ACCENT_FOLLOW, true),
+        hue = if (prefs.contains(SKIN_HUE)) prefs.getFloat(SKIN_HUE, 0f) else null,
+    )
+
+    fun skinChanges(): Flow<SkinSpec> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key in SKIN_KEYS) trySend(skin())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(skin())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun setSkin(spec: SkinSpec) {
+        prefs.edit()
+            .putLong(SKIN_VERSION, spec.version)
+            .putInt(SKIN_SCRIM, spec.scrim.coerceIn(SkinSpec.MIN_SCRIM, SkinSpec.MAX_SCRIM))
+            .putString(SKIN_BLUR, spec.blur.name)
+            .putFloat(SKIN_FOCUS, spec.focus.coerceIn(-1f, 1f))
+            .putBoolean(SKIN_ACCENT_FOLLOW, spec.accentFromImage)
+            .also { e -> if (spec.hue == null) e.remove(SKIN_HUE) else e.putFloat(SKIN_HUE, spec.hue) }
+            .commit()
+    }
+
     /**
      * 允许 Mika 改自己的设置(见 core 的 SelfConfig):模型与 Key、删数据不在允许之列。
      * 默认关;开着的时候任务里才有 settings_list、settings_set 这两件工具。
@@ -256,6 +286,13 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val THEME_MODE = "theme_mode"
         private const val PERSONAL_START = "personal_start"
         private const val THEME_ACCENT = "theme_accent"
+        private const val SKIN_VERSION = "skin_version"
+        private const val SKIN_SCRIM = "skin_scrim"
+        private const val SKIN_BLUR = "skin_blur"
+        private const val SKIN_FOCUS = "skin_focus"
+        private const val SKIN_ACCENT_FOLLOW = "skin_accent_follow"
+        private const val SKIN_HUE = "skin_hue"
+        private val SKIN_KEYS = setOf(SKIN_VERSION, SKIN_SCRIM, SKIN_BLUR, SKIN_FOCUS, SKIN_ACCENT_FOLLOW, SKIN_HUE)
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
         private const val QUIT_REQUESTED = "quit_requested"
