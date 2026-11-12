@@ -46,9 +46,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
@@ -158,6 +162,10 @@ enum class ArchivePeriod { ThisWeek, ThisMonth, Earlier }
 
 /** 归档视图里的一组。[rows] 保持传进来的顺序(按归档时间倒序)。 */
 data class ArchiveGroup(val period: ArchivePeriod, val rows: List<DrawerConversation>)
+
+/** 能不能左滑归档:存过的、没在跑的、没归档的才行;草稿和正在跑任务的不能滑。 */
+fun canSwipeArchive(item: DrawerConversation): Boolean =
+    item.id != null && item.saved && !item.running && !item.archived
 
 /** 侧栏里的对话分段:进行中、置顶、最近。 */
 data class DrawerSections(
@@ -373,6 +381,8 @@ fun ChatDrawer(
     onUnarchiveSelected: () -> Unit = {},
     /** 普通侧栏里多选后「归档」;归档视图里用不到。 */
     onArchiveSelected: () -> Unit = {},
+    /** 往左滑一行:归档它;能不能滑由 [canSwipeArchive] 决定。 */
+    onArchiveSwipe: (DrawerConversation) -> Unit = {},
     /** 批量删除的进度和结果;在底部显示,删完过几秒由外面清掉。 */
     deleteBatch: DeleteBatch? = null,
     /** 批量归档的结果;在底部显示,过几秒由外面清掉。 */
@@ -453,6 +463,13 @@ fun ChatDrawer(
         val terms = remember(query) { ConversationSearch.termsOf(query) }
         // 归档视图按本周 / 本月 / 更早分组;分组也跟着列表走
         val archiveGrouping = remember(archived) { archiveGroups(archived, System.currentTimeMillis()) }
+        // 普通列表里能左滑归档的行;多选时先不响应,免得和勾选打架
+        fun swipeFor(item: DrawerConversation): (() -> Unit)? =
+            if (!selecting && canSwipeArchive(item)) {
+                { onArchiveSwipe(item) }
+            } else {
+                null
+            }
         LazyColumn(Modifier.fillMaxWidth().weight(1f).lazyListScrollbar(list), state = list) {
             if (searchActive) {
                 item("h-search") { SectionLabel(stringResource(R.string.drawer_search_results)) }
@@ -511,14 +528,20 @@ fun ChatDrawer(
                     item("h-pinned") { SectionLabel(stringResource(R.string.drawer_pinned)) }
                     busyNote()
                     items(sections.pinned, key = { "p-${it.id}" }) {
-                        ConversationEntry(it, onOpen, onActions, selecting = selecting, selected = it.id in selected, onToggleSelect = onToggleSelect)
+                        ConversationEntry(
+                            it, onOpen, onActions, selecting = selecting, selected = it.id in selected,
+                            onToggleSelect = onToggleSelect, onArchiveSwipe = swipeFor(it),
+                        )
                     }
                 }
                 if (sections.recent.isNotEmpty()) {
                     item("h-recent") { SectionLabel(stringResource(R.string.drawer_recent)) }
                     if (sections.pinned.isEmpty()) busyNote()
                     items(sections.recent, key = { "c-${it.id}" }) {
-                        ConversationEntry(it, onOpen, onActions, selecting = selecting, selected = it.id in selected, onToggleSelect = onToggleSelect)
+                        ConversationEntry(
+                            it, onOpen, onActions, selecting = selecting, selected = it.id in selected,
+                            onToggleSelect = onToggleSelect, onArchiveSwipe = swipeFor(it),
+                        )
                     }
                 }
             }
@@ -760,7 +783,7 @@ private fun SectionLabel(text: String) {
  * 还没存进对话列表的(没有编号)没东西可改,不响应长按。置顶了的标题前有个小图钉。
  * 多选模式([selecting])下点一行是勾选/取消,左边出现勾选框;没存过的草稿不参与。
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun ConversationEntry(
     item: DrawerConversation,
@@ -773,6 +796,8 @@ internal fun ConversationEntry(
     onToggleSelect: (DrawerConversation) -> Unit = {},
     /** 标题前显不显示归档小图标;归档视图里每一行都是归档的,不用再标。 */
     showArchivedMark: Boolean = true,
+    /** 往左滑归档;为 null 时不能滑(多选、归档视图、草稿、在跑任务的)。 */
+    onArchiveSwipe: (() -> Unit)? = null,
 ) {
     val c = MikaTheme.colors
     val deletable = item.id != null
@@ -780,34 +805,64 @@ internal fun ConversationEntry(
     val haptic = LocalHapticFeedback.current
     // 这一行在窗口里的位置和大小(不裁掉滚出列表的部分),菜单照它摆出抬起的那一行;只在回调里读,不引起重组
     val bounds = remember { mutableStateOf(Rect.Zero) }
-    Column(
-        Modifier.padding(horizontal = 12.dp).fillMaxWidth()
-            .onGloballyPositioned { bounds.value = Rect(it.positionInWindow(), it.size.toSize()) }
-            .then(if (item.current) Modifier.cardSurface(c, NavShape) else Modifier)
-            .clip(NavShape)
-            .then(
-                when {
-                    selectable -> Modifier.toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggleSelect(item) })
-                    // 多选模式里没存过的草稿不响应,免得点一下退出侧栏
-                    selecting -> Modifier
-                    deletable -> Modifier.combinedClickable(
-                        onClickLabel = null,
-                        onLongClickLabel = stringResource(R.string.drawer_actions),
-                        // 和系统里长按一样振一下
-                        onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onActions(item, bounds.value) },
-                        onClick = { if (item.enabled) onOpen(item) },
-                    )
-                    else -> Modifier.clickable(enabled = item.enabled, onClick = { onOpen(item) })
-                },
-            )
-            .testTag("conversation-row")
-            .alpha(if (item.enabled || selectable) 1f else 0.45f)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (selectable) SelectMark(selected)
-            Box(Modifier.weight(1f)) { ConversationRowContent(item, terms, showArchivedMark) }
+    val row: @Composable () -> Unit = {
+        Column(
+            Modifier.padding(horizontal = 12.dp).fillMaxWidth()
+                .onGloballyPositioned { bounds.value = Rect(it.positionInWindow(), it.size.toSize()) }
+                .then(if (item.current) Modifier.cardSurface(c, NavShape) else Modifier)
+                .clip(NavShape)
+                .then(
+                    when {
+                        selectable -> Modifier.toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggleSelect(item) })
+                        // 多选模式里没存过的草稿不响应,免得点一下退出侧栏
+                        selecting -> Modifier
+                        deletable -> Modifier.combinedClickable(
+                            onClickLabel = null,
+                            onLongClickLabel = stringResource(R.string.drawer_actions),
+                            // 和系统里长按一样振一下
+                            onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onActions(item, bounds.value) },
+                            onClick = { if (item.enabled) onOpen(item) },
+                        )
+                        else -> Modifier.clickable(enabled = item.enabled, onClick = { onOpen(item) })
+                    },
+                )
+                .testTag("conversation-row")
+                .alpha(if (item.enabled || selectable) 1f else 0.45f)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (selectable) SelectMark(selected)
+                Box(Modifier.weight(1f)) { ConversationRowContent(item, terms, showArchivedMark) }
+            }
         }
+    }
+    if (onArchiveSwipe == null) {
+        row()
+    } else {
+        val dismiss = rememberSwipeToDismissBoxState(
+            // 滑到底就归档,这一行弹回去;归档后列表自己会把它拿走
+            confirmValueChange = { value ->
+                if (value == SwipeToDismissBoxValue.EndToStart) onArchiveSwipe()
+                false
+            },
+        )
+        SwipeToDismissBox(
+            state = dismiss,
+            enableDismissFromStartToEnd = false,
+            backgroundContent = {
+                Box(
+                    Modifier.fillMaxSize().padding(horizontal = 12.dp).clip(NavShape).background(c.accentSoft)
+                        .padding(horizontal = 20.dp).testTag("conversation-archive-swipe"),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(MikaIcons.Archive, null, Modifier.size(16.dp), tint = c.accent)
+                        Text(stringResource(R.string.drawer_archive), style = MikaType.Label, color = c.accent)
+                    }
+                }
+            },
+            modifier = Modifier.testTag("conversation-swipe"),
+        ) { row() }
     }
 }
 
@@ -1289,6 +1344,7 @@ fun ChatWithDrawer(
                             archiveBatch = ArchiveBatch(archived, ids.size - archived)
                         }
                     },
+                    onArchiveSwipe = { item -> item.id?.let { archiveWithUndo(it, item.title) } },
                     deleteBatch = deleteBatch,
                     archiveBatch = archiveBatch,
                     archiveUndo = archiveUndo,
