@@ -122,6 +122,22 @@
     <string name="drawer_rename_title">改名</string>
     <string name="drawer_pinned">置顶</string>
     <string name="drawer_pinned_mark">已置顶</string>
+    <string name="drawer_archive">归档</string>
+    <string name="drawer_unarchive">取消归档</string>
+    <string name="drawer_archived">已归档</string>
+    <string name="drawer_archived_count">%1$d 条已归档</string>
+    <string name="drawer_archive_empty">还没有归档的对话</string>
+    <string name="drawer_archive_done">已归档「%1$s」</string>
+    <string name="drawer_archive_this_week">本周</string>
+    <string name="drawer_archive_this_month">本月</string>
+    <string name="drawer_archive_earlier">更早</string>
+    <string name="drawer_archived_today">今天归档</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="other">归档于 %1$d 天前</item>
+    </plurals>
+    <string name="drawer_search_filter_all">全部</string>
+    <string name="drawer_search_filter_active">未归档</string>
+    <string name="drawer_search_filter_archived">已归档</string>
     <string name="drawer_search_hint">搜索对话</string>
     <string name="drawer_search_results">搜索结果</string>
     <string name="drawer_search_empty">没有找到「%1$s」</string>
@@ -241,4 +257,10 @@
     <string name="chat_placeholder_queue">写下下一件事…</string>
     <string name="voice_placeholder_queue">说下一件事…</string>
     <string name="steer_received_paused">已收到，任务继续后处理</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="other">已归档 %1$d 个对话</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="other">%1$d 个未归档</item>
+    </plurals>
 </resources>

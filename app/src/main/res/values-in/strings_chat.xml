@@ -122,6 +122,22 @@
     <string name="drawer_rename_title">Ganti nama obrolan</string>
     <string name="drawer_pinned">Disematkan</string>
     <string name="drawer_pinned_mark">Disematkan</string>
+    <string name="drawer_archive">Arsipkan</string>
+    <string name="drawer_unarchive">Batalkan arsip</string>
+    <string name="drawer_archived">Diarsipkan</string>
+    <string name="drawer_archived_count">%1$d diarsipkan</string>
+    <string name="drawer_archive_empty">Belum ada obrolan yang diarsipkan</string>
+    <string name="drawer_archive_done">“%1$s” diarsipkan</string>
+    <string name="drawer_archive_this_week">Minggu ini</string>
+    <string name="drawer_archive_this_month">Bulan ini</string>
+    <string name="drawer_archive_earlier">Lebih lama</string>
+    <string name="drawer_archived_today">Diarsipkan hari ini</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="other">Diarsipkan %1$d hari lalu</item>
+    </plurals>
+    <string name="drawer_search_filter_all">Semua</string>
+    <string name="drawer_search_filter_active">Aktif</string>
+    <string name="drawer_search_filter_archived">Diarsipkan</string>
     <string name="drawer_search_hint">Cari chat</string>
     <string name="drawer_search_results">Hasil pencarian</string>
     <string name="drawer_search_empty">Tidak ada chat yang cocok dengan “%1$s”</string>
@@ -241,4 +257,10 @@
     <string name="chat_placeholder_queue">Tulis tugas berikutnya…</string>
     <string name="voice_placeholder_queue">Ucapkan tugas berikutnya…</string>
     <string name="steer_received_paused">Dimengerti — akan dipakai saat tugas dilanjutkan</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="other">%1$d chat diarsipkan</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="other">%1$d tidak diarsipkan</item>
+    </plurals>
 </resources>

@@ -130,6 +130,23 @@
     <string name="drawer_rename_title">Rename chat</string>
     <string name="drawer_pinned">Pinned</string>
     <string name="drawer_pinned_mark">Pinned</string>
+    <string name="drawer_archive">Archive</string>
+    <string name="drawer_unarchive">Unarchive</string>
+    <string name="drawer_archived">Archived</string>
+    <string name="drawer_archived_count">%1$d archived</string>
+    <string name="drawer_archive_empty">No archived chats</string>
+    <string name="drawer_archive_done">Archived “%1$s”</string>
+    <string name="drawer_archive_this_week">This week</string>
+    <string name="drawer_archive_this_month">This month</string>
+    <string name="drawer_archive_earlier">Earlier</string>
+    <string name="drawer_archived_today">Archived today</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="one">Archived %1$d day ago</item>
+        <item quantity="other">Archived %1$d days ago</item>
+    </plurals>
+    <string name="drawer_search_filter_all">All</string>
+    <string name="drawer_search_filter_active">Unarchived</string>
+    <string name="drawer_search_filter_archived">Archived</string>
     <string name="drawer_search_hint">Search chats</string>
     <string name="drawer_search_results">Search results</string>
     <string name="drawer_search_empty">No chats match “%1$s”</string>
@@ -252,4 +269,12 @@
     <string name="chat_placeholder_queue">Write the next task…</string>
     <string name="voice_placeholder_queue">Say the next task…</string>
     <string name="steer_received_paused">Got it — it will be used when the task continues</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d chat archived</item>
+        <item quantity="other">%1$d chats archived</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d not archived</item>
+        <item quantity="other">%1$d not archived</item>
+    </plurals>
 </resources>

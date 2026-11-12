@@ -104,6 +104,23 @@
     <string name="drawer_rename_title">تغییر نام گفتگو</string>
     <string name="drawer_pinned">سنجاق‌شده</string>
     <string name="drawer_pinned_mark">سنجاق‌شده</string>
+    <string name="drawer_archive">بایگانی</string>
+    <string name="drawer_unarchive">خارج کردن از بایگانی</string>
+    <string name="drawer_archived">بایگانی‌شده</string>
+    <string name="drawer_archived_count">%1$d بایگانی‌شده</string>
+    <string name="drawer_archive_empty">هیچ گفتگویی بایگانی نشده است</string>
+    <string name="drawer_archive_done">«%1$s» بایگانی شد</string>
+    <string name="drawer_archive_this_week">این هفته</string>
+    <string name="drawer_archive_this_month">این ماه</string>
+    <string name="drawer_archive_earlier">قدیمی‌تر</string>
+    <string name="drawer_archived_today">امروز بایگانی شد</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="one">%1$d روز پیش بایگانی شد</item>
+        <item quantity="other">%1$d روز پیش بایگانی شد</item>
+    </plurals>
+    <string name="drawer_search_filter_all">همه</string>
+    <string name="drawer_search_filter_active">بایگانی‌نشده</string>
+    <string name="drawer_search_filter_archived">بایگانی‌شده</string>
     <string name="settings_title">تنظیمات</string>
     <string name="chat_unconfirmed">تأیید ممکن نشد: %1$s</string>
     <string name="chat_unverified">انجام شد، اما تأیید نتیجه ممکن نشد</string>
@@ -252,4 +269,12 @@
     <string name="chat_retry_missing">%1$s: فایل موجود نیست</string>
     <string name="chat_retry_limit">%1$s: به سقف کپی رسید</string>
     <string name="chat_retry_failed">%1$s: کپی ممکن نشد</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d گفتگو بایگانی شد</item>
+        <item quantity="other">%1$d گفتگو بایگانی شد</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d بایگانی نشد</item>
+        <item quantity="other">%1$d بایگانی نشد</item>
+    </plurals>
 </resources>

@@ -210,4 +210,12 @@
     <string name="settings_token_budget_custom">Orçamento de tokens personalizado</string>
     <string name="settings_token_budget_apply">Usar</string>
     <string name="settings_token_budget_invalid">Digite um número inteiro de %1$s a %2$s.</string>
+    <string name="settings_auto_archive">Arquivar conversas automaticamente</string>
+    <string name="settings_auto_archive_sub">Conversas sem mensagens novas por um tempo vão para o arquivo</string>
+    <string name="settings_auto_archive_hint">As conversas sem mensagens novas pelo tempo escolhido vão para o arquivo. Conversas fixadas e conversas com uma tarefa em andamento ficam como estão. Você pode restaurá-las no arquivo da lista de conversas quando quiser.</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="one">%1$d dia</item>
+        <item quantity="many">%1$d dias</item>
+        <item quantity="other">%1$d dias</item>
+    </plurals>
 </resources>

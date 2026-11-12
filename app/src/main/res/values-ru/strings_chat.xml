@@ -146,6 +146,25 @@
     <string name="drawer_rename_title">Переименовать чат</string>
     <string name="drawer_pinned">Закреплённые</string>
     <string name="drawer_pinned_mark">Закреплён</string>
+    <string name="drawer_archive">В архив</string>
+    <string name="drawer_unarchive">Убрать из архива</string>
+    <string name="drawer_archived">В архиве</string>
+    <string name="drawer_archived_count">%1$d в архиве</string>
+    <string name="drawer_archive_empty">Нет архивированных чатов</string>
+    <string name="drawer_archive_done">Чат «%1$s» добавлен в архив</string>
+    <string name="drawer_archive_this_week">На этой неделе</string>
+    <string name="drawer_archive_this_month">В этом месяце</string>
+    <string name="drawer_archive_earlier">Раньше</string>
+    <string name="drawer_archived_today">Архивировано сегодня</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="one">Архивировано %1$d день назад</item>
+        <item quantity="few">Архивировано %1$d дня назад</item>
+        <item quantity="many">Архивировано %1$d дней назад</item>
+        <item quantity="other">Архивировано %1$d дня назад</item>
+    </plurals>
+    <string name="drawer_search_filter_all">Все</string>
+    <string name="drawer_search_filter_active">Без архива</string>
+    <string name="drawer_search_filter_archived">В архиве</string>
     <string name="drawer_search_hint">Поиск чатов</string>
     <string name="drawer_search_results">Результаты поиска</string>
     <string name="drawer_search_empty">Нет чатов, совпадающих с «%1$s»</string>
@@ -274,4 +293,16 @@
     <string name="chat_placeholder_queue">Напишите следующую задачу…</string>
     <string name="voice_placeholder_queue">Продиктуйте следующую задачу…</string>
     <string name="steer_received_paused">Принято — будет учтено после продолжения задачи</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d чат архивирован</item>
+        <item quantity="few">%1$d чата архивированы</item>
+        <item quantity="many">%1$d чатов архивировано</item>
+        <item quantity="other">%1$d чата архивированы</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d не архивирован</item>
+        <item quantity="few">%1$d не архивированы</item>
+        <item quantity="many">%1$d не архивировано</item>
+        <item quantity="other">%1$d не архивированы</item>
+    </plurals>
 </resources>

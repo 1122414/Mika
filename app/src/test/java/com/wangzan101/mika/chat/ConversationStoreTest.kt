@@ -563,4 +563,101 @@ class ConversationStoreTest {
         assertFalse(store.branchBefore(source, target, 0))
         assertEquals(listOf("已有"), store.turns(target).map { it.userText })
     }
+
+    /** 归档的对话默认不进侧栏;要全部时用 includeArchived;换个实例也还在,取消归档后回来。 */
+    @Test fun archivedConversationsHiddenUntilRequested() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.append("b", Turn("订票", "好了", "succeeded"))
+
+        assertTrue(store.setArchived("a", true, at = 123L))
+        assertEquals(123L, store.archivedAt("a"))
+        assertEquals(listOf("b"), store.list().map { it.id })
+        assertEquals(setOf("a", "b"), store.list(includeArchived = true).map { it.id }.toSet())
+        assertEquals(123L, store.list(includeArchived = true).first { it.id == "a" }.archivedAt)
+
+        val reopened = ConversationStore(dir)
+        assertEquals(123L, reopened.archivedAt("a"))
+        assertEquals(listOf("b"), reopened.list().map { it.id })
+
+        assertTrue(reopened.setArchived("a", false))
+        assertNull(reopened.archivedAt("a"))
+        assertEquals(setOf("a", "b"), reopened.list().map { it.id }.toSet())
+    }
+
+    /** 取消归档记下恢复时间(自动归档据此给一段宽限);删对话时一起删。 */
+    @Test fun unarchiveRecordsTheRestoreTime() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.setArchived("a", true, at = 1L)
+
+        assertTrue(store.setArchived("a", false, at = 456L))
+        assertEquals(456L, store.restoredAt("a"))
+        assertEquals(456L, ConversationStore(dir).list(includeArchived = true).single().restoredAt)
+
+        store.delete("a")
+        assertFalse(File(dir, "a.restored").exists())
+        assertNull(ConversationStore(dir).restoredAt("a"))
+    }
+
+    /** 删掉归档的对话时,旁文件一起删;用新实例看,免得进程里的删除记录挡住。 */
+    @Test fun deleteRemovesArchiveSidecar() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.setArchived("a", true, at = 1L)
+        assertTrue(File(dir, "a.archive").isFile)
+
+        store.delete("a")
+
+        assertFalse(File(dir, "a.archive").exists())
+        assertNull(ConversationStore(dir).archivedAt("a"))
+        assertTrue(ConversationStore(dir).list(includeArchived = true).isEmpty())
+    }
+
+    /** 从归档的对话分出来的分支是新的、活跃的,不继承归档。 */
+    @Test fun branchDoesNotInheritArchive() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        store.setArchived(source, true, at = 1L)
+        val target = store.newConversation()
+
+        assertTrue(store.branch(source, target, 0))
+
+        assertNull(store.archivedAt(target))
+        assertTrue(store.list().any { it.id == target })
+        assertTrue(store.list().none { it.id == source })
+    }
+
+    /** 归档旁文件读不懂时当作没归档,不挡住列表。 */
+    @Test fun corruptArchiveFileIsTreatedAsActive() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        File(dir, "a.archive").writeText("not-a-time")
+
+        assertNull(store.archivedAt("a"))
+        assertEquals(listOf("a"), store.list().map { it.id })
+    }
+
+    /** 归档的对话来了新的一轮就自动取消归档;只改已有那一轮、只改标题不算。 */
+    @Test fun appendClearsArchiveButEditingAnExistingTurnDoesNot() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.setArchived("a", true, at = 1L)
+
+        store.updateTurn("a", runId = "missing") { it }
+        store.setTitle("a", "天气")
+        assertEquals(1L, store.archivedAt("a"))
+
+        store.append("a", Turn("那明天呢", "也晴", "succeeded"))
+
+        assertNull(store.archivedAt("a"))
+        assertTrue(store.list().any { it.id == "a" })
+    }
 }

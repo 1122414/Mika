@@ -202,4 +202,10 @@
     <string name="settings_token_budget_custom">自定义 Token 预算</string>
     <string name="settings_token_budget_apply">使用</string>
     <string name="settings_token_budget_invalid">请输入 %1$s 到 %2$s 的整数。</string>
+    <string name="settings_auto_archive">自动归档对话</string>
+    <string name="settings_auto_archive_sub">太久没有新消息的对话自动收进归档</string>
+    <string name="settings_auto_archive_hint">超过选定的时间没有新消息的对话会收进归档。置顶的对话和有任务在运行的对话不归档；随时可以在对话列表的归档里恢复。</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="other">%1$d 天</item>
+    </plurals>
 </resources>
