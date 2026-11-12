@@ -21,7 +21,8 @@ class AgentPipResizeTest {
         val frame = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
         var expanded by mutableStateOf(true)
         compose.setContent {
-            AgentPip(PipUi(visible = true, expanded = expanded), frame, false, true, 0f, 80f,
+            AgentPip(PipUi(visible = true, expanded = expanded), frame, webContent = false, pipInput = null, operateEnabled = true,
+                reduceMotion = false, topInset = 0f, bottomInset = 80f,
                 onExpand = { expanded = true }, onCollapse = { expanded = false }, onAttention = {})
         }
         fun width(): Int { compose.waitForIdle(); return compose.onNodeWithTag("pip-window").fetchSemanticsNode().size.width }
@@ -43,7 +44,8 @@ class AgentPipResizeTest {
         val frame = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
         var attention = 0
         compose.setContent {
-            AgentPip(PipUi(visible = true, expanded = true, mode = PipMode.NeedsYou), frame, false, true, 0f, 80f,
+            AgentPip(PipUi(visible = true, expanded = true, mode = PipMode.NeedsYou), frame, webContent = false, pipInput = null, operateEnabled = true,
+                reduceMotion = false, topInset = 0f, bottomInset = 80f,
                 onExpand = {}, onCollapse = {}, onAttention = { attention++ })
         }
         val window = compose.onNodeWithTag("pip-window")
