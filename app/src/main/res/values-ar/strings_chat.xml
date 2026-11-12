@@ -215,6 +215,7 @@
     <string name="step_declined_not_said">لم يُكتب: ليس من كلامك أنت</string>
     <string name="step_declined_sensitive">لم يُكتب: معلومات حساسة</string>
     <string name="step_declined_not_asked">لم يُغيَّر: لم تطلب ذلك</string>
+    <string name="step_declined_not_requested">لم يُكتب: هذه الرسالة لم تطلب التذكّر</string>
     <string name="step_number">الخطوة %1$d</string>
     <string name="source_label">المصدر</string>
     <plurals name="screenshots">

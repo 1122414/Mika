@@ -165,6 +165,7 @@
     <string name="step_declined_not_said">Tidak ditulis: bukan kata-kata Anda sendiri</string>
     <string name="step_declined_sensitive">Tidak ditulis: informasi sensitif</string>
     <string name="step_declined_not_asked">Tidak diubah: Anda tidak memintanya</string>
+    <string name="step_declined_not_requested">Tidak ditulis: pesan ini tidak meminta untuk mengingat</string>
     <string name="step_number">Langkah %1$d</string>
     <string name="source_label">Sumber</string>
     <plurals name="screenshots">

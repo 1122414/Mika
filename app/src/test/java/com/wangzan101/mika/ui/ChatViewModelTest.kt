@@ -2673,6 +2673,8 @@ class ChatViewModelTest {
         // 点开一步、运行过程页用的是同一份说法
         assertEquals("不是你亲口说的,没有写入", ChatCopy.effectLabel("quote_not_from_user"))
         assertEquals("没成功", ChatCopy.effectLabel("memory_full"))
+        // 开着「让 Mika 自己归纳着记」、但这句话没让它记
+        assertEquals("这句话没让它记,没有写入", ChatCopy.effectLabel("inference_not_requested"))
     }
 
     // 原话的任务还在等服务收尾上一个时插的话:先开始原话的任务,再把插话交给它

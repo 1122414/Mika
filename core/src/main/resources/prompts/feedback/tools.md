@@ -418,7 +418,13 @@ The id is not in the latest memory_search result set, or no search has run. Noth
 The latest search returned multiple entries and the current quote does not contain the exact id, or the stored id is duplicated. Nothing was changed. Narrow the search to one entry or ask the user to specify the exact id; do not retry an ambiguous update or deletion.
 
 ## memory.content_not_from_user
-content or keywords contain details (names, numbers, addresses) the user did not say in this task. Save only what the user said. Nothing was saved for this item; do not retry it with the same details. In your answer, tell the user which items were saved and which were not, and why.
+content or keywords contain details (names, numbers, addresses) the user did not say in this task. Save only what the user said. Nothing was saved for this item; do not retry it with the same details. In your answer, tell the user which items were saved and which were not, and why: Mika only remembers what they said themselves, unless they turn on the switch on the "Memory & skills" settings page that lets Mika also save its own conclusions.
+
+## memory.inference_not_requested
+content or keywords contain details the user did not say in this task, and the quoted message from this turn does not ask you to remember or save anything (or says not to). Your own conclusions are saved only when the user asks for it in their own message this turn; quote that message. Nothing was saved for this item; do not retry it unless the user did ask in another message this turn. Otherwise tell the user it was not saved and that they can ask you to remember it.
+
+## memory.saved_as_inferred
+Saved as your own conclusion, not as something the user said: it contains details the user did not say in this task. Tell the user it was saved that way.
 
 ## memory.edit_content_not_from_user
 The new content or keywords contain details (names, numbers, addresses) the user did not say in this task. Nothing was changed; do not retry it with the same details. Tell the user it was not changed and why.

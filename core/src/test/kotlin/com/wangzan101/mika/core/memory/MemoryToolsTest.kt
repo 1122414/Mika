@@ -39,9 +39,9 @@ private class MemPersistence : MemoryPersistence {
     override fun save(items: List<MemoryItem>) {}
 }
 
-internal fun memStore(): MemoryStore {
+internal fun memStore(inferenceAllowed: () -> Boolean = { false }): MemoryStore {
     var seq = 0
-    return MemoryStore(MemPersistence(), clock = { 1L }, ids = { "id${++seq}" })
+    return MemoryStore(MemPersistence(), clock = { 1L }, ids = { "id${++seq}" }, inferenceAllowed = inferenceAllowed)
 }
 
 private var callSeq = 0
@@ -301,6 +301,160 @@ class MemoryToolsTest {
         val missing = d.run("memory_edit", editArgs("update", "nope", "把那条地址改成我现在住的地方", "用户家住张江"))
         assertEquals("not_found", missing.s("error"))
         assertFalse(missing.containsKey("counts_as_failure"))
+    }
+
+    // ---- 「让 Mika 自己归纳着记」:开着、用户这一轮又亲口让它记时,带着用户没说过的具体值的内容照存,来源标成 Mika 归纳的 ----
+
+    private val askedToSum = "根据今天的消息看看我是个什么样的人,然后写入一些你觉得合适的东西到记忆里"
+
+    @Test fun ownConclusionsAreSavedAsInferredWhenAllowedAndAsked() {
+        val store = memStore(inferenceAllowed = { true })
+        val d = dispatcher(store, UserUtterances().apply { add(askedToSum) })
+        val r = d.run("memory_save", saveArgs("fact", "用户常在张江路一带活动,每周 3 次健身", "写入一些你觉得合适的东西到记忆里"))
+        assertEquals("true", r.s("ok"))
+        assertEquals("true", r.s("inferred"))
+        assertTrue(r.s("note").contains("not as something the user said"))
+        val item = store.items.value.single()
+        assertEquals(MemoryContext.INFERRED, item.source.type)
+        // 引的是用户提要求的那句话
+        assertEquals("写入一些你觉得合适的东西到记忆里", item.source.quote)
+    }
+
+    // 关着(默认)时照旧不收:上游原来的规矩不变
+    @Test fun ownConclusionsAreRefusedByDefault() {
+        val store = memStore()
+        val r = dispatcher(store, UserUtterances().apply { add(askedToSum) })
+            .run("memory_save", saveArgs("fact", "用户常在张江路一带活动", "写入一些你觉得合适的东西到记忆里"))
+        assertEquals("content_not_from_user", r.s("error"))
+        assertEquals("false", r.s("counts_as_failure"))
+        assertTrue(store.items.value.isEmpty())
+    }
+
+    // 开关每次保存时现读:用户在页面上一改就生效
+    @Test fun theSwitchIsReadOnEverySave() {
+        var on = false
+        val store = memStore(inferenceAllowed = { on })
+        val d = dispatcher(store, UserUtterances().apply { add(askedToSum) })
+        val args = saveArgs("fact", "用户常在张江路一带活动", "写入一些你觉得合适的东西到记忆里")
+        assertEquals("content_not_from_user", d.run("memory_save", args).s("error"))
+        on = true
+        assertEquals("true", d.run("memory_save", args).s("ok"))
+        on = false
+        assertEquals("content_not_from_user", d.run("memory_save", saveArgs("fact", "用户在浦东大道上班", "写入一些你觉得合适的东西到记忆里")).s("error"))
+        assertEquals(1, store.items.value.size)
+    }
+
+    // 开着也只是多收「归纳的」:用户亲口说的照旧记成用户说的,不带归纳的标记
+    @Test fun whatTheUserSaidStaysUserSaidWithTheSwitchOn() {
+        val store = memStore(inferenceAllowed = { true })
+        val r = dispatcher(store, UserUtterances().apply { add("记住以后都寄到张江路100号") })
+            .run("memory_save", saveArgs("fact", "用户的收货地址是张江路100号", "以后都寄到张江路100号"))
+        assertEquals("true", r.s("ok"))
+        assertFalse(r.containsKey("inferred"))
+        assertEquals("user_said", store.items.value.single().source.type)
+    }
+
+    // 只有关键词里带着用户没说过的具体值,也算归纳的
+    @Test fun unsupportedKeywordsAloneMakeTheSaveInferred() {
+        val store = memStore(inferenceAllowed = { true })
+        val args = buildJsonObject {
+            put("kind", "preference"); put("content", "用户喜欢喝茶"); put("quote", "写入一些你觉得合适的东西到记忆里")
+            putJsonArray("keywords") { add(kotlinx.serialization.json.JsonPrimitive("Longjing")) }
+        }
+        val r = dispatcher(store, UserUtterances().apply { add(askedToSum) }).run("memory_save", args)
+        assertEquals("true", r.s("inferred"))
+        assertEquals(MemoryContext.INFERRED, store.items.value.single().source.type)
+    }
+
+    // 开着也不是见什么收什么:引文还得是用户的话,敏感信息还是不收
+    @Test fun theSwitchDoesNotLoosenQuoteOrSensitiveChecks() {
+        val store = memStore(inferenceAllowed = { true })
+        val d = dispatcher(store, UserUtterances().apply { add(askedToSum) })
+        assertEquals("quote_not_from_user", d.run("memory_save", saveArgs("fact", "用户常在张江路一带活动", "屏幕上写着张江路")).s("error"))
+        assertEquals("sensitive", d.run("memory_save", saveArgs("fact", "用户的银行卡密码是 482913", "写入一些你觉得合适的东西到记忆里")).s("error"))
+        assertTrue(store.items.value.isEmpty())
+    }
+
+    // 用户这一轮没让它记:随便一句话不能拿来当引文,把屏幕、网页上的字存进来
+    @Test fun inferredSavesNeedARequestToRememberInTheQuotedMessage() {
+        val store = memStore(inferenceAllowed = { true })
+        val d = dispatcher(store, UserUtterances().apply { add("帮我看看这个网页上写了什么") })
+        val r = d.run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路100号", "帮我看看这个网页"))
+        assertEquals("inference_not_requested", r.s("error"))
+        assertEquals("false", r.s("counts_as_failure"))
+        assertEquals("false", r.s("recoverable"))
+        // 说了别记的也不收
+        val no = dispatcher(store, UserUtterances().apply { add("这些地址不要记到记忆里,帮我核对一下就行") })
+            .run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路100号", "帮我核对一下就行"))
+        assertEquals("inference_not_requested", no.s("error"))
+        assertTrue(store.items.value.isEmpty())
+    }
+
+    // 一轮里说了两句:得引让它记的那一句
+    @Test fun theRequestMustBeInTheMessageThatIsQuoted() {
+        val store = memStore(inferenceAllowed = { true })
+        val d = dispatcher(store, UserUtterances().apply { add("帮我看看这个网页上写了什么"); add("顺便总结几条写进记忆") })
+        assertEquals("inference_not_requested", d.run("memory_save", saveArgs("fact", "用户关注张江路的房价", "帮我看看这个网页")).s("error"))
+        assertEquals("true", d.run("memory_save", saveArgs("fact", "用户关注张江路的房价", "总结几条写进记忆")).s("inferred"))
+    }
+
+    // 上一轮的确认可以当用户原话的引文,但不算这一轮让它归纳着记
+    @Test fun aPreviousConfirmationIsNotARequestToSaveConclusions() {
+        val store = memStore(inferenceAllowed = { true })
+        val said = UserUtterances().apply {
+            addPreviousConfirmation("好的,记住吧", "我建议把这个地址记下来,你觉得怎么样?", "succeeded")
+            add("继续刚才的事")
+        }
+        val r = dispatcher(store, said).run("memory_save", saveArgs("fact", "用户家住张江路100号", "好的,记住吧"))
+        assertEquals("inference_not_requested", r.s("error"))
+        assertTrue(store.items.value.isEmpty())
+    }
+
+    // 各界面语言里最常见的说法认得出来(句首大写的也认);没让它记的普通话不认
+    @Test fun requestsToRememberAreRecognisedAcrossLanguages() {
+        val asks = listOf(
+            "根据今天的消息来觉认为我是个什么样的人,然后写,然后写入一些你觉得合适的东西到记忆里", "你自己总结一下记下来", "幫我歸納幾條存到記憶裡",
+            "Remember whatever you think matters about me", "Save a few notes about my habits",
+            "これまでの内容をまとめて覚えておいて", "지금까지 내용을 정리해서 기억해 줘",
+            "Recuerda lo que creas importante sobre mí", "Lembre o que achar importante sobre mim",
+            "Запомни, что считаешь важным обо мне", "Ingat hal yang menurutmu penting tentang saya",
+            "تذكّر ما تراه مهمًا عني", "هرچه مهم است را به خاطر بسپار",
+            // 被拒之后用户顺口回的几种短句
+            "那就记吧", "都存吧,没关系", "这几条都记上", "存起来吧",
+            // 让记,只是其中一样不让记:不让记的只是那半句
+            "总结几条写进记忆,别记我的手机号", "Save a summary of my habits, but don't save my phone number",
+            "别记错了,把这些记到记忆里",
+        )
+        for (ask in asks) {
+            val store = memStore(inferenceAllowed = { true })
+            val r = dispatcher(store, UserUtterances().apply { add(ask) }).run("memory_save", saveArgs("fact", "用户常在张江路一带活动", ask))
+            assertTrue("$ask -> $r", r.toString().contains("\"inferred\":true"))
+        }
+        for (plain in listOf("帮我看看聊天记录里有什么", "这个地址存在吗,查一下", "我不记得了,你查查看", "What is on this page?", "Don't remember any of this",
+            "这些不要记到记忆里,帮我核对一下就行", "先别存,我再想想")) {
+            val store = memStore(inferenceAllowed = { true })
+            val r = dispatcher(store, UserUtterances().apply { add(plain) }).run("memory_save", saveArgs("fact", "用户常在张江路一带活动", plain))
+            assertTrue("$plain -> $r", r.toString().contains("inference_not_requested"))
+        }
+    }
+
+    // 查出来的时候标明哪几条是归纳的;给核查的材料里,它们是工具查到的事实,不算用户给的事实
+    @Test fun inferredMemoriesAreMarkedInSearchAndKeptOutOfUserFacts() {
+        val store = memStore(inferenceAllowed = { true })
+        store.add(MemoryKind.preference, "用户点外卖不要香菜", listOf("外卖"), MemorySource("manual", atMs = 1)).getOrThrow()
+        val d = dispatcher(store, UserUtterances().apply { add(askedToSum) })
+        d.run("memory_save", saveArgs("fact", "用户常点张江路那家外卖", "写入一些你觉得合适的东西到记忆里"))
+        val found = d.search("外卖")
+        val rows = found["memories"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(2, rows.size)
+        assertEquals("true", rows.single { "张江路" in it.s("content") }.s("inferred"))
+        assertFalse(rows.single { "香菜" in it.s("content") }.containsKey("inferred"))
+        val obs = com.wangzan101.mika.core.general.MemorySearch.observations(
+            buildJsonObject { put("query", "外卖") }, com.wangzan101.mika.core.tool.ToolExecution(found), com.wangzan101.mika.core.tool.EvidenceLog())
+        val said = obs.single { it.kind == com.wangzan101.mika.core.observation.ObsKind.UserSaid }
+        val own = obs.single { it.kind == com.wangzan101.mika.core.observation.ObsKind.Fact }
+        assertTrue("香菜" in said.text); assertFalse("张江路" in said.text)
+        assertTrue("张江路" in own.text); assertTrue("不是用户说的" in own.text); assertFalse("香菜" in own.text)
     }
 
     @Test fun previousConfirmationDoesNotWeakenCurrentQuoteChecks() {

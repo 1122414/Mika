@@ -185,6 +185,7 @@
     <string name="step_declined_not_said">No se guardó: no son tus propias palabras</string>
     <string name="step_declined_sensitive">No se guardó: información sensible</string>
     <string name="step_declined_not_asked">Sin cambios: no lo pediste</string>
+    <string name="step_declined_not_requested">No se guardó: este mensaje no pedía recordarlo</string>
     <string name="step_number">Paso %1$d</string>
     <string name="source_label">Origen</string>
     <plurals name="screenshots">

@@ -95,7 +95,8 @@ class PersonalRuntime(private val app: MikaApp) {
             if (!app.memory.settings().switches.value.useMemory) return "用户关闭了长期记忆。"
             return app.memory.store().items.value.filter { it.status == MemoryStatus.active }
                 .sortedWith(compareByDescending<MemoryItem> { it.pinned }.thenByDescending { it.updatedAt })
-                .take(40).joinToString("\n") { it.content }.take(6500)
+                // Mika 自己归纳出来的那几条不是用户说的:标出来,别当成用户的原话转述
+                .take(40).joinToString("\n") { if (it.source.type == MemoryContext.INFERRED) it.content + "(Mika 自己归纳的,不是用户说的)" else it.content }.take(6500)
         }
     }
     val agent = PersonalAgent(store, scope, { app.tasks.modelFactory(app, ModelSession.of("personal-main")) }, actions)

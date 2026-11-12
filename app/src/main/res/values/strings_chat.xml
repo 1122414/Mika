@@ -175,6 +175,7 @@
     <string name="step_declined_not_said">Not written: not your own words</string>
     <string name="step_declined_sensitive">Not written: sensitive information</string>
     <string name="step_declined_not_asked">Not changed: you did not ask for it</string>
+    <string name="step_declined_not_requested">Not written: this message did not ask Mika to remember</string>
     <string name="step_number">Step %1$d</string>
     <string name="source_label">Source</string>
     <plurals name="screenshots">

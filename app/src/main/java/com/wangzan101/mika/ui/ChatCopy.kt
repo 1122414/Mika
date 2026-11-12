@@ -125,6 +125,7 @@ object ChatCopy {
      */
     fun declinedLabel(code: String?): String? = when (code) {
         "quote_not_from_user", "content_not_from_user" -> tr(R.string.step_declined_not_said)
+        "inference_not_requested" -> tr(R.string.step_declined_not_requested)
         "sensitive" -> tr(R.string.step_declined_sensitive)
         "edit_not_requested" -> tr(R.string.step_declined_not_asked)
         else -> null

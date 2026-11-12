@@ -160,6 +160,46 @@ class AgentLoopMemoryTest {
         assertEquals(before, s.items.value.size)
     }
 
+    // 开着「让 Mika 自己归纳着记」、用户又让它记:一口气十条归纳的都存上,任务正常结束
+    @Test fun aBatchOfOwnConclusionsIsSavedWhenAllowed() {
+        val s = memStore(inferenceAllowed = { true })
+        val calls = (1..10).map { i ->
+            ModelReply(listOf(Part.ToolCall("i$i", "memory_save",
+                """{"kind":"fact","content":"用户每周 $i 次去张江路${100 + i}号","quote":"你自己总结几条写进记忆"}""")), StopReason.ToolUse, null)
+        }
+        val model = FakeModel(*(calls + finishReply).toTypedArray())
+        val end = runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s)
+                .run("根据今天的消息看看我是个什么样的人,你自己总结几条写进记忆")
+        }
+        assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Succeeded)
+        assertEquals(10, s.items.value.size)
+        assertTrue(s.items.value.all { it.source.type == com.wangzan101.mika.core.memory.MemoryContext.INFERRED })
+    }
+
+    // 查到一条 Mika 自己归纳的记忆,接着照常回答:这条进了证据账本(工具查到的事实),任务正常结束
+    @Test fun aRunThatFindsAnInferredMemoryFinishesNormally() {
+        val s = memStore()
+        s.add(MemoryKind.fact, "用户常点张江路那家外卖", listOf("外卖"),
+            MemorySource(com.wangzan101.mika.core.memory.MemoryContext.INFERRED, "你自己总结几条写进记忆", atMs = 1)).getOrThrow()
+        val events = mutableListOf<RunEvent>()
+        val model = FakeModel(
+            ModelReply(listOf(Part.ToolCall("s1", "memory_search", """{"query":"外卖"}""")), StopReason.ToolUse, null),
+            finishReply,
+        )
+        val end = runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B",
+                sink = object : RunSink { override fun event(e: RunEvent) { events += e } }, memory = s).run("我平时点哪家外卖")
+        }
+        assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Succeeded)
+        val seen = events.filterIsInstance<RunEvent.Observed>().single { "张江路" in it.text }
+        assertEquals("fact", seen.kind)
+        assertTrue("不是用户说的" in seen.text)
+        // 模型看到的工具结果里这条带着标记;开局注入的那段也标了
+        assertTrue(events.filterIsInstance<RunEvent.ToolResult>().single { it.tool == "memory_search" }.resultJson.contains("\"inferred\":true"))
+        assertTrue(model.requests.first().joinToString("\n") { it.plainText() }.contains("the user did not say this"))
+    }
+
     // 别的工具照旧:判成讨论时,提议的调用换成不带工具的直接回答
     @Test fun otherToolsAreStillGated() {
         val s = store()
