@@ -26,7 +26,9 @@
     <string name="dev_experiments">Eksperimen</string>
     <string name="dev_run_log">Catatan eksekusi</string>
     <string name="dev_history_view">Ringkas riwayat tugas</string>
-    <string name="dev_history_view_sub">Simpan layar terbaru dan ringkas layar lama. Data asli dapat dibaca kembali bila perlu.</string>
+    <string name="dev_history_view_sub">Layar yang sudah dikirim tetap utuh. Riwayat lama hanya diringkas jika ruang konteks menipis.</string>
+    <string name="dev_screen_tables">Ringkas elemen layar baru</string>
+    <string name="dev_screen_tables_sub">Saat layar pertama kali dibaca, kirim kolom untuk bidang berulang. Referensi elemen dan pohon lengkap tetap tersedia.</string>
     <string name="dev_history_summary">Ringkas tugas panjang</string>
     <string name="dev_history_summary_sub">Saat riwayat ringkas aktif, panggilan model tambahan memilih bukti terdahulu.</string>
 </resources>

@@ -24,8 +24,10 @@ internal class ArchivedScreens(private val archive: ScreenArchive) {
         }
         return parsed[p]
     }
+    private fun hasRows(s: JsonObject) = s["elements"] is JsonArray || s["elementTables"] is JsonArray
+
     fun useful(history: List<Message>) = history.asSequence().flatMap { it.parts.asSequence() }.filterIsInstance<Part.ToolResult>()
-        .any { it.content.length >= 4096 && it.reads.isNotEmpty() && screen(it)?.body?.get("elements") is JsonArray }
+        .any { it.content.length >= 4096 && it.reads.isNotEmpty() && screen(it)?.body?.let(::hasRows) == true }
 
     fun project(history: List<Message>, memory: TaskMemory): List<Message> {
         val starts = history.indices.filter { i -> history[i].role == Role.Assistant && history[i].parts.any { it is Part.ToolCall } }
@@ -42,14 +44,14 @@ internal class ArchivedScreens(private val archive: ScreenArchive) {
                 if (p !is Part.ToolResult || p.content.length < 2048) return@map p
                 val s = screen(p) ?: return@map p
                 val id = (s.body["snapshotId"] as? JsonPrimitive)?.content ?: return@map p
-                if (id in bases || "base" in s.body || s.body["elements"] !is JsonArray || "archiveKey" in s.body) return@map p
+                if (id in bases || "base" in s.body || !hasRows(s.body) || "archiveKey" in s.body) return@map p
                 val refs = p.reads.map { it.obsId }
                 val select = refs.isNotEmpty() && refs.all { obs -> obs !in pinned && obs in covered }
                 val tree = s.body["tree"]
                 if (!select && (tree == null || tree.toString().length < 1600)) return@map p
                 if (p !in keys) keys[p] = archive.put(s.body.toString())
                 val key = keys[p]?.takeIf(archive::contains) ?: return@map p
-                val data = s.body - "tree" - if (select) setOf("elements","full") else emptySet()
+                val data = s.body - "tree" - if (select) setOf("elements","elementTables","full") else emptySet()
                 val compact = JsonObject(data + ("archiveKey" to JsonPrimitive(key)) +
                     (if (select) mapOf("historical" to JsonPrimitive("details: history_read(snapshot,offset)")) else emptyMap()))
                 val content = (if (s.nested) JsonObject(s.outer + ("screen" to compact)) else compact).toString()

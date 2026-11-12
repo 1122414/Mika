@@ -26,7 +26,9 @@
     <string name="dev_experiments">Experimentos</string>
     <string name="dev_run_log">Registros de ejecución</string>
     <string name="dev_history_view">Compactar el historial</string>
-    <string name="dev_history_view_sub">Conserva las pantallas recientes y acorta las anteriores. Puedes consultar el original cuando lo necesites.</string>
+    <string name="dev_history_view_sub">Mantiene las pantallas ya enviadas. Solo compacta el historial anterior cuando queda poco espacio de contexto.</string>
+    <string name="dev_screen_tables">Compactar elementos de pantallas nuevas</string>
+    <string name="dev_screen_tables_sub">Al leer una pantalla por primera vez, envía los campos repetidos como columnas. Conserva las referencias y el árbol completo.</string>
     <string name="dev_history_summary">Resumir tareas largas</string>
     <string name="dev_history_summary_sub">Con el historial compacto, una llamada adicional al modelo selecciona las pruebas anteriores.</string>
 </resources>

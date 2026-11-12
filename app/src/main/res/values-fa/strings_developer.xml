@@ -26,7 +26,9 @@
     <string name="dev_experiments">آزمایش‌ها</string>
     <string name="dev_run_log">سوابق اجرا</string>
     <string name="dev_history_view">فشرده‌سازی تاریخچهٔ کار</string>
-    <string name="dev_history_view_sub">صفحه‌های اخیر را نگه می‌دارد و صفحه‌های قدیمی را کوتاه می‌کند. در صورت نیاز می‌توان دادهٔ اصلی را دوباره خواند.</string>
+    <string name="dev_history_view_sub">صفحه‌های ارسال‌شده بدون تغییر می‌مانند؛ سابقهٔ قدیمی فقط هنگام کمبود فضای زمینه فشرده می‌شود.</string>
+    <string name="dev_screen_tables">جدول عناصر صفحهٔ جدید</string>
+    <string name="dev_screen_tables_sub">در نخستین خواندن صفحه، فیلدهای تکراری به شکل ستون فرستاده می‌شوند. ارجاع عناصر و درخت کامل حفظ می‌شوند.</string>
     <string name="dev_history_summary">خلاصهٔ کارهای طولانی</string>
     <string name="dev_history_summary_sub">با روشن بودن تاریخچهٔ فشرده، یک فراخوانی اضافی مدل، شواهد قبلی را انتخاب می‌کند.</string>
 </resources>

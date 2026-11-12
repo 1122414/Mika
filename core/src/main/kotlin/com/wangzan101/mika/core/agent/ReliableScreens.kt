@@ -67,11 +67,16 @@ internal class ReliableScreens {
             }
         }
 
-        private fun pack(raw: String): String? {
+        /** Change only a new full screen, before it is recorded in the model-facing history. */
+        fun atBirth(raw: String, enabled: Boolean): String = if (enabled) pack(raw, fullOnly = true) ?: raw else raw
+
+        private fun pack(raw: String, fullOnly: Boolean = false): String? {
             if (raw.length !in 180..2_000_000 || "\"elements\"" !in raw) return null
             val obj = try { Json.parseToJsonElement(raw) as? JsonObject } catch (_: SerializationException) { null } ?: return null
             val nested = obj["screen"] as? JsonObject
             val screen = nested ?: obj
+            if (fullOnly && ("base" in screen || screen["full"] == JsonPrimitive(false) ||
+                (nested == null && "snapshotId" !in screen && "currentApp" !in screen))) return null
             val elements = screen["elements"] as? JsonArray ?: return null
             if (elements.size < 3) return null
             // A missing field differs from JSON null; only combine consecutive rows with exactly the same keys.
@@ -81,7 +86,7 @@ internal class ReliableScreens {
                 val row = elements[i] as? JsonObject ?: return null
                 val cols = row.keys.toList()
                 var j = i + 1
-                while (j < elements.size && (elements[j] as? JsonObject)?.keys == row.keys) j++
+                while (j < elements.size && (elements[j] as? JsonObject)?.keys?.toList() == cols) j++
                 blocks += buildJsonObject {
                     put(COLUMNS, JsonArray(cols.map(::JsonPrimitive)))
                     put(ROWS, JsonArray((i until j).map { n -> JsonArray(cols.map { elements[n].jsonObject.getValue(it) }) }))

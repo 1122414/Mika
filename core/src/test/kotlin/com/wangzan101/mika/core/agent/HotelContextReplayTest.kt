@@ -153,7 +153,10 @@ class HotelContextReplayTest {
     @Test fun replayOrderPageAndPriceOnTheSame34Requests() = runTest { replay(34, 0.66255136 * 1.01) }
     @Test fun replayPastTheFortiethRound() = runTest { replay(45, 0.93615964 * 1.01) }
 
-    private suspend fun replay(length: Int, ceiling: Double) {
+    @Test fun firstSendTablesKeepAllRoutesOn34Requests() = runTest { replay(34, 0.5941 * 1.02, true) }
+    @Test fun firstSendTablesKeepAllRoutesOn45Requests() = runTest { replay(45, 0.8347 * 1.02, true) }
+
+    private suspend fun replay(length: Int, ceiling: Double, tablesAtBirth: Boolean = false) {
         fixture()
         val evidencePages = history.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
             .filter { it.callId in evidence }.map { Json.parseToJsonElement(it.content).jsonObject.getValue("screen").jsonObject }
@@ -167,7 +170,7 @@ class HotelContextReplayTest {
         val tools = toolDispatcher(FakeScreen(), reliableContext = true)
         val model = FakeModel(ModelReply(listOf(Part.Text("fixture")), StopReason.EndTurn, null),
             repeatLast = true, contextTokens = 1_000_000)
-        val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true, semanticSummaries = false),
+        val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true, semanticSummaries = false, tablesAtBirth = tablesAtBirth),
             RetryPolicy.NONE, {}, { 0L })
         val wire = HotelReplayMeter()
         // Compare the representation of previously sent results on the product path.
@@ -217,10 +220,10 @@ class HotelContextReplayTest {
                 }
             }
             raw += Message(Role.Assistant, listOf(Part.ToolCall(id, actions.getValue(step), "{}")), Author.Mika)
-            raw += Message(Role.Tool, listOf(Part.ToolResult(id, response, isError)), Author.Mika)
+            raw += Message(Role.Tool, listOf(Part.ToolResult(id, ReliableScreens.atBirth(response, tablesAtBirth && !isError), isError)), Author.Mika)
         }
         assertEquals(expected, selected)
-        println("$length-request hotel replay: $wire representationChanges=$changes")
+        println("$length-request hotel replay tablesAtBirth=$tablesAtBirth: $wire representationChanges=$changes")
         assertEquals(emptyList<Int>(), wire.rewrites)
         assertTrue(changes["tables"].isNullOrEmpty())
         assertTrue(changes["archive"].isNullOrEmpty())

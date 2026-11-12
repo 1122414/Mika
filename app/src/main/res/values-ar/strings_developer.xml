@@ -26,7 +26,9 @@
     <string name="dev_experiments">التجارب</string>
     <string name="dev_run_log">سجلات التشغيل</string>
     <string name="dev_history_view">ضغط سجل المهمة</string>
-    <string name="dev_history_view_sub">تُحفظ الشاشات الأخيرة وتُختصر الشاشات القديمة. يمكن الرجوع إلى البيانات الأصلية عند الحاجة.</string>
+    <string name="dev_history_view_sub">يحتفظ بالشاشات المرسلة كما هي، ولا يضغط السجل السابق إلا عند ضيق مساحة السياق.</string>
+    <string name="dev_screen_tables">تنسيق عناصر الشاشات الجديدة كجدول</string>
+    <string name="dev_screen_tables_sub">عند قراءة الشاشة أول مرة، تُرسل الحقول المتكررة كأعمدة مع الاحتفاظ بمراجع العناصر والشجرة الكاملة.</string>
     <string name="dev_history_summary">تلخيص المهام الطويلة</string>
     <string name="dev_history_summary_sub">عند تفعيل ضغط السجل، يختار استدعاء إضافي للنموذج أدلة من السجل السابق.</string>
 </resources>

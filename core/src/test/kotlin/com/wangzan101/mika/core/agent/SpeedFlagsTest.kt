@@ -18,6 +18,8 @@ class SpeedFlagsTest {
         assertEquals(f, SpeedFlags.parse(f.describe()))
         val all = SpeedFlags(true, true, true, true, true, true, true)
         assertEquals(all, SpeedFlags.parse(all.describe()))
+        assertEquals(SpeedFlags(tablesAtBirth = true), SpeedFlags.parse("tablesAtBirth"))
+        assertEquals("tablesAtBirth", SpeedFlags(tablesAtBirth = true).describe())
         assertEquals(SpeedFlags(adaptiveVision = true), SpeedFlags.parse("adaptiveVision"))
     }
 

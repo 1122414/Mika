@@ -26,7 +26,9 @@
     <string name="dev_experiments">실험</string>
     <string name="dev_run_log">실행 기록</string>
     <string name="dev_history_view">작업 기록 압축</string>
-    <string name="dev_history_view_sub">최근 화면은 유지하고 이전 화면은 줄입니다. 필요하면 원본을 다시 읽을 수 있습니다.</string>
+    <string name="dev_history_view_sub">전송한 화면은 그대로 유지하고 문맥 공간이 부족할 때만 이전 기록을 압축합니다.</string>
+    <string name="dev_screen_tables">새 화면 요소를 표로 표시</string>
+    <string name="dev_screen_tables_sub">화면을 처음 읽을 때 반복 필드를 표로 보냅니다. 요소 참조와 전체 트리는 유지됩니다.</string>
     <string name="dev_history_summary">긴 작업 요약</string>
     <string name="dev_history_summary_sub">기록 압축이 켜져 있으면 모델을 추가로 호출하여 이전 근거를 선택합니다.</string>
 </resources>

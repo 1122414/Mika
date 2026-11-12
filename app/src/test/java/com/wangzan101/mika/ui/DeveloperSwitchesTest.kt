@@ -16,13 +16,13 @@ class DeveloperSwitchesTest {
 
     /** 开发者开关,每个只在一组里出现一次,id 不重复。 */
     @Test
-    fun tenSwitchesInTwoGroups() {
+    fun elevenSwitchesInTwoGroups() {
         assertEquals(
             listOf("adaptive-vision", "inline-screen", "batch-steps", "deep-links", "light-steps"),
             speed.map { it.id },
         )
-        assertEquals(listOf("reliable-context", "semantic-summaries", "replay", "parallel-tasks", "structured-compaction"), experimental.map { it.id })
-        assertEquals(10, (speed + experimental).map { it.id }.toSet().size)
+        assertEquals(listOf("reliable-context", "tables-at-birth", "semantic-summaries", "replay", "parallel-tasks", "structured-compaction"), experimental.map { it.id })
+        assertEquals(11, (speed + experimental).map { it.id }.toSet().size)
     }
 
     /** 拨动一个开关只改它自己那一项,其余保持原值。 */
@@ -36,7 +36,7 @@ class DeveloperSwitchesTest {
                 base.batchSteps != after.batchSteps, base.deepLinks != after.deepLinks, base.lightSteps != after.lightSteps,
                 base.replay != after.replay, base.parallelTasks != after.parallelTasks,
                 base.structuredCompaction != after.structuredCompaction,
-                base.reliableContext != after.reliableContext, base.semanticSummaries != after.semanticSummaries,
+                base.tablesAtBirth != after.tablesAtBirth, base.reliableContext != after.reliableContext, base.semanticSummaries != after.semanticSummaries,
             )
             assertEquals("${sw.id} should change exactly one flag", 1, changed.count { it })
         }

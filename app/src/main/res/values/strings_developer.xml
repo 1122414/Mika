@@ -26,7 +26,9 @@
     <string name="dev_experiments">Experiments</string>
     <string name="dev_run_log">Run records</string>
     <string name="dev_history_view">Compact task history</string>
-    <string name="dev_history_view_sub">Keep recent screens and shorten older ones. Open the original screen data when needed.</string>
+    <string name="dev_history_view_sub">Preserve previous screens as sent. Compact old history only under context pressure.</string>
+    <string name="dev_screen_tables">Compact new screen elements</string>
+    <string name="dev_screen_tables_sub">Send repeated fields as table columns the first time a screen is read. Element refs and the full tree are kept.</string>
     <string name="dev_history_summary">Summarize long tasks</string>
     <string name="dev_history_summary_sub">With compact history on, use an additional model call to select earlier evidence.</string>
 </resources>

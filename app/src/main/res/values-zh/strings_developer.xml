@@ -26,7 +26,9 @@
     <string name="dev_experiments">实验</string>
     <string name="dev_run_log">运行记录</string>
     <string name="dev_history_view">精简任务历史</string>
-    <string name="dev_history_view_sub">保留最近的屏幕，缩短旧页面；需要时可回读原文。</string>
+    <string name="dev_history_view_sub">已发出的屏幕保持原样，仅在上下文空间紧张时整理旧历史。</string>
+    <string name="dev_screen_tables">新屏幕元素表格</string>
+    <string name="dev_screen_tables_sub">首次读取屏幕时，把重复字段写成表格；保留元素引用和完整界面树。</string>
     <string name="dev_history_summary">长任务增量摘要</string>
     <string name="dev_history_summary_sub">开启精简任务历史后，用额外的模型调用挑选早期证据。</string>
 </resources>

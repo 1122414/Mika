@@ -26,7 +26,9 @@
     <string name="dev_experiments">Эксперименты</string>
     <string name="dev_run_log">Журнал запусков</string>
     <string name="dev_history_view">Сжатие истории задачи</string>
-    <string name="dev_history_view_sub">Последние экраны остаются целиком. Старые сокращаются, но исходные данные можно перечитать.</string>
+    <string name="dev_history_view_sub">Сохраняет уже отправленные экраны. Сжимает старую историю, только когда в контексте мало места.</string>
+    <string name="dev_screen_tables">Таблицы элементов новых экранов</string>
+    <string name="dev_screen_tables_sub">При первом чтении повторяющиеся поля передаются как столбцы. Ссылки на элементы и полное дерево сохраняются.</string>
     <string name="dev_history_summary">Сводки для долгих задач</string>
     <string name="dev_history_summary_sub">При включённом сжатии дополнительный вызов модели выбирает сведения из истории.</string>
 </resources>
