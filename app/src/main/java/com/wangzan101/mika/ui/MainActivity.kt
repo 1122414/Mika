@@ -617,6 +617,8 @@ private fun MikaRoot(
                             check = check,
                             frames = app.taskState.frames,
                             webOpen = app.tasks.webScreenOpen,
+                            pipInput = app.taskState.pipInput,
+                            pipOperateEnabled = FeatureFlags.get(context).pipOperate(),
                             reduceMotion = MikaTheme.reduceMotion,
                             onOpenDrawer = openDrawer,
                             onOpenFiles = { filesFromDrawer = false; filesConversation = app.chat.ui.value.conversationId; nav.push(Route.Files) },

@@ -173,6 +173,10 @@ fun ChatScreen(
     check: Prerequisites.Check,
     frames: StateFlow<Bitmap?>,
     webOpen: StateFlow<Boolean>,
+    /** 小窗直接操作的入口(点/滑/返回注入到虚拟屏);屏没建好或任务结束时为 null。 */
+    pipInput: StateFlow<com.wangzan101.mika.cap.phone.display.PipInput?> = MutableStateFlow(null),
+    /** 用户在设置里开了「允许我在小窗里直接操作」。 */
+    pipOperateEnabled: Boolean = false,
     reduceMotion: Boolean,
     /** 左上角菜单:打开侧栏。 */
     onOpenDrawer: () -> Unit,
@@ -209,6 +213,7 @@ fun ChatScreen(
     val kept = keptAny?.takeIf { it.conversationId == ui.conversationId }
     val live by frames.collectAsState()
     val webLive by webOpen.collectAsState()
+    val pipInputLive by pipInput.collectAsState()
     // 任务一结束虚拟屏就释放了;完成时小窗还要停留几秒打勾,继续显示最后一帧
     var lastFrame by remember { mutableStateOf<Bitmap?>(null) }
     var lastFrameWasWeb by remember { mutableStateOf(false) }
@@ -453,6 +458,8 @@ fun ChatScreen(
             pip = ui.pip,
             frame = frame,
             webContent = webContent,
+            pipInput = pipInputLive,
+            operateEnabled = pipOperateEnabled,
             reduceMotion = reduceMotion,
             topInset = topHeight.toFloat(),
             bottomInset = composerHeight.toFloat(),

@@ -197,6 +197,8 @@ fun DuringWorkScreen(
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
     selfConfig: Boolean = false, onSelfConfig: (Boolean) -> Unit = {},
     selfOperate: Boolean = false, onSelfOperate: (Boolean) -> Unit = {},
+    pipOperate: Boolean = false, onPipOperate: (Boolean) -> Unit = {},
+    externalSchedule: Boolean = false, onExternalSchedule: (Boolean) -> Unit = {},
     stepLimit: Int? = null, onStepLimit: (Int?) -> Unit = {},
     tokenBudget: Long? = null, onTokenBudget: (Long?) -> Unit = {},
 ) {
@@ -271,6 +273,28 @@ fun DuringWorkScreen(
                 onClick = { onSelfOperate(!selfOperate) },
             ) {
                 MikaSwitch(selfOperate, onSelfOperate, Modifier.testTag("work-self-operate"))
+            }
+        }
+        // 允许你在对话里的小窗直接操作虚拟屏(点/滑/返回);默认关,开着时展开小窗就能直接点
+        GroupCard {
+            ListRow(
+                MikaIcons.Back, stringResource(R.string.settings_pip_operate),
+                stringResource(R.string.settings_pip_operate_sub),
+                first = true,
+                onClick = { onPipOperate(!pipOperate) },
+            ) {
+                MikaSwitch(pipOperate, onPipOperate, Modifier.testTag("work-pip-operate"))
+            }
+        }
+        // 允许外部脚本经广播建定时任务;默认关,开着时仍受每分钟限流并标记来源
+        GroupCard {
+            ListRow(
+                MikaIcons.Code, stringResource(R.string.settings_external_schedule),
+                stringResource(R.string.settings_external_schedule_sub),
+                first = true,
+                onClick = { onExternalSchedule(!externalSchedule) },
+            ) {
+                MikaSwitch(externalSchedule, onExternalSchedule, Modifier.testTag("work-external-schedule"))
             }
         }
         GroupLabel(stringResource(R.string.settings_pace))

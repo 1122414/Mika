@@ -331,6 +331,15 @@
             </intent-filter>
         </receiver>
         <receiver android:name=".task.TriggerAlarmReceiver" android:exported="false" />
+
+        <!-- 外部脚本建任务的广播入口:对外开放(无权限),由「允许外部脚本建任务」开关 + 每分钟限流 + 来源标记把关 -->
+        <receiver
+            android:name=".task.ExternalScheduleReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.wangzan101.mika.SCHEDULE" />
+            </intent-filter>
+        </receiver>
         <receiver android:name=".teach.TeachReceiver" android:exported="false" />
     </application>
 
