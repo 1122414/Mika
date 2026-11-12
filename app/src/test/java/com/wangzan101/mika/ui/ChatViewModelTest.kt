@@ -3496,6 +3496,27 @@ class ChatViewModelTest {
         assertNotNull(store.archivedAt("d"))
     }
 
+    @Test fun batchArchiveSkipsUnsentDraftButArchivesSavedConversationWithDraft() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        store.append("saved", Turn("已有消息", "回答", "succeeded"))
+        val vm = vm(store)
+        vm.input("尚未发送")
+        val unsent = vm.ui.value.conversationId!!
+        vm.openConversation("saved")
+        vm.input("已有对话的草稿")
+        vm.newConversation()
+        runCurrent()
+
+        assertTrue(vm.withDrafts(store.list()).any { it.id == unsent })
+        assertEquals(1, vm.archiveConversations(listOf(unsent, "saved")))
+        assertNull(store.archivedAt(unsent))
+        assertNotNull(store.archivedAt("saved"))
+        vm.openConversation(unsent)
+        assertEquals("尚未发送", vm.ui.value.input)
+        vm.openConversation("saved")
+        assertEquals("已有对话的草稿", vm.ui.value.input)
+    }
+
     @Test fun personalTaskCanBeOpenedWhileOrdinaryConversationIsBusyWithoutStartingWork() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("personal-work", Turn("整理资料", "整理完成", "succeeded"))

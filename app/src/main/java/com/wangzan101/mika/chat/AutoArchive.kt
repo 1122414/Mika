@@ -26,7 +26,7 @@ object AutoArchive {
             .toList()
 
     /**
-     * 按设置跑一次,返回归档了几个。对话文件的时间就是最后一次存进新一轮的时间;
+     * 按设置跑一次,返回归档了几个。按消息时间判断；缺少时间的旧记录回退到文件时间;
      * 之后再有新的一轮写进来,和手动归档一样会自动取消归档(见 [ConversationStore.append])。
      */
     fun run(
@@ -38,8 +38,10 @@ object AutoArchive {
     ): Int {
         if (days <= 0) return 0
         val keep = running.toSet() + listOfNotNull(currentId)
-        return candidates(store.list(includeArchived = true), cutoff(days, now), keep)
-            .count { store.setArchived(it, archived = true, at = now) }
+        val cutoff = cutoff(days, now)
+        return store.autoArchiveCandidates().asSequence()
+            .filter { it.id !in keep }
+            .count { store.archiveIfStillEligible(it, cutoff, at = now) }
     }
 
     private const val DAY_MS = 24L * 60 * 60 * 1000

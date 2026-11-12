@@ -1925,13 +1925,15 @@ class ChatViewModel(
     }
 
     /**
-     * 普通侧栏里多选后一次归档 [ids]:在跑的、删掉的、当前正在看的跳过
+     * 普通侧栏里多选后一次归档 [ids]:未保存首轮的草稿、在跑的、删掉的、当前正在看的跳过
      * (当前对话归档要换新对话,批量里不悄悄换)。返回实际归档了几个。
      */
     fun archiveConversations(ids: Collection<String>): Int {
         val current = _ui.value.conversationId
+        // 与侧栏判断已保存对话的依据一致,不能只看 ID:未发送的草稿也有 ID。
+        val savedIds = store.list(includeArchived = true).mapTo(mutableSetOf()) { it.id }
         return ids.count { id ->
-            id != current && id !in _deleted.value && id !in deleting && id !in activeConversations.value &&
+            id in savedIds && id != current && id !in _deleted.value && id !in deleting && id !in activeConversations.value &&
                 runCatching { store.setArchived(id, true, clock()) }.getOrDefault(false)
         }
     }

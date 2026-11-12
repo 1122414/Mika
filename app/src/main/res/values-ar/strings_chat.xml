@@ -322,11 +322,11 @@
         <item quantity="other">%1$d محادثة مؤرشفة</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="zero">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
-        <item quantity="one">واحدة غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
-        <item quantity="two">اثنتان غير مؤرشفتين (مهمة قيد التشغيل أو مفتوحة الآن)</item>
-        <item quantity="few">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
-        <item quantity="many">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
-        <item quantity="other">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+        <item quantity="zero">%1$d غير مؤرشفة</item>
+        <item quantity="one">%1$d غير مؤرشفة</item>
+        <item quantity="two">%1$d غير مؤرشفتين</item>
+        <item quantity="few">%1$d غير مؤرشفة</item>
+        <item quantity="many">%1$d غير مؤرشفة</item>
+        <item quantity="other">%1$d غير مؤرشفة</item>
     </plurals>
 </resources>

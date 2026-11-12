@@ -270,7 +270,7 @@
         <item quantity="other">%1$d chats archived</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="one">%1$d not archived (task running or open now)</item>
-        <item quantity="other">%1$d not archived (task running or open now)</item>
+        <item quantity="one">%1$d not archived</item>
+        <item quantity="other">%1$d not archived</item>
     </plurals>
 </resources>

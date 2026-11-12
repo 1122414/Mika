@@ -257,6 +257,6 @@
         <item quantity="other">%1$d개 채팅을 보관했습니다</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="other">%1$d개는 보관하지 않음(작업 실행 중이거나 보고 있는 중)</item>
+        <item quantity="other">%1$d개는 보관하지 않음</item>
     </plurals>
 </resources>

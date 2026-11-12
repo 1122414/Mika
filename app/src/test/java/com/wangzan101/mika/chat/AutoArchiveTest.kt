@@ -9,6 +9,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class AutoArchiveTest {
     @get:Rule val tmp = TemporaryFolder()
@@ -51,7 +55,7 @@ class AutoArchiveTest {
         val store = ConversationStore(dir)
         val now = System.currentTimeMillis()
         listOf("old", "fresh", "running", "pinned", "current").forEach {
-            store.append(it, Turn("第 $it 个", "好", "succeeded"))
+            store.append(it, Turn("第 $it 个", "好", "succeeded", atMs = if (it == "fresh") now else now - 40 * day))
         }
         store.setPinned("pinned", pinned = true)
         val old = now - 40 * day
@@ -75,13 +79,114 @@ class AutoArchiveTest {
         val dir = tmp.newFolder()
         val store = ConversationStore(dir)
         val now = System.currentTimeMillis()
-        store.append("a", Turn("旧对话", "好", "succeeded"))
+        store.append("a", Turn("旧对话", "好", "succeeded", atMs = now - 40 * day))
         File(dir, "a.json").setLastModified(now - 40 * day)
         store.setArchived("a", true, at = now - 2 * day)
         assertTrue(store.setArchived("a", false, at = now))
 
         assertEquals(0, AutoArchive.run(store, days = 30, now = now))
         assertNull(store.archivedAt("a"))
+    }
+
+    @Test fun staleCandidatesDoNotArchiveRestoredOrUpdatedChats() {
+        val dir = tmp.newFolder()
+        val store = ConversationStore(dir)
+        val now = System.currentTimeMillis()
+        listOf("restored", "updated", "backdated", "pinned", "current", "deleted", "old").forEach {
+            store.append(it, Turn("旧消息", "好", "succeeded", atMs = now - 40 * day))
+            assertTrue(File(dir, "$it.json").setLastModified(now - 40 * day))
+        }
+        val cutoff = AutoArchive.cutoff(30, now)
+        val candidates = store.autoArchiveCandidates()
+        assertEquals(7, candidates.size)
+
+        store.setArchived("restored", true, at = now - day)
+        store.setArchived("restored", false, at = now)
+        store.append("updated", Turn("新消息", "好", "succeeded"))
+        store.append("backdated", Turn("补存的消息", "好", "succeeded", atMs = now - 40 * day))
+        store.setPinned("pinned", true)
+        store.setCurrent(CurrentChat.Open("current"))
+        store.delete("deleted")
+
+        assertEquals(1, candidates.count { store.archiveIfStillEligible(it, cutoff, at = now) })
+        assertNull(store.archivedAt("restored"))
+        assertNull(store.archivedAt("updated"))
+        assertNull(store.archivedAt("backdated"))
+        assertNull(store.archivedAt("pinned"))
+        assertNull(store.archivedAt("current"))
+        assertNull(store.archivedAt("deleted"))
+        assertEquals(now, store.archivedAt("old"))
+    }
+
+    /** 模拟扫描已读取运行列表后，旧对话才开始任务，且任务尚未写入消息。 */
+    @Test fun taskStartingAfterRunningSnapshotCanStillBeArchived() {
+        val dir = tmp.newFolder()
+        val now = System.currentTimeMillis()
+        val store = ConversationStore(dir)
+        store.append("old", Turn("旧消息", "好", "succeeded", atMs = now - 40 * day))
+        val active = mutableListOf<String>()
+        val runningSnapshot = active.toList()
+        active.add("old") // 模拟任务在快照之后开始，并尚未追加结果。
+
+        assertEquals(1, AutoArchive.run(store, days = 30, running = runningSnapshot, now = now))
+        assertTrue("old" in active)
+        assertEquals(now, store.archivedAt("old"))
+        store.append("old", Turn("任务结果", "好", "succeeded", atMs = now))
+        assertNull(store.archivedAt("old"))
+    }
+
+    @Test fun appendWaitsForArchiveAndThenUnarchives() {
+        val dir = tmp.newFolder()
+        val now = System.currentTimeMillis()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val blockRead = AtomicBoolean(false)
+        val failure = AtomicReference<Throwable>()
+        val store = ConversationStore(dir, readConversation = { file ->
+            if (blockRead.compareAndSet(true, false)) {
+                entered.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+            file.readText()
+        })
+        store.append("old", Turn("旧消息", "好", "succeeded", atMs = now - 40 * day))
+        blockRead.set(true)
+        val archive = Thread { runCatching { AutoArchive.run(store, 30, now = now) }.onFailure(failure::set) }
+        val append = Thread { runCatching { store.append("old", Turn("新消息", "好", "succeeded")) }.onFailure(failure::set) }
+        archive.start()
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            append.start()
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+            while (append.state != Thread.State.BLOCKED && System.nanoTime() < deadline) Thread.yield()
+            assertEquals(Thread.State.BLOCKED, append.state)
+        } finally {
+            release.countDown()
+            archive.join(10_000)
+            if (append.isAlive) append.join(10_000)
+        }
+        assertNull(failure.get())
+        assertTrue(!archive.isAlive && !append.isAlive)
+        assertNull(store.archivedAt("old"))
+        assertEquals(2, store.turns("old").size)
+    }
+
+    @Test fun messageTimeSurvivesUpdatesAndBranchesWhileLegacyFallsBackToFileTime() {
+        val dir = tmp.newFolder()
+        val now = System.currentTimeMillis()
+        val store = ConversationStore(dir)
+        store.append("old", Turn("旧消息", "好", "succeeded", runId = "run", atMs = now - 40 * day))
+        store.updateTurn("old", "run") { it.copy(outcome = "后台补写") }
+        assertTrue(store.branch("old", "branch", 0))
+        store.append("legacy", Turn("旧格式", "好", "succeeded", atMs = now - 40 * day))
+        val legacy = File(dir, "legacy.json")
+        legacy.writeText(legacy.readText().replace(Regex(",\\\"atMs\\\":\\d+"), ""))
+        assertTrue(legacy.setLastModified(now - 40 * day))
+        store.append("fresh", Turn("新消息", "好", "succeeded", atMs = now))
+
+        assertEquals(3, AutoArchive.run(store, days = 30, now = now))
+        listOf("old", "branch", "legacy").forEach { assertEquals(now, store.archivedAt(it)) }
+        assertNull(store.archivedAt("fresh"))
     }
 
     /** 关着(0 天)时一次都不跑。 */

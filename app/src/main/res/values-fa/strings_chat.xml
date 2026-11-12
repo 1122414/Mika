@@ -270,7 +270,7 @@
         <item quantity="other">%1$d گفتگو بایگانی شد</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="one">%1$d بایگانی نشد (وظیفه در حال اجرا یا در حال مشاهده)</item>
-        <item quantity="other">%1$d بایگانی نشد (وظیفه در حال اجرا یا در حال مشاهده)</item>
+        <item quantity="one">%1$d بایگانی نشد</item>
+        <item quantity="other">%1$d بایگانی نشد</item>
     </plurals>
 </resources>

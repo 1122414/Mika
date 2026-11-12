@@ -296,9 +296,9 @@
         <item quantity="other">%1$d чата архивированы</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="one">%1$d не архивирован (задача выполняется или открыт сейчас)</item>
-        <item quantity="few">%1$d не архивированы (задача выполняется или открыты сейчас)</item>
-        <item quantity="many">%1$d не архивировано (задача выполняется или открыто сейчас)</item>
-        <item quantity="other">%1$d не архивированы (задача выполняется или открыты сейчас)</item>
+        <item quantity="one">%1$d не архивирован</item>
+        <item quantity="few">%1$d не архивированы</item>
+        <item quantity="many">%1$d не архивировано</item>
+        <item quantity="other">%1$d не архивированы</item>
     </plurals>
 </resources>

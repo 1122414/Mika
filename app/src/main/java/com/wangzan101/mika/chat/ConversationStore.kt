@@ -151,6 +151,12 @@ class ConversationStore(
      * 再往里存进一轮([append])就是重新开始用这个编号,从这里拿掉。只记在进程里。
      */
     private val deleted = mutableSetOf<String>()
+    // 只在本进程、这把锁内使用，防止筛选后发生写入的对话被旧快照归档。
+    private val archiveVersions = mutableMapOf<String, Long>()
+    private fun bumpArchiveVersion(id: String) {
+        val key = safe(id)
+        archiveVersions[key] = (archiveVersions[key] ?: 0L) + 1L
+    }
 
     /**
      * 删掉一个对话存下的一切:对话文件、标题、置顶、网页来源、分支来源,以及写到一半的临时文件和挪到一边的损坏文件。
@@ -159,6 +165,7 @@ class ConversationStore(
      */
     @Synchronized
     fun delete(conversationId: String) {
+        bumpArchiveVersion(conversationId)
         val main = file(conversationId).name
         val metadata = setOf(titleFile(conversationId).name, pinFile(conversationId).name,
             pageFile(conversationId).name, branchFile(conversationId).name, archiveFile(conversationId).name,
@@ -211,6 +218,7 @@ class ConversationStore(
     @Synchronized
     fun setPinned(conversationId: String, pinned: Boolean, at: Long = System.currentTimeMillis()): Boolean {
         if (safe(conversationId) in deleted) return false
+        bumpArchiveVersion(conversationId)
         val f = pinFile(conversationId)
         val ok = if (pinned) {
             dir.mkdirs()
@@ -237,6 +245,7 @@ class ConversationStore(
     @Synchronized
     fun setArchived(conversationId: String, archived: Boolean, at: Long = System.currentTimeMillis()): Boolean {
         if (safe(conversationId) in deleted) return false
+        bumpArchiveVersion(conversationId)
         val f = archiveFile(conversationId)
         val ok = if (archived) {
             dir.mkdirs()
@@ -249,6 +258,35 @@ class ConversationStore(
         }
         if (ok) _changes.tryEmit(conversationId)
         return ok
+    }
+
+    /** 消息时间缺失的旧记录使用文件时间；后台补写不应改变有时间记录的最后消息时间。 */
+    private fun lastMessageAt(f: File): Long? {
+        val records = read(f)?.takeIf { it.isNotEmpty() } ?: return null
+        return records.maxOf { it.first.atMs ?: f.lastModified() }
+    }
+
+    internal data class ArchiveCandidate(val id: String, val version: Long)
+
+    /** 仅快照文件名和版本，不持锁读取所有对话正文。 */
+    @Synchronized
+    internal fun autoArchiveCandidates(): List<ArchiveCandidate> =
+        dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }.orEmpty().map { f ->
+            val id = f.nameWithoutExtension
+            ArchiveCandidate(id, archiveVersions[id] ?: 0L)
+        }
+
+    /** 逐条在同一把锁里检查快照版本、状态和消息时间，再写入归档。 */
+    @Synchronized
+    internal fun archiveIfStillEligible(candidate: ArchiveCandidate, cutoff: Long, at: Long): Boolean {
+        val conversationId = candidate.id
+        if ((archiveVersions[conversationId] ?: 0L) != candidate.version ||
+            pinnedAt(conversationId) != null || archivedAt(conversationId) != null ||
+            (restoredAt(conversationId)?.let { it >= cutoff } == true) ||
+            currentChat() == CurrentChat.Open(conversationId)) return false
+        val f = file(conversationId)
+        if (!f.isFile || (lastMessageAt(f) ?: return false) >= cutoff) return false
+        return setArchived(conversationId, archived = true, at = at)
     }
 
     /**
@@ -424,6 +462,7 @@ class ConversationStore(
      */
     @Synchronized
     fun append(conversationId: String, turn: Turn, files: List<SharedFile> = emptyList()) {
+        bumpArchiveVersion(conversationId)
         deleted -= safe(conversationId)
         // 先解除归档再写:write 发出的 changes 里读到的就是取消归档后的状态
         archiveFile(conversationId).delete()

@@ -283,8 +283,8 @@
         <item quantity="other">%1$d chats archivados</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="one">%1$d sin archivar (con una tarea en curso o abierto ahora)</item>
-        <item quantity="many">%1$d sin archivar (con una tarea en curso o abiertos ahora)</item>
-        <item quantity="other">%1$d sin archivar (con una tarea en curso o abiertos ahora)</item>
+        <item quantity="one">%1$d sin archivar</item>
+        <item quantity="many">%1$d sin archivar</item>
+        <item quantity="other">%1$d sin archivar</item>
     </plurals>
 </resources>

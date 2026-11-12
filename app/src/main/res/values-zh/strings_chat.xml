@@ -257,6 +257,6 @@
         <item quantity="other">已归档 %1$d 个对话</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
-        <item quantity="other">%1$d 个未归档：有任务在运行或正在看</item>
+        <item quantity="other">%1$d 个未归档</item>
     </plurals>
 </resources>

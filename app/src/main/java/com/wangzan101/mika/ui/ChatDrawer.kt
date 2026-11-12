@@ -174,7 +174,7 @@ data class DrawerSections(
     val pinned: List<DrawerConversation> = emptyList(),
 )
 
-/** 多选能勾的对话:普通侧栏是此刻列出来的;归档视图里是收起来的那些。草稿没有编号,勾不了。 */
+/** 多选能勾的对话:普通侧栏是此刻列出来的;归档视图里是收起来的那些。没有编号的行勾不了。 */
 fun drawerSelectableIds(
     sections: DrawerSections,
     archived: List<DrawerConversation>,
