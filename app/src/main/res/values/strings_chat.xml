@@ -172,6 +172,9 @@
     <string name="step_viewed">Viewed %1$s</string>
     <string name="step_viewed_part">Viewed %2$s in %1$s</string>
     <string name="step_failed">Failed</string>
+    <string name="step_declined_not_said">Not written: not your own words</string>
+    <string name="step_declined_sensitive">Not written: sensitive information</string>
+    <string name="step_declined_not_asked">Not changed: you did not ask for it</string>
     <string name="step_number">Step %1$d</string>
     <string name="source_label">Source</string>
     <plurals name="screenshots">

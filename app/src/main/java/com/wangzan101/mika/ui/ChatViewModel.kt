@@ -2149,6 +2149,9 @@ class ChatViewModel(
          * 动作写「点击 · 微信」,那一步模型写了话就用它的话;没成功只说没成功,不显示错误码。
          * 最后一行的状态跟着这一问一答:在跑、等你、结束。
          */
+        /** 没办成的一步下面那行小字:按规矩没收的说原因,其余说「没成功」。 */
+        private fun failedLabel(a: RunEvent.Activity) = ChatCopy.declinedLabel(a.effect) ?: tr(R.string.step_failed)
+
         internal fun rows(ex: Exchange, toolLabel: (String) -> String, appLabel: (String) -> String): List<StepRow> {
             val out = mutableListOf<StepRow>()
             val said = mutableSetOf<Int>()
@@ -2159,13 +2162,13 @@ class ChatViewModel(
                     if (where == null && !a.failed) continue
                     val text = if (where == null) toolLabel(a.label)
                         else a.title?.takeIf(String::isNotBlank)?.let { tr(R.string.step_viewed_part, where, it) } ?: tr(R.string.step_viewed, where)
-                    val subtitle = if (a.failed) tr(R.string.step_failed) else ""
+                    val subtitle = if (a.failed) failedLabel(a) else ""
                     val last = out.lastOrNull()
                     if (last?.title != text || last.subtitle != subtitle) out += StepRow(a.step, text, subtitle, StepState.Ok)
                 } else {
                     val reason = if (said.add(a.step)) ex.notes[a.step].orEmpty() else ""
                     val title = listOfNotNull(toolLabel(a.label), where).joinToString(" · ")
-                    out += StepRow(a.step, title, if (a.failed) tr(R.string.step_failed) else "", StepState.Ok, reason)
+                    out += StepRow(a.step, title, if (a.failed) failedLabel(a) else "", StepState.Ok, reason)
                 }
             }
             if (out.isEmpty()) return out
@@ -2334,6 +2337,9 @@ class ToolLabels(private val tools: ToolIndex, private val legacy: LegacyNames =
             "查看 App/网站知识" to R.string.tool_read_knowledge,
             "查看技能" to R.string.tool_read_skill,
             "保存技能" to R.string.tool_save_skill,
+            "查找记忆" to R.string.tool_memory_search,
+            "写入记忆" to R.string.tool_memory_save,
+            "修改记忆" to R.string.tool_memory_edit,
             "查看设置" to R.string.tool_list_settings,
             "改设置" to R.string.tool_set_setting,
             "查看自身状态" to R.string.tool_mika_status,

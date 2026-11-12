@@ -182,6 +182,9 @@
     <string name="step_viewed">Viu %1$s</string>
     <string name="step_viewed_part">Viu %2$s em %1$s</string>
     <string name="step_failed">Falhou</string>
+    <string name="step_declined_not_said">Não foi gravado: não são palavras suas</string>
+    <string name="step_declined_sensitive">Não foi gravado: informação sensível</string>
+    <string name="step_declined_not_asked">Sem alterações: você não pediu</string>
     <string name="step_number">Passo %1$d</string>
     <string name="source_label">Origem</string>
     <plurals name="screenshots">

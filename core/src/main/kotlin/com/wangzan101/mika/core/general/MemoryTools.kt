@@ -47,6 +47,7 @@ private fun memoryOn(ctx: ToolContext) = ctx.config.memory != null && ctx.config
 
 internal object MemorySearch : AgentTool {
     override val verb = Verb.MemorySearch
+    override val label = "查找记忆"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("memory_search",
@@ -79,6 +80,7 @@ internal object MemorySearch : AgentTool {
 /** 只改 Mika 自己的记忆,不动屏幕和外部世界。 */
 internal object MemorySave : AgentTool {
     override val verb = Verb.MemorySave
+    override val label = "写入记忆"
     override val risk = Risk.Read
     override val def = ToolDef("memory_save",
         Prompts.tool("memory_save"),
@@ -128,6 +130,7 @@ internal object MemorySave : AgentTool {
 /** 用户本轮明确要求时,按 memory_search 返回的稳定编号改或删一条;变更交给现有结果提示与撤销机制。 */
 internal object MemoryEdit : AgentTool {
     override val verb = Verb.MemoryEdit
+    override val label = "修改记忆"
     override val risk = Risk.Read
     override val def = ToolDef("memory_edit",
         Prompts.tool("memory_edit"),
