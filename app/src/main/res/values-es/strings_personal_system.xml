@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">Esperando para empezar</string>
     <string name="personal_system_stop_not_ready">La tarea aún no está lista o ya ha terminado. Abre la tarea para ver los detalles.</string>
     <string name="personal_system_stop_failed">No se pudo detener la tarea. Ábrela e inténtalo de nuevo.</string>
+    <string name="personal_system_task_amendment">Indicación adicional: %1$s</string>
 </resources>

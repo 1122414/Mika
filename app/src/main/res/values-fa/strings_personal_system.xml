@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">در انتظار شروع</string>
     <string name="personal_system_stop_not_ready">کار هنوز آماده نیست یا قبلاً پایان یافته است. برای مشاهده جزئیات، کار را باز کنید.</string>
     <string name="personal_system_stop_failed">توقف کار ممکن نشد. کار را باز کنید و دوباره تلاش کنید.</string>
+    <string name="personal_system_task_amendment">دستور اضافی: %1$s</string>
 </resources>

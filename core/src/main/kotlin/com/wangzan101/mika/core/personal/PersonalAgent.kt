@@ -40,12 +40,36 @@ data class PersonalTask(
     val detailSystemType: String? = null, val resultSystemType: String? = null,
 ) {
     val terminal: Boolean get() = status in setOf("completed", "failed", "cancelled", "partial")
+    val needsRefresh: Boolean get() = !terminal || !delivered || (status == "cancelled" && resultSystemType == "task_cancelled")
 }
 @Serializable
 data class PersonalState(
     val messages: List<PersonalMessage> = emptyList(), val tasks: List<PersonalTask> = emptyList(),
     val summary: String = "", val covered: Int = 0,
 )
+/** Recover placeholders only when the persisted fields prove they predate system type markers. */
+fun decodePersonalState(json: Json, text: String): PersonalState {
+    val root = json.parseToJsonElement(text).jsonObject
+    val state = json.decodeFromJsonElement<PersonalState>(root)
+    val rawTasks = root["tasks"] as? JsonArray ?: return state
+    val rawMessages = root["messages"] as? JsonArray ?: return state
+    val legacyIds = state.tasks.mapIndexedNotNull { index, task ->
+        val raw = rawTasks.getOrNull(index) as? JsonObject ?: return@mapIndexedNotNull null
+        val messages = state.messages.withIndex().filter { it.value.taskId == task.id && it.value.role == "assistant" }
+        val message = messages.singleOrNull() ?: return@mapIndexedNotNull null
+        val rawMessage = rawMessages.getOrNull(message.index) as? JsonObject ?: return@mapIndexedNotNull null
+        task.id.takeIf {
+            task.status == "cancelled" && task.delivered && task.result == "已取消" &&
+                "resultSystemType" !in raw && "systemType" !in rawMessage && message.value.text == task.result
+        }
+    }.toSet()
+    if (legacyIds.isEmpty()) return state
+    return state.copy(
+        tasks = state.tasks.map { if (it.id in legacyIds) it.copy(resultSystemType = "task_cancelled") else it },
+        messages = state.messages.map { if (it.taskId in legacyIds && it.role == "assistant") it.copy(systemType = "task_cancelled") else it },
+    )
+}
+
 interface PersonalStore {
     val state: StateFlow<PersonalState>
     fun update(change: (PersonalState) -> PersonalState)
@@ -277,7 +301,7 @@ class PersonalAgent(
                 require(!task.terminal) { "这项任务已经结束，需要继续时请创建新任务。" }
                 val instruction = arg("instruction").also { require(it.isNotBlank()) }
                 val result = actions.revise(task.conversationId, instruction)
-                store.update { s -> s.copy(tasks = s.tasks.map { if (it.id == task.id) it.copy(detail = "补充：" + instruction, detailSystemType = null) else it }) }
+                store.update { s -> s.copy(tasks = s.tasks.map { if (it.id == task.id) it.copy(detail = "补充：" + instruction, detailSystemType = "task_amendment") else it }) }
                 jsonResult("result", result)
             }
             "cancel_task" -> {

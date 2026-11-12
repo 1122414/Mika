@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">Aguardando para iniciar</string>
     <string name="personal_system_stop_not_ready">A tarefa ainda não está pronta ou já terminou. Abra a tarefa para ver os detalhes.</string>
     <string name="personal_system_stop_failed">Não foi possível parar a tarefa. Abra-a e tente novamente.</string>
+    <string name="personal_system_task_amendment">Instrução adicional: %1$s</string>
 </resources>

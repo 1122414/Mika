@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">Menunggu untuk dimulai</string>
     <string name="personal_system_stop_not_ready">Tugas belum siap atau sudah berakhir. Buka tugas untuk melihat detailnya.</string>
     <string name="personal_system_stop_failed">Gagal menghentikan tugas. Buka tugas dan coba lagi.</string>
+    <string name="personal_system_task_amendment">Instruksi tambahan: %1$s</string>
 </resources>

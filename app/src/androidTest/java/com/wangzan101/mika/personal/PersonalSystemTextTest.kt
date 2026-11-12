@@ -26,6 +26,19 @@ class PersonalSystemTextTest {
         assertEquals("external error", personalStopErrorText(english, Exception("external error")))
     }
 
+    @Test fun taskAmendmentLocalizesOnlyTheSystemPrefix() {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        fun context(locale: Locale) = base.createConfigurationContext(Configuration(base.resources.configuration).apply { setLocale(locale) })
+        val english = context(Locale.ENGLISH)
+        val chinese = context(Locale.SIMPLIFIED_CHINESE)
+        val task = PersonalTask("task", "conversation", "title", "goal", "source", 0,
+            detail = "补充：补充：用户原文", detailSystemType = "task_amendment")
+        assertEquals("Additional instruction: 补充：用户原文", task.displayDetail(english))
+        assertEquals("补充：补充：用户原文", task.displayDetail(chinese))
+        assertEquals(task.detail, task.copy(detailSystemType = null).displayDetail(english))
+        assertEquals("外部内容", task.copy(detail = "外部内容", detailSystemType = null).displayDetail(english))
+    }
+
     @Test fun systemMessagesFollowLanguageWithoutChangingUnmarkedText() {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         fun context(locale: Locale) = base.createConfigurationContext(Configuration(base.resources.configuration).apply { setLocale(locale) })

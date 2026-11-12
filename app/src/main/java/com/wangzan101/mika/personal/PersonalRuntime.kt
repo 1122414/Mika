@@ -36,7 +36,7 @@ class FilePersonalStore(file: File) : PersonalStore {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _state = MutableStateFlow(
         if (!file.exists() && !File(file.path + ".bak").exists()) PersonalState()
-        else runCatching { json.decodeFromString<PersonalState>(atomic.openRead().bufferedReader().use { it.readText() }) }
+        else runCatching { decodePersonalState(json, atomic.openRead().bufferedReader().use { it.readText() }) }
             .getOrElse {
                 // Preserve the corrupt input for recovery, never silently overwrite the only copy.
                 file.copyTo(File(file.path + ".unreadable-" + System.currentTimeMillis()), overwrite = false)
@@ -167,7 +167,7 @@ class PersonalRuntime(private val app: MikaApp) {
     }
 
     private fun refresh() {
-        state.value.tasks.filter { !it.terminal || !it.delivered || (it.status == "cancelled" && it.resultSystemType == "task_cancelled") }.forEach { task ->
+        state.value.tasks.filter { it.needsRefresh }.forEach { task ->
             val turns = app.conversations.turns(task.conversationId)
             val turn = turns.lastOrNull()
             if (turn != null) {

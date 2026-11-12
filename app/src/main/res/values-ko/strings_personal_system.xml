@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">시작 대기 중</string>
     <string name="personal_system_stop_not_ready">작업이 아직 준비되지 않았거나 이미 종료되었습니다. 작업을 열어 자세한 내용을 확인하세요.</string>
     <string name="personal_system_stop_failed">작업을 중지하지 못했습니다. 작업을 열고 다시 시도하세요.</string>
+    <string name="personal_system_task_amendment">추가 지시: %1$s</string>
 </resources>

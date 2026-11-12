@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">في انتظار البدء</string>
     <string name="personal_system_stop_not_ready">المهمة غير جاهزة بعد أو انتهت بالفعل. افتح المهمة للاطلاع على تفاصيلها.</string>
     <string name="personal_system_stop_failed">تعذر إيقاف المهمة. افتح المهمة وحاول مرة أخرى.</string>
+    <string name="personal_system_task_amendment">تعليمات إضافية: %1$s</string>
 </resources>

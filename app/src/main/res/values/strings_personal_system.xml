@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">Waiting to start</string>
     <string name="personal_system_stop_not_ready">The task is not ready or has already ended. Open the task to check its details.</string>
     <string name="personal_system_stop_failed">Could not stop the task. Open the task and try again.</string>
+    <string name="personal_system_task_amendment">Additional instruction: %1$s</string>
 </resources>

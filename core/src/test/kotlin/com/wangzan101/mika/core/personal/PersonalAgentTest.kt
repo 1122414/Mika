@@ -102,7 +102,7 @@ class PersonalAgentTest {
         assertEquals(listOf("thread" to "只看开源项目"), actions.revised)
         assertTrue(actions.started.isEmpty())
         assertEquals(1, store.state.value.tasks.size)
-        assertNull(store.state.value.tasks.single().detailSystemType)
+        assertEquals("task_amendment", store.state.value.tasks.single().detailSystemType)
         assertEquals("补充：只看开源项目", store.state.value.tasks.single().detail)
     }
 
@@ -302,6 +302,37 @@ class PersonalAgentTest {
         assertTrue(store.state.value.covered > 0)
         assertTrue(store.state.value.summary.contains("尚未授权"))
         assertEquals(original, store.state.value.messages.take(56))
+    }
+
+    @Test fun legacyCancelledPlaceholderReceivesLateSummary() = runTest {
+        val legacy = """{"tasks":[{"id":"owned","conversationId":"thread","title":"资料","goal":"查资料","sourceId":"user","at":1,"status":"cancelled","result":"已取消","delivered":true}],"messages":[{"id":"m","role":"assistant","text":"已取消","at":2,"taskId":"owned"}]}"""
+        val json = Json { encodeDefaults = true }
+        val restored = decodePersonalState(json, legacy)
+        assertEquals("task_cancelled", restored.tasks.single().resultSystemType)
+        assertTrue(restored.tasks.single().needsRefresh)
+        val store = Store(decodePersonalState(json, json.encodeToString(restored)))
+        val agent = PersonalAgent(store, backgroundScope, { null }, Actions())
+        agent.updateTask("owned", "cancelled", result = "找到两个项目")
+        assertEquals("找到两个项目", store.state.value.tasks.single().result)
+        assertEquals("找到两个项目", store.state.value.messages.single().text)
+        assertEquals(1, store.state.value.messages.size)
+    }
+
+    @Test fun migrationDoesNotMarkOrdinaryOrAlreadyRewrittenUnmarkedText() {
+        val json = Json { encodeDefaults = true }
+        val task = PersonalTask("owned", "thread", "资料", "查资料", "user", 1L, status = "cancelled", result = "已取消", delivered = true)
+        val message = PersonalMessage("m", "assistant", "已取消", 2L, taskId = "owned")
+        val current = PersonalState(tasks = listOf(task), messages = listOf(message))
+        val rewritten = json.encodeToString(current)
+        assertTrue(rewritten.contains("\"resultSystemType\":null"))
+        assertTrue(rewritten.contains("\"systemType\":null"))
+        val reopened = decodePersonalState(json, rewritten)
+        assertEquals(current, reopened)
+        assertFalse(reopened.tasks.single().needsRefresh)
+
+        val legacyOrdinary = """{"tasks":[{"id":"owned","conversationId":"thread","title":"资料","goal":"查资料","sourceId":"user","at":1,"status":"cancelled","result":"普通结果","delivered":true}],"messages":[{"id":"m","role":"assistant","text":"普通结果","at":2,"taskId":"owned"}]}"""
+        assertNull(decodePersonalState(json, legacyOrdinary).tasks.single().resultSystemType)
+        assertNull(decodePersonalState(json, legacyOrdinary).messages.single().systemType)
     }
 
     @Test fun unmarkedCancellationTextIsNeverTreatedAsPlaceholder() = runTest {

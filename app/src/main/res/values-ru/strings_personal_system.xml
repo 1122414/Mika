@@ -24,4 +24,5 @@
     <string name="personal_system_waiting">Ожидание запуска</string>
     <string name="personal_system_stop_not_ready">Задача ещё не готова или уже завершена. Откройте задачу, чтобы узнать подробности.</string>
     <string name="personal_system_stop_failed">Не удалось остановить задачу. Откройте её и повторите попытку.</string>
+    <string name="personal_system_task_amendment">Дополнительное указание: %1$s</string>
 </resources>
