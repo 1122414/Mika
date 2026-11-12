@@ -143,6 +143,9 @@
     <string name="drawer_archived">Archivada</string>
     <string name="drawer_archived_count">%1$d archivadas</string>
     <string name="drawer_archive_empty">No hay conversaciones archivadas</string>
+    <string name="drawer_search_filter_all">Todas</string>
+    <string name="drawer_search_filter_active">Sin archivar</string>
+    <string name="drawer_search_filter_archived">Archivadas</string>
     <string name="drawer_search_hint">Buscar chats</string>
     <string name="drawer_search_results">Resultados de la búsqueda</string>
     <string name="drawer_search_empty">Ningún chat coincide con «%1$s»</string>

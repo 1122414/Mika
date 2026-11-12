@@ -127,6 +127,9 @@
     <string name="drawer_archived">已歸檔</string>
     <string name="drawer_archived_count">%1$d 條已歸檔</string>
     <string name="drawer_archive_empty">還沒有歸檔的對話</string>
+    <string name="drawer_search_filter_all">全部</string>
+    <string name="drawer_search_filter_active">未歸檔</string>
+    <string name="drawer_search_filter_archived">已歸檔</string>
     <string name="drawer_search_hint">搜尋對話</string>
     <string name="drawer_search_results">搜尋結果</string>
     <string name="drawer_search_empty">找不到「%1$s」</string>

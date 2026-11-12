@@ -143,6 +143,9 @@
     <string name="drawer_archived">Arquivada</string>
     <string name="drawer_archived_count">%1$d arquivadas</string>
     <string name="drawer_archive_empty">Nenhuma conversa arquivada</string>
+    <string name="drawer_search_filter_all">Todas</string>
+    <string name="drawer_search_filter_active">Não arquivadas</string>
+    <string name="drawer_search_filter_archived">Arquivadas</string>
     <string name="drawer_search_hint">Buscar conversas</string>
     <string name="drawer_search_results">Resultados da busca</string>
     <string name="drawer_search_empty">Nenhuma conversa corresponde a “%1$s”</string>

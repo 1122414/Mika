@@ -159,6 +159,24 @@ fun drawerSelectableIds(
     if (archivedView) archived.mapNotNull { it.id }.toSet()
     else (sections.running + sections.pinned + sections.recent).mapNotNull { it.id }.toSet()
 
+/** 搜索候选:删掉的当场不搜;再按归档状态筛,全部时归档的也搜(结果行带归档标记)。 */
+internal fun drawerSearchCandidates(
+    all: List<ConversationSummary>,
+    deleted: Set<String>,
+    filter: SearchArchiveFilter,
+): List<ConversationSummary> =
+    all.asSequence()
+        .filter { it.id !in deleted }
+        .filter {
+            when (filter) {
+                SearchArchiveFilter.All -> true
+                SearchArchiveFilter.Active -> it.archivedAt == null
+                SearchArchiveFilter.Archived -> it.archivedAt != null
+            }
+        }
+        .map { it.copy(title = ChatCopy.plainTitle(it.title)) }
+        .toList()
+
 /** 搜索拿到的原始命中;显示前再按此刻的置顶、运行、时间换成侧栏里的行。 */
 private data class SearchOutcome(
     val query: String,
@@ -265,6 +283,9 @@ fun ChatDrawer(
     search: DrawerSearch? = null,
     /** 有对话可搜时才显示搜索框。 */
     canSearch: Boolean = false,
+    /** 搜索结果的归档筛选:全部 / 只看未归档 / 只看已归档。 */
+    searchFilter: SearchArchiveFilter = SearchArchiveFilter.All,
+    onSearchFilterChange: (SearchArchiveFilter) -> Unit = {},
     onNew: () -> Unit,
     onPlans: () -> Unit,
     onMemory: () -> Unit,
@@ -337,6 +358,8 @@ fun ChatDrawer(
             }
         }
         if (canSearch && !selecting && !archivedView) DrawerSearchField(query, onQueryChange)
+        // 搜索时搜索框下面按归档状态筛;归档视图里没有搜索,自然也没有这一行
+        if (searchActive) SearchArchiveFilterRow(searchFilter, onSearchFilterChange)
         // 搜索、多选、归档视图时把几个入口收起来，把高度让给列表;退出后原样回来
         if (!searchActive && !selecting && !archivedView) Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
             NavEntry(MikaIcons.Message, stringResource(R.string.drawer_personal), onClick = onPersonal)
@@ -375,7 +398,10 @@ fun ChatDrawer(
                 }
                 // 扫正文期间一直提示;标题命中已经列出来时也提示,表示结果还会补全
                 if (search?.searching != false) item("searching") { SearchHint(stringResource(R.string.drawer_searching)) }
-                items(search?.hits.orEmpty(), key = { "s-${it.id}" }) { ConversationEntry(it, onOpen, onActions, terms) }
+                items(search?.hits.orEmpty(), key = { "s-${it.id}" }) {
+                    // 「只看已归档」时每一行都是归档的,不用再标;其余筛选用归档小图标把收起来的对话标出来
+                    ConversationEntry(it, onOpen, onActions, terms, showArchivedMark = searchFilter != SearchArchiveFilter.Archived)
+                }
                 if (search != null && !search.searching && search.hits.isEmpty()) {
                     item("search-empty") { SearchEmpty(query) }
                 }
@@ -869,6 +895,8 @@ fun ChatWithDrawer(
     /** 搜索框里的字和已经拿到的结果;侧栏关掉就清空。 */
     var query by remember { mutableStateOf("") }
     var searchOutcome by remember { mutableStateOf<SearchOutcome?>(null) }
+    /** 搜索结果的归档筛选;侧栏关掉回到「全部」。 */
+    var searchFilter by remember { mutableStateOf(SearchArchiveFilter.All) }
     /** 多选模式:进去以后每行可勾选,底部换成批量删除的操作条;侧栏关上就退出。 */
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -889,6 +917,7 @@ fun ChatWithDrawer(
         if (!open) {
             query = ""
             searchOutcome = null
+            searchFilter = SearchArchiveFilter.All
             selecting = false
             selected = emptySet()
             archivedView = false
@@ -952,6 +981,7 @@ fun ChatWithDrawer(
             confirmingQuit = false
             query = ""
             searchOutcome = null
+            searchFilter = SearchArchiveFilter.All
             drawer.snapTo(DrawerValue.Closed)
         }
     }
@@ -981,17 +1011,20 @@ fun ChatWithDrawer(
                     if (running) ChatCopy.subtitle(last, last?.let(vm::livePlace))?.first.orEmpty() else "",
                 )
                 val canSwitch = vm.canSwitch()
-                // 搜索候选:标题换成侧栏里显示的样子(去掉附件行、网页说明),和行上看到的一致。
-                // 归档的对话不在侧栏里搜;当前正在看的那个例外,和主列表一致
-                val candidates = remember(all, deleted, ui.conversationId) {
-                    all.filter { it.id !in deleted && (it.archivedAt == null || it.id == ui.conversationId) }
-                        .map { it.copy(title = ChatCopy.plainTitle(it.title)) }
-                }
+                // 搜索候选:标题换成侧栏里显示的样子(去掉附件行、网页说明),和行上看到的一致;再按归档状态筛。
+                // 有没有可搜的对话看全部,不看当前筛选——筛到空的时候搜索框和筛选条还得留着,不然退不回来
+                val searchable = remember(all, deleted) { all.any { it.id !in deleted } }
+                val candidates = remember(all, deleted, searchFilter) { drawerSearchCandidates(all, deleted, searchFilter) }
                 val engine = search
-                LaunchedEffect(open, query, revision, candidates.size, engine) {
+                LaunchedEffect(open, query, revision, candidates, engine) {
                     val q = query.trim()
-                    if (engine == null || !open || q.isEmpty() || candidates.isEmpty()) {
+                    if (engine == null || !open || q.isEmpty()) {
                         searchOutcome = null
+                        return@LaunchedEffect
+                    }
+                    // 这个筛选下没有可搜的对话:直接给空结果,别让界面一直停在「搜索中」
+                    if (candidates.isEmpty()) {
+                        searchOutcome = SearchOutcome(q, emptyList(), searching = false)
                         return@LaunchedEffect
                     }
                     // 标题命中不用等正文,先列出来;正文扫完再整体换掉
@@ -1050,7 +1083,9 @@ fun ChatWithDrawer(
                     query = query,
                     onQueryChange = { query = it },
                     search = searchView,
-                    canSearch = candidates.isNotEmpty(),
+                    canSearch = searchable,
+                    searchFilter = searchFilter,
+                    onSearchFilterChange = { searchFilter = it },
                     onNew = { close { vm.newConversation(); onRegularChat() } },
                     onPersonal = { leave(onPersonal) },
                     onPlans = { leave(onPlans) },

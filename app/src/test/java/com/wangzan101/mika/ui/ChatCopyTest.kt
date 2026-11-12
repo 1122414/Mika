@@ -163,6 +163,21 @@ class ChatCopyTest {
         assertEquals(setOf("c"), drawerSelectableIds(sections, archived, archivedView = true))
     }
 
+    /** 搜索筛选:全部含归档,未归档/已归档各取一边;删掉的不搜。 */
+    @Test fun drawerSearchCandidatesFilterByArchiveState() {
+        val all = listOf(
+            ConversationSummary("a", "附件:/workspace/inbox/a.pdf(1 KB)", 3L),
+            ConversationSummary("b", "二", 2L, archivedAt = 1L),
+            ConversationSummary("c", "三", 1L),
+        )
+        val deleted = setOf("c")
+        assertEquals(listOf("a", "b"), drawerSearchCandidates(all, deleted, SearchArchiveFilter.All).map { it.id })
+        assertEquals(listOf("a"), drawerSearchCandidates(all, deleted, SearchArchiveFilter.Active).map { it.id })
+        assertEquals(listOf("b"), drawerSearchCandidates(all, deleted, SearchArchiveFilter.Archived).map { it.id })
+        // 标题还是侧栏里显示的样子(去掉附件行)
+        assertEquals("a.pdf", drawerSearchCandidates(all, deleted, SearchArchiveFilter.All).first().title)
+    }
+
     @Test fun greetingFollowsTheTimeOfDay() {
         assertEquals("早上好", ChatCopy.greeting(7))
         assertEquals("中午好", ChatCopy.greeting(12))

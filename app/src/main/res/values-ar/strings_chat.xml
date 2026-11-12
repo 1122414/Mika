@@ -167,6 +167,9 @@
     <string name="drawer_archived">مؤرشفة</string>
     <string name="drawer_archived_count">%1$d مؤرشفة</string>
     <string name="drawer_archive_empty">لا توجد محادثات مؤرشفة</string>
+    <string name="drawer_search_filter_all">الكل</string>
+    <string name="drawer_search_filter_active">غير مؤرشفة</string>
+    <string name="drawer_search_filter_archived">مؤرشفة</string>
     <string name="drawer_search_hint">البحث في المحادثات</string>
     <string name="drawer_search_results">نتائج البحث</string>
     <string name="drawer_search_empty">لا توجد محادثات تطابق «%1$s»</string>

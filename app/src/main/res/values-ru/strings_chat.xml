@@ -151,6 +151,9 @@
     <string name="drawer_archived">В архиве</string>
     <string name="drawer_archived_count">%1$d в архиве</string>
     <string name="drawer_archive_empty">Нет архивированных чатов</string>
+    <string name="drawer_search_filter_all">Все</string>
+    <string name="drawer_search_filter_active">Без архива</string>
+    <string name="drawer_search_filter_archived">В архиве</string>
     <string name="drawer_search_hint">Поиск чатов</string>
     <string name="drawer_search_results">Результаты поиска</string>
     <string name="drawer_search_empty">Нет чатов, совпадающих с «%1$s»</string>

@@ -127,6 +127,9 @@
     <string name="drawer_archived">Diarsipkan</string>
     <string name="drawer_archived_count">%1$d diarsipkan</string>
     <string name="drawer_archive_empty">Belum ada obrolan yang diarsipkan</string>
+    <string name="drawer_search_filter_all">Semua</string>
+    <string name="drawer_search_filter_active">Aktif</string>
+    <string name="drawer_search_filter_archived">Diarsipkan</string>
     <string name="drawer_search_hint">Cari chat</string>
     <string name="drawer_search_results">Hasil pencarian</string>
     <string name="drawer_search_empty">Tidak ada chat yang cocok dengan “%1$s”</string>

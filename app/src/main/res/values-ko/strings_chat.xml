@@ -127,6 +127,9 @@
     <string name="drawer_archived">보관됨</string>
     <string name="drawer_archived_count">%1$d개 보관됨</string>
     <string name="drawer_archive_empty">보관된 대화가 없습니다</string>
+    <string name="drawer_search_filter_all">전체</string>
+    <string name="drawer_search_filter_active">미보관</string>
+    <string name="drawer_search_filter_archived">보관됨</string>
     <string name="drawer_search_hint">대화 검색</string>
     <string name="drawer_search_results">검색 결과</string>
     <string name="drawer_search_empty">“%1$s”에 해당하는 대화가 없습니다</string>
