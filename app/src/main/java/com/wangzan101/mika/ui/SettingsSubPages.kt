@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.capsule.CapsuleCardScale
 import com.wangzan101.mika.capsule.CapsuleIdleOpacity
 import com.wangzan101.mika.capsule.CapsuleMode
+import com.wangzan101.mika.capsule.CapsuleTileService
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
 import com.wangzan101.mika.settings.ChannelRow
 import com.wangzan101.mika.settings.Prerequisites
@@ -456,6 +457,15 @@ fun CapsuleScreen(
     cardScale: CapsuleCardScale = CapsuleCardScale.DEFAULT,
     onCardScale: (CapsuleCardScale) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val flags = remember { FeatureFlags.get(context) }
+    val hideAtEdge by remember(flags) { flags.capsuleHideAtEdgeChanges() }.collectAsState(flags.capsuleHideAtEdge())
+    val hideFullscreen by remember(flags) { flags.capsuleHideFullscreenChanges() }.collectAsState(flags.capsuleHideFullscreen())
+    var quickSettings by remember { mutableStateOf(CapsuleTileService.isAvailable(context)) }
+    fun setQuickSettings(on: Boolean) {
+        CapsuleTileService.setAvailable(context, on)
+        quickSettings = CapsuleTileService.isAvailable(context)
+    }
     PageScaffold(CapsuleSettingsCopy.TITLE, onBack) {
         GroupCard {
             CapsuleMode.entries.forEachIndexed { i, m ->
@@ -503,6 +513,20 @@ fun CapsuleScreen(
                     enabled = mode != CapsuleMode.Off,
                     modifier = Modifier.testTag("capsule-card-size"),
                 )
+            }
+        }
+        GroupCard {
+            ListRow(MikaIcons.EyeOff, stringResource(R.string.capsule_hide_at_edge), first = true,
+                onClick = { flags.setCapsuleHideAtEdge(!hideAtEdge) }) {
+                MikaSwitch(hideAtEdge, flags::setCapsuleHideAtEdge, Modifier.testTag("capsule-hide-at-edge"))
+            }
+            ListRow(MikaIcons.Screens, stringResource(R.string.capsule_hide_fullscreen),
+                onClick = { flags.setCapsuleHideFullscreen(!hideFullscreen) }) {
+                MikaSwitch(hideFullscreen, flags::setCapsuleHideFullscreen, Modifier.testTag("capsule-hide-fullscreen"))
+            }
+            ListRow(MikaIcons.Apps, stringResource(R.string.capsule_tile_enabled),
+                onClick = { setQuickSettings(!quickSettings) }) {
+                MikaSwitch(quickSettings, ::setQuickSettings, Modifier.testTag("capsule-quick-settings"))
             }
         }
         FooterNote(CapsuleSettingsCopy.FOOTNOTE)

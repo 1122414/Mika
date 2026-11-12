@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.semantics
 import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.cap.sandbox.SandboxState
 import com.wangzan101.mika.capsule.CapsuleMode
+import com.wangzan101.mika.capsule.CapsuleSetup
+import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.core.agent.SpeedFlags
 import com.wangzan101.mika.core.cap.sandbox.SandboxStatus
 import com.wangzan101.mika.core.model.ModelRole
@@ -126,7 +128,7 @@ fun SettingsScreen(
     var selfOperate by remember { mutableStateOf(flags.selfOperate()) }
     var pipOperate by remember { mutableStateOf(flags.pipOperate()) }
     var externalSchedule by remember { mutableStateOf(flags.externalSchedule()) }
-    var capsuleMode by remember { mutableStateOf(flags.capsuleMode()) }
+    val capsuleMode by remember(flags) { flags.capsuleModeChanges() }.collectAsState(flags.capsuleMode())
     var capsuleIdleOpacity by remember { mutableStateOf(flags.capsuleIdleOpacity()) }
     var capsuleCardScale by remember { mutableStateOf(flags.capsuleCardScale()) }
     // 换语言时界面会重建,这里每次进来读一次即可
@@ -237,7 +239,10 @@ fun SettingsScreen(
         SettingsPage.Language -> LanguageScreen(language, onLanguage = { AppLanguage.set(context, it) }, onBack = toHome)
         SettingsPage.Recommendations -> RecommendedTasksScreen(recommendedTasks, onBack = toHome)
         SettingsPage.Capsule -> CapsuleScreen(
-            capsuleMode, onMode = { flags.setCapsuleMode(it); capsuleMode = it }, onBack = toHome,
+            capsuleMode, onMode = {
+                flags.setCapsuleMode(it)
+                if (CapsuleSetup.needsAccessibility(it, ScreenAccessibility.instance.value != null)) onFix(Fix.OpenAccessibility)
+            }, onBack = toHome,
             idleOpacity = capsuleIdleOpacity,
             onIdleOpacity = { flags.setCapsuleIdleOpacity(it); capsuleIdleOpacity = it },
             cardScale = capsuleCardScale,
