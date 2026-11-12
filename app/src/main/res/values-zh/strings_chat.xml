@@ -245,4 +245,10 @@
     <string name="chat_placeholder_queue">写下下一件事…</string>
     <string name="voice_placeholder_queue">说下一件事…</string>
     <string name="steer_received_paused">已收到，任务继续后处理</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="other">已归档 %1$d 个对话</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="other">%1$d 个未归档：有任务在运行或正在看</item>
+    </plurals>
 </resources>

@@ -300,4 +300,20 @@
     <string name="chat_placeholder_queue">اكتب المهمة التالية…</string>
     <string name="voice_placeholder_queue">تحدّث عن المهمة التالية…</string>
     <string name="steer_received_paused">تم الاستلام — سيُستخدم عند متابعة المهمة</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="zero">%1$d محادثة مؤرشفة</item>
+        <item quantity="one">محادثة واحدة مؤرشفة</item>
+        <item quantity="two">محادثتان مؤرشفتان</item>
+        <item quantity="few">%1$d محادثات مؤرشفة</item>
+        <item quantity="many">%1$d محادثة مؤرشفة</item>
+        <item quantity="other">%1$d محادثة مؤرشفة</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="zero">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+        <item quantity="one">واحدة غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+        <item quantity="two">اثنتان غير مؤرشفتين (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+        <item quantity="few">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+        <item quantity="many">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+        <item quantity="other">%1$d غير مؤرشفة (مهمة قيد التشغيل أو مفتوحة الآن)</item>
+    </plurals>
 </resources>

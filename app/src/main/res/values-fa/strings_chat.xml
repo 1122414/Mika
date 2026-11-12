@@ -256,4 +256,12 @@
     <string name="chat_retry_missing">%1$s: فایل موجود نیست</string>
     <string name="chat_retry_limit">%1$s: به سقف کپی رسید</string>
     <string name="chat_retry_failed">%1$s: کپی ممکن نشد</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d گفتگو بایگانی شد</item>
+        <item quantity="other">%1$d گفتگو بایگانی شد</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d بایگانی نشد (وظیفه در حال اجرا یا در حال مشاهده)</item>
+        <item quantity="other">%1$d بایگانی نشد (وظیفه در حال اجرا یا در حال مشاهده)</item>
+    </plurals>
 </resources>

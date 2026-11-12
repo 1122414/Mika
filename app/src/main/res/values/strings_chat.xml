@@ -256,4 +256,12 @@
     <string name="chat_placeholder_queue">Write the next task…</string>
     <string name="voice_placeholder_queue">Say the next task…</string>
     <string name="steer_received_paused">Got it — it will be used when the task continues</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d chat archived</item>
+        <item quantity="other">%1$d chats archived</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d not archived (task running or open now)</item>
+        <item quantity="other">%1$d not archived (task running or open now)</item>
+    </plurals>
 </resources>

@@ -267,4 +267,14 @@
     <string name="chat_placeholder_queue">Escreva a próxima tarefa…</string>
     <string name="voice_placeholder_queue">Diga a próxima tarefa…</string>
     <string name="steer_received_paused">Entendi — será usado quando a tarefa continuar</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d conversa arquivada</item>
+        <item quantity="many">%1$d conversas arquivadas</item>
+        <item quantity="other">%1$d conversas arquivadas</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d não arquivada (tarefa em andamento ou aberta agora)</item>
+        <item quantity="many">%1$d não arquivadas (tarefa em andamento ou abertas agora)</item>
+        <item quantity="other">%1$d não arquivadas (tarefa em andamento ou abertas agora)</item>
+    </plurals>
 </resources>

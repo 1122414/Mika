@@ -3479,6 +3479,23 @@ class ChatViewModelTest {
         assertEquals(setOf("a", "c"), store.list().map { it.id }.toSet())
     }
 
+    /** 普通侧栏多选归档:在跑的和当前正在看的跳过,其余收起;返回实际归档了几个。 */
+    @Test fun archiveConversationsSkipsRunningAndCurrentOnes() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        listOf("a", "b", "c", "d").forEach { store.append(it, Turn("第 $it 个", "好", "succeeded")) }
+        val running = MutableStateFlow(listOf("c"))
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, activeConversations = running).also { runCurrent() }
+        vm.openConversation("a")
+
+        assertEquals(2, vm.archiveConversations(listOf("a", "b", "c", "d")))
+
+        assertEquals("a", vm.ui.value.conversationId)
+        assertNull(store.archivedAt("a"))
+        assertNotNull(store.archivedAt("b"))
+        assertNull(store.archivedAt("c"))
+        assertNotNull(store.archivedAt("d"))
+    }
+
     @Test fun personalTaskCanBeOpenedWhileOrdinaryConversationIsBusyWithoutStartingWork() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("personal-work", Turn("整理资料", "整理完成", "succeeded"))

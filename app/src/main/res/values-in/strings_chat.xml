@@ -245,4 +245,10 @@
     <string name="chat_placeholder_queue">Tulis tugas berikutnya…</string>
     <string name="voice_placeholder_queue">Ucapkan tugas berikutnya…</string>
     <string name="steer_received_paused">Dimengerti — akan dipakai saat tugas dilanjutkan</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="other">%1$d chat diarsipkan</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="other">%1$d tidak diarsipkan (tugas berjalan atau sedang dibuka)</item>
+    </plurals>
 </resources>

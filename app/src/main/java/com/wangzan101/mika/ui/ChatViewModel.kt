@@ -1924,6 +1924,18 @@ class ChatViewModel(
         ids.filter { it !in _deleted.value }.forEach { runCatching { store.setArchived(it, false) } }
     }
 
+    /**
+     * 普通侧栏里多选后一次归档 [ids]:在跑的、删掉的、当前正在看的跳过
+     * (当前对话归档要换新对话,批量里不悄悄换)。返回实际归档了几个。
+     */
+    fun archiveConversations(ids: Collection<String>): Int {
+        val current = _ui.value.conversationId
+        return ids.count { id ->
+            id != current && id !in _deleted.value && id !in deleting && id !in activeConversations.value &&
+                runCatching { store.setArchived(id, true, clock()) }.getOrDefault(false)
+        }
+    }
+
     /** 屏上的对话被删了:不再跟它的任务(还没交给服务的开始直接作废),换成新的空对话。 */
     private fun startOver(id: String) {
         draftStateChanged = true

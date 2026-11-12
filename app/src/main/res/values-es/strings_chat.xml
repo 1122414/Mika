@@ -267,4 +267,14 @@
     <string name="chat_placeholder_queue">Escribe la siguiente tarea…</string>
     <string name="voice_placeholder_queue">Di la siguiente tarea…</string>
     <string name="steer_received_paused">Entendido — se usará cuando continúe la tarea</string>
+    <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d chat archivado</item>
+        <item quantity="many">%1$d chats archivados</item>
+        <item quantity="other">%1$d chats archivados</item>
+    </plurals>
+    <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d sin archivar (con una tarea en curso o abierto ahora)</item>
+        <item quantity="many">%1$d sin archivar (con una tarea en curso o abiertos ahora)</item>
+        <item quantity="other">%1$d sin archivar (con una tarea en curso o abiertos ahora)</item>
+    </plurals>
 </resources>
