@@ -290,6 +290,18 @@ class MemoryToolsTest {
         assertTrue(store.items.value.isEmpty())
     }
 
+    // 同一条不收的原样再来:第一次是答复,第二次起照常算失败(模型没听「别再试」)
+    @Test fun repeatingARefusedSaveCountsAsAFailure() {
+        val d = dispatcher(memStore(), UserUtterances().apply { add("帮我把这个地址记下来,以后都寄这里") })
+        val args = saveArgs("fact", "用户的收货地址是浦东张江路100号", "以后都寄这里")
+        assertEquals("false", d.run("memory_save", args).s("counts_as_failure"))
+        val again = d.run("memory_save", args)
+        assertEquals("content_not_from_user", again.s("error"))
+        assertFalse(again.containsKey("counts_as_failure"))
+        // 换一条内容,又是头一回
+        assertEquals("false", d.run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路200号", "以后都寄这里")).s("counts_as_failure"))
+    }
+
     // 改记忆也一样:没明确要改、新内容里有用户没说过的具体值,都是对这一条的答复,不计入连续失败
     @Test fun refusedEditsDoNotCountAsOperationFailuresEither() {
         val store = memStore()

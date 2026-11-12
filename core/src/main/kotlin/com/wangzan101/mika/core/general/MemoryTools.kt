@@ -39,10 +39,15 @@ private const val MEMORY_SEARCH_LIMIT = 8
  * 按规矩不收(不是用户说的、敏感、没明确要改删):这是对这一条的答复,不是操作出了故障。不计入连续失败——
  * 用户让一次记好几条时,其中几条不收很正常,为此把整个任务按「操作连续失败」停掉的话,已经存上的那几条也跟着算成了失败。
  * 仍然标成不可恢复:同一条别再试。存储满了、读不出来这类真的故障不走这里。
+ *
+ * 有上限:同一条(同样的参数、同样的原因)被原样再提,或者一个任务里不收的超过 [com.wangzan101.mika.core.tool.MAX_QUIET_MEMORY_REFUSALS] 条,
+ * 就不再标「不计入失败」,连续三条就由守卫停下(见 [ToolContext.noteMemoryRefusal])。
  */
-private fun refused(error: String, message: String) = ToolExecution(
-    JsonObject(fail(error, message, recoverable = false).content + ("counts_as_failure" to JsonPrimitive(false))),
-)
+private fun refused(ctx: ToolContext, a: Args, error: String, message: String): ToolExecution {
+    val result = fail(error, message, recoverable = false)
+    return if (ctx.noteMemoryRefusal("${a.tool.name}|$error|${a.o}")) ToolExecution(JsonObject(result.content + ("counts_as_failure" to JsonPrimitive(false))))
+    else result
+}
 
 /** 记忆和用户本次说过的话都给了才提供。 */
 private fun memoryOn(ctx: ToolContext) = ctx.config.memory != null && ctx.config.utterances != null
@@ -115,18 +120,18 @@ internal object MemorySave : AgentTool {
         val keywords = a.strList("keywords", 0, MemoryStore.MAX_KEYWORDS, itemMax = 30) ?: emptyList()
         val utterances = ctx.config.utterances!!
         // 引文出自本轮用户原话,或严格登记的上一轮明确确认;屏幕、网页和助手建议本身都不算
-        if (!utterances.containsMemoryQuote(quote)) return refused("quote_not_from_user", Feedback["memory.quote_not_from_user"])
+        if (!utterances.containsMemoryQuote(quote)) return refused(ctx, a, "quote_not_from_user", Feedback["memory.quote_not_from_user"])
         val store = ctx.config.memory!!
         // 引文对上了,内容里的具体值(地址、号码、名字)也得是用户说过的,不能从屏幕上补。
         // 用户打开了「让 Mika 自己归纳着记」、这一轮又亲口让它记的时候不拒:照存,但来源记成 Mika 归纳的,不冒充用户说的
         val inferred = (listOf(content) + keywords).any { utterances.unsupportedMemorySpecifics(it, quote).isNotEmpty() }
         if (inferred) {
-            if (!store.inferenceAllowed()) return refused("content_not_from_user", Feedback["memory.content_not_from_user"])
+            if (!store.inferenceAllowed()) return refused(ctx, a, "content_not_from_user", Feedback["memory.content_not_from_user"])
             // 开着也不是见什么收什么:引文得落在用户这一轮自己说的、让它记的那半句上。
             // 不然随便一句「帮我看看这个网页」都能被拿来当引文,把屏幕、网页上的字存进来;
             // 「别记我的地址,记住我喜欢喝茶」里引前半句也不行——让记的是后半句
             if (utterances.quotedClauses(quote).none { clauses -> clauses.any(::asksToRemember) }) {
-                return refused("inference_not_requested", Feedback["memory.inference_not_requested"])
+                return refused(ctx, a, "inference_not_requested", Feedback["memory.inference_not_requested"])
             }
         }
         val added = store.add(kind, content, keywords, MemorySource(if (inferred) MemoryContext.INFERRED else "user_said", quote.trim(),
@@ -141,7 +146,7 @@ internal object MemorySave : AgentTool {
             },
             onFailure = { e ->
                 when ((e as? MemoryRejected)?.code) {
-                    "sensitive" -> refused("sensitive", Feedback["memory.sensitive"])
+                    "sensitive" -> refused(ctx, a, "sensitive", Feedback["memory.sensitive"])
                     "memory_full" -> fail("memory_full", Feedback["memory.full"], recoverable = false)
                     "unavailable" -> fail("memory_unavailable", Feedback["memory.unavailable"], recoverable = false)
                     "too_long" -> throw ArgError("content", "must be 1-${MemoryStore.MAX_CONTENT} characters")
@@ -211,14 +216,14 @@ internal object MemoryEdit : AgentTool {
         val utterances = ctx.config.utterances!!
         // 用含引文的完整原话判断否定，避免模型只摘出「不要删除」里的「删除」。
         val messages = utterances.matchingCurrentMessages(quote)
-        if (messages.isEmpty()) return refused("quote_not_from_user", Feedback["memory.edit_quote_not_from_user"])
+        if (messages.isEmpty()) return refused(ctx, a, "quote_not_from_user", Feedback["memory.edit_quote_not_from_user"])
         val (request, negation) = when (op) {
             "update" -> UPDATE_REQUEST to UPDATE_NEGATION
             "delete" -> DELETE_REQUEST to DELETE_NEGATION
             else -> throw ArgError("op", "must be update or delete")
         }
         val requested = request.containsMatchIn(quote) && messages.none(negation::containsMatchIn)
-        if (!requested) return refused("edit_not_requested", Feedback["memory.edit_not_requested"])
+        if (!requested) return refused(ctx, a, "edit_not_requested", Feedback["memory.edit_not_requested"])
         val candidates = ctx.memorySearchCandidates()
         if (candidates == null || id !in candidates) {
             return fail("not_found", Feedback["memory.not_found"], recoverable = true)
@@ -227,7 +232,7 @@ internal object MemoryEdit : AgentTool {
             return fail("ambiguous_target", Feedback["memory.ambiguous_target"], recoverable = false)
         }
         if (op == "update" && (listOf(content!!) + keywords.orEmpty()).any { utterances.unsupportedSpecifics(it, quote).isNotEmpty() }) {
-            return refused("content_not_from_user", Feedback["memory.edit_content_not_from_user"])
+            return refused(ctx, a, "content_not_from_user", Feedback["memory.edit_content_not_from_user"])
         }
         val store = ctx.config.memory!!
         val changed: Result<Change> = when (op) {
@@ -250,7 +255,7 @@ internal object MemoryEdit : AgentTool {
             },
             onFailure = { e ->
                 when ((e as? MemoryRejected)?.code) {
-                    "sensitive" -> refused("sensitive", Feedback["memory.sensitive"])
+                    "sensitive" -> refused(ctx, a, "sensitive", Feedback["memory.sensitive"])
                     "unavailable" -> fail("memory_unavailable", Feedback["memory.unavailable"], recoverable = false)
                     "not_found" -> fail("not_found", Feedback["memory.not_found"], recoverable = true)
                     "duplicate_id" -> fail("ambiguous_target", Feedback["memory.ambiguous_target"], recoverable = false)

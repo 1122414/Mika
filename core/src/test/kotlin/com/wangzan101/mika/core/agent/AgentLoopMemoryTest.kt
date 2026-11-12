@@ -159,8 +159,7 @@ class AgentLoopMemoryTest {
         assertEquals(6, model.requests.size)
     }
 
-    // 一口气十条都不收(每条内容不同):不再有「连续失败」来拦,模型自己停下来收尾;真停不下来的由步数上限管。
-    // 这里记下这个行为:每条不收的答复里都写了别再试,靠它让模型收手
+    // 一口气十条都不收(每条内容不同):不计入连续失败,模型自己停下来收尾
     @Test fun aLongRunOfRefusedSavesStillEnds() {
         val s = store()
         val before = s.items.value.size
@@ -216,6 +215,40 @@ class AgentLoopMemoryTest {
         // 模型看到的工具结果里这条带着标记;开局注入的那段也标了
         assertTrue(events.filterIsInstance<RunEvent.ToolResult>().single { it.tool == "memory_search" }.resultJson.contains("\"inferred\":true"))
         assertTrue(model.requests.first().joinToString("\n") { it.plainText() }.contains("the user did not say this"))
+    }
+
+    // 答复里说了别再试,模型还是把同一条原样再提:第二次起照常计失败,连着三次由守卫停下。
+    // 手机上默认不限步数(这里也不限),不能靠步数上限兜底
+    @Test fun theSameRefusedSaveRepeatedIsStoppedByTheFailureGuard() {
+        val s = memStore()
+        val same = ModelReply(listOf(Part.ToolCall("r", "memory_save",
+            """{"kind":"fact","content":"用户住在张江路100号","quote":"回答简短一点"}""")), StopReason.ToolUse, null)
+        val model = FakeModel(*(List(100) { same } + finishReply).toTypedArray())
+        val end = runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s,
+                maxSteps = AgentLoop.UNLIMITED_STEPS).run("以后回答简短一点")
+        }
+        assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Failed)
+        assertTrue(end.toString(), "too_many_failures" in end.toString())
+        assertTrue("没有一直转下去:${model.requests.size}", model.requests.size <= 6)
+        assertTrue(s.items.value.isEmpty())
+    }
+
+    // 每条都不一样、但一条也不收:到上限为止不计失败,再往后照常计,连着三条停下
+    @Test fun endlessDistinctRefusedSavesAreStoppedToo() {
+        val s = memStore()
+        val calls = (1..100).map { i ->
+            ModelReply(listOf(Part.ToolCall("r$i", "memory_save",
+                """{"kind":"fact","content":"用户住在张江路${100 + i}号","quote":"回答简短一点"}""")), StopReason.ToolUse, null)
+        }
+        val model = FakeModel(*(calls + finishReply).toTypedArray())
+        val end = runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s,
+                maxSteps = AgentLoop.UNLIMITED_STEPS).run("以后回答简短一点,别的你自己总结几条写进记忆")
+        }
+        assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Failed)
+        val limit = com.wangzan101.mika.core.tool.MAX_QUIET_MEMORY_REFUSALS
+        assertTrue("${model.requests.size}", model.requests.size in (limit + 3)..(limit + 5))
     }
 
     // 别的工具照旧:判成讨论时,提议的调用换成不带工具的直接回答
