@@ -132,6 +132,19 @@ class ConversationStoreTest {
         assertFalse("interruptedReplies" in java.io.File(dir, "$id.json").readText().substringAfter("谢谢"))
     }
 
+    /** 取消占位结果的来源跟着存下;后续摘要清掉来源,旧文件和普通轮次读出来为空。 */
+    @Test fun persistsOutcomeSystemType() {
+        val dir = tmp.newFolder("c")
+        val a = ConversationStore(dir)
+        val id = a.newConversation()
+        a.append(id, Turn("查资料", "已取消", "cancelled", runId = "r1", outcomeSystemType = "task_cancelled"))
+        a.append(id, Turn("谢谢", "已取消", "succeeded", runId = "r2"))
+        assertEquals(listOf("task_cancelled", null), ConversationStore(dir).turns(id).map { it.outcomeSystemType })
+        assertFalse("outcomeSystemType" in java.io.File(dir, "$id.json").readText().substringAfter("谢谢"))
+        a.updateTurn(id, "r1") { it.copy(outcome = "找到两篇", outcomeSystemType = null) }
+        assertEquals(null, ConversationStore(dir).turns(id).first().outcomeSystemType)
+    }
+
     /** 插话之前已经说完的回复同样一一对应存下;没有时不写这个字段。 */
     @Test fun persistsFinishedReplies() {
         val dir = tmp.newFolder("c")

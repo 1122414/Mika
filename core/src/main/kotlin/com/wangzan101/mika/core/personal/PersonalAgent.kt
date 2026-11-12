@@ -20,10 +20,14 @@ private val replyMetadata = Regex("""^\s*(?:(?:\[发送时间[：:][^\[\]\r\n]+(
 
 private fun stripReplyMetadata(text: String): String = replyMetadata.replaceFirst(text, "")
 
+class PersonalSystemException(val systemType: String, message: String) : IllegalArgumentException(message)
+
 @Serializable
 data class PersonalMessage(
     val id: String, val role: String, val text: String, val at: Long,
     val taskId: String? = null, val handled: Boolean = true, val error: Boolean = false,
+    /** Stable runtime-owned display key; null (including legacy records) preserves text verbatim. */
+    val systemType: String? = null,
 ) {
     /** 旧版的模型可能把历史前缀照抄进回复，只清理这类机器格式。 */
     fun conversationText(): String = if (role == "assistant") stripReplyMetadata(text) else text
@@ -33,14 +37,39 @@ data class PersonalTask(
     val id: String, val conversationId: String, val title: String, val goal: String,
     val sourceId: String, val at: Long, val status: String = "queued", val detail: String = "",
     val result: String? = null, val delivered: Boolean = false,
+    val detailSystemType: String? = null, val resultSystemType: String? = null,
 ) {
     val terminal: Boolean get() = status in setOf("completed", "failed", "cancelled", "partial")
+    val needsRefresh: Boolean get() = !terminal || !delivered || (status == "cancelled" && resultSystemType == "task_cancelled")
 }
 @Serializable
 data class PersonalState(
     val messages: List<PersonalMessage> = emptyList(), val tasks: List<PersonalTask> = emptyList(),
     val summary: String = "", val covered: Int = 0,
 )
+/** Recover placeholders only when the persisted fields prove they predate system type markers. */
+fun decodePersonalState(json: Json, text: String): PersonalState {
+    val root = json.parseToJsonElement(text).jsonObject
+    val state = json.decodeFromJsonElement<PersonalState>(root)
+    val rawTasks = root["tasks"] as? JsonArray ?: return state
+    val rawMessages = root["messages"] as? JsonArray ?: return state
+    val legacyIds = state.tasks.mapIndexedNotNull { index, task ->
+        val raw = rawTasks.getOrNull(index) as? JsonObject ?: return@mapIndexedNotNull null
+        val messages = state.messages.withIndex().filter { it.value.taskId == task.id && it.value.role == "assistant" }
+        val message = messages.singleOrNull() ?: return@mapIndexedNotNull null
+        val rawMessage = rawMessages.getOrNull(message.index) as? JsonObject ?: return@mapIndexedNotNull null
+        task.id.takeIf {
+            task.status == "cancelled" && task.delivered && task.result == "已取消" &&
+                "resultSystemType" !in raw && "systemType" !in rawMessage && message.value.text == task.result
+        }
+    }.toSet()
+    if (legacyIds.isEmpty()) return state
+    return state.copy(
+        tasks = state.tasks.map { if (it.id in legacyIds) it.copy(resultSystemType = "task_cancelled") else it },
+        messages = state.messages.map { if (it.taskId in legacyIds && it.role == "assistant") it.copy(systemType = "task_cancelled") else it },
+    )
+}
+
 interface PersonalStore {
     val state: StateFlow<PersonalState>
     fun update(change: (PersonalState) -> PersonalState)
@@ -70,7 +99,7 @@ class PersonalAgent(
         store.update { s ->
             if (s.messages.none { it.role == "user" && !it.handled }) s
             else s.copy(messages = s.messages.map { it.copy(handled = true) } +
-                entry("assistant", "上次的回复中断了。聊天记录已保留，你可以接着说；已有任务可在活动里查看。", error = true))
+                entry("assistant", "上次的回复中断了。聊天记录已保留，你可以接着说；已有任务可在活动里查看。", error = true, systemType = "interrupted"))
         }
         scope.launch {
             for (signal in wake) {
@@ -82,32 +111,32 @@ class PersonalAgent(
     fun send(text: String) {
         val clean = text.trim()
         if (clean.isEmpty()) return
-        require(clean.length <= 30_000) { "这条消息太长，请分成几段发送。" }
+        if (clean.length > 30_000) throw PersonalSystemException("message_long", "这条消息太长，请分成几段发送。")
         store.update { it.copy(messages = it.messages + entry("user", clean, handled = false)) }
         wake.trySend(Unit)
     }
 
     private fun timestamp(at: Long) = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).toString()
 
-    private fun entry(role: String, text: String, task: String? = null, handled: Boolean = true, error: Boolean = false) =
-        PersonalMessage(ids(), role, text, clock(), task, handled, error)
+    private fun entry(role: String, text: String, task: String? = null, handled: Boolean = true, error: Boolean = false, systemType: String? = null) =
+        PersonalMessage(ids(), role, text, clock(), task, handled, error, systemType)
 
     /** A task result and its delivery marker are committed together: no duplicate bubble on refresh/restart. */
-    fun updateTask(id: String, status: String, detail: String = "", result: String? = null) {
+    fun updateTask(id: String, status: String, detail: String = "", result: String? = null, detailSystemType: String? = null, resultSystemType: String? = null) {
         store.update { s ->
             val task = s.tasks.find { it.id == id } ?: return@update s
             if (task.terminal && task.delivered) {
                 // A stop summary may be filled in after the initial cancelled turn.
-                if (task.status == "cancelled" && status == "cancelled" && task.result == "已取消" &&
-                    !result.isNullOrBlank() && result != "已取消") {
+                if (task.status == "cancelled" && status == "cancelled" && task.resultSystemType == "task_cancelled" &&
+                    !result.isNullOrBlank() && resultSystemType != "task_cancelled") {
                     return@update s.copy(
-                        tasks = s.tasks.map { if (it.id == id) it.copy(result = result) else it },
-                        messages = s.messages.map { if (it.taskId == id && it.role == "assistant") it.copy(text = result) else it },
+                        tasks = s.tasks.map { if (it.id == id) it.copy(result = result, resultSystemType = resultSystemType) else it },
+                        messages = s.messages.map { if (it.taskId == id && it.role == "assistant" && it.systemType == "task_cancelled") it.copy(text = result, systemType = resultSystemType) else it },
                     )
                 }
                 return@update s
             }
-            val next = task.copy(status = status, detail = detail, result = result ?: task.result)
+            val next = task.copy(status = status, detail = detail, result = result ?: task.result, detailSystemType = detailSystemType, resultSystemType = if (result != null) resultSystemType else task.resultSystemType)
             val deliver = next.terminal && !next.delivered
             val text = when (status) {
                 "completed", "partial" -> next.result ?: "任务已结束，打开任务查看结果。"
@@ -116,7 +145,11 @@ class PersonalAgent(
             }
             s.copy(
                 tasks = s.tasks.map { if (it.id == id) next.copy(delivered = next.delivered || deliver) else it },
-                messages = if (deliver) s.messages + entry("assistant", text, id, error = status == "failed") else s.messages,
+                messages = if (deliver) s.messages + entry("assistant", text, id, error = status == "failed", systemType = if (next.result != null) next.resultSystemType else when (status) {
+                    "completed", "partial" -> "task_done_detail"
+                    "cancelled" -> "task_stopped_detail"
+                    else -> if (detail.isBlank()) "task_failed_detail" else detailSystemType
+                }) else s.messages,
             )
         }
     }
@@ -128,7 +161,7 @@ class PersonalAgent(
         var attemptedIds = waiting.mapTo(mutableSetOf()) { it.id }
         try {
             withTimeout(150_000) {
-                val client = model() ?: error("请先在设置里选择主模型，再回来接着聊。")
+                val client = model() ?: throw PersonalSystemException("no_model", "请先在设置里选择主模型，再回来接着聊。")
                 compact(client)
                 val snapshot = state.value
                 val system = system(snapshot, actions.memory(), waiting.last().at)
@@ -143,7 +176,7 @@ class PersonalAgent(
                 // Reserve space for the oldest pending messages first. The rest stay queued.
                 val batch = waiting.takeWhile { fits(it.text) }
                 attemptedIds = batch.ifEmpty { waiting.take(1) }.mapTo(mutableSetOf()) { it.id }
-                require(batch.isNotEmpty()) { "这条消息超出了当前模型的上下文，请分成几段发送。" }
+                if (batch.isEmpty()) throw PersonalSystemException("context_long", "这条消息超出了当前模型的上下文，请分成几段发送。")
                 val history = snapshot.messages.asReversed().asSequence()
                     .take((snapshot.messages.size - snapshot.covered).coerceAtLeast(0))
                     .filter { it.handled && it.role != "task" }
@@ -162,7 +195,7 @@ class PersonalAgent(
                     history += Message(Role.Assistant, reply.parts, Author.Mika)
                     if (calls.isEmpty()) {
                         val raw = reply.parts.filterIsInstance<Part.Text>().joinToString("\n") { it.text }.trim()
-                        if (raw.isBlank()) error("模型没有返回可显示的回复，请再试一次。")
+                        if (raw.isBlank()) throw PersonalSystemException("empty_reply", "模型没有返回可显示的回复，请再试一次。")
                         val text = stripReplyMetadata(raw)
                         if (text.isNotBlank()) store.update { it.copy(messages = it.messages + entry("assistant", text)) }
                         answered = true
@@ -176,14 +209,14 @@ class PersonalAgent(
                         }
                     }
                 }
-                if (!answered) error("这一轮操作次数较多，已停下继续处理。已创建的任务仍在活动里。")
+                if (!answered) throw PersonalSystemException("too_many_actions", "这一轮操作次数较多，已停下继续处理。已创建的任务仍在活动里。")
             }
         } catch (e: TimeoutCancellationException) {
-            store.update { it.copy(messages = it.messages + entry("assistant", "这次回复超时了。已有任务不会因此重做，你可以继续发消息。", error = true)) }
+            store.update { it.copy(messages = it.messages + entry("assistant", "这次回复超时了。已有任务不会因此重做，你可以继续发消息。", error = true, systemType = "timeout")) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            store.update { it.copy(messages = it.messages + entry("assistant", e.message ?: "回复失败，请稍后再试。", error = true)) }
+            store.update { it.copy(messages = it.messages + entry("assistant", e.message ?: "回复失败，请稍后再试。", error = true, systemType = (e as? PersonalSystemException)?.systemType ?: if (e.message == null) "reply_failed" else null)) }
         } finally {
             store.update { s -> s.copy(messages = s.messages.map { if (it.id in attemptedIds) it.copy(handled = true) else it }) }
             _busy.value = false
@@ -260,7 +293,7 @@ class PersonalAgent(
                 val task = PersonalTask(ids(), ids(), arg("title").ifBlank { goal.take(36) }.take(80), goal, source.id, clock())
                 store.update { it.copy(tasks = it.tasks + task, messages = it.messages + entry("task", task.title, task.id)) }
                 try { actions.start(task.conversationId, goal) }
-                catch (e: Exception) { updateTask(task.id, "failed", result = e.message ?: "任务启动失败"); throw e }
+                catch (e: Exception) { updateTask(task.id, "failed", result = e.message ?: "任务启动失败", resultSystemType = if (e.message == null) "task_start_failed" else null); throw e }
                 jsonResult("task_id", task.id)
             }
             "revise_task" -> {
@@ -268,7 +301,7 @@ class PersonalAgent(
                 require(!task.terminal) { "这项任务已经结束，需要继续时请创建新任务。" }
                 val instruction = arg("instruction").also { require(it.isNotBlank()) }
                 val result = actions.revise(task.conversationId, instruction)
-                store.update { s -> s.copy(tasks = s.tasks.map { if (it.id == task.id) it.copy(detail = "补充：" + instruction) else it }) }
+                store.update { s -> s.copy(tasks = s.tasks.map { if (it.id == task.id) it.copy(detail = "补充：" + instruction, detailSystemType = "task_amendment") else it }) }
                 jsonResult("result", result)
             }
             "cancel_task" -> {
