@@ -128,6 +128,13 @@
     <string name="drawer_archived_count">%1$d개 보관됨</string>
     <string name="drawer_archive_empty">보관된 대화가 없습니다</string>
     <string name="drawer_archive_done">“%1$s”을(를) 보관했어요</string>
+    <string name="drawer_archive_this_week">이번 주</string>
+    <string name="drawer_archive_this_month">이번 달</string>
+    <string name="drawer_archive_earlier">그 이전</string>
+    <string name="drawer_archived_today">오늘 보관됨</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="other">%1$d일 전에 보관됨</item>
+    </plurals>
     <string name="drawer_search_filter_all">전체</string>
     <string name="drawer_search_filter_active">미보관</string>
     <string name="drawer_search_filter_archived">보관됨</string>

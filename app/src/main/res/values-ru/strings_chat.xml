@@ -152,6 +152,16 @@
     <string name="drawer_archived_count">%1$d в архиве</string>
     <string name="drawer_archive_empty">Нет архивированных чатов</string>
     <string name="drawer_archive_done">Чат «%1$s» добавлен в архив</string>
+    <string name="drawer_archive_this_week">На этой неделе</string>
+    <string name="drawer_archive_this_month">В этом месяце</string>
+    <string name="drawer_archive_earlier">Раньше</string>
+    <string name="drawer_archived_today">Архивировано сегодня</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="one">Архивировано %1$d день назад</item>
+        <item quantity="few">Архивировано %1$d дня назад</item>
+        <item quantity="many">Архивировано %1$d дней назад</item>
+        <item quantity="other">Архивировано %1$d дня назад</item>
+    </plurals>
     <string name="drawer_search_filter_all">Все</string>
     <string name="drawer_search_filter_active">Без архива</string>
     <string name="drawer_search_filter_archived">В архиве</string>

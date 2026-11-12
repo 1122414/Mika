@@ -128,6 +128,13 @@
     <string name="drawer_archived_count">%1$d 条已归档</string>
     <string name="drawer_archive_empty">还没有归档的对话</string>
     <string name="drawer_archive_done">已归档「%1$s」</string>
+    <string name="drawer_archive_this_week">本周</string>
+    <string name="drawer_archive_this_month">本月</string>
+    <string name="drawer_archive_earlier">更早</string>
+    <string name="drawer_archived_today">今天归档</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="other">归档于 %1$d 天前</item>
+    </plurals>
     <string name="drawer_search_filter_all">全部</string>
     <string name="drawer_search_filter_active">未归档</string>
     <string name="drawer_search_filter_archived">已归档</string>

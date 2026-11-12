@@ -136,6 +136,14 @@
     <string name="drawer_archived_count">%1$d archived</string>
     <string name="drawer_archive_empty">No archived chats</string>
     <string name="drawer_archive_done">Archived “%1$s”</string>
+    <string name="drawer_archive_this_week">This week</string>
+    <string name="drawer_archive_this_month">This month</string>
+    <string name="drawer_archive_earlier">Earlier</string>
+    <string name="drawer_archived_today">Archived today</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="one">Archived %1$d day ago</item>
+        <item quantity="other">Archived %1$d days ago</item>
+    </plurals>
     <string name="drawer_search_filter_all">All</string>
     <string name="drawer_search_filter_active">Unarchived</string>
     <string name="drawer_search_filter_archived">Archived</string>

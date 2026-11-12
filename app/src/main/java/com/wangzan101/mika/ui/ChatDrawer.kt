@@ -112,10 +112,12 @@ import com.wangzan101.mika.ui.theme.MikaSize
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle as DateTextStyle
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import com.wangzan101.mika.i18n.uiLocale
 
@@ -139,6 +141,8 @@ data class DrawerConversation(
     val archived: Boolean = false,
     /** 已经存进对话列表(有对话文件);还没说过话的草稿为 false,不能归档。 */
     val saved: Boolean = true,
+    /** 归档的时间;归档视图里按它分组、算「归档于几天前」。 */
+    val archivedAt: Long? = null,
     /** 搜索结果命中了正文:打开对话后跳到这条消息;只有标题命中时为 null。 */
     val target: ChatTarget? = null,
 )
@@ -148,6 +152,12 @@ data class ArchiveBatch(val archived: Int, val skipped: Int)
 
 /** 刚归档的那一条:底部给几秒钟的「撤销」。 */
 data class ArchiveUndo(val id: String, val title: String)
+
+/** 归档视图里的时间段:本周归档的、本月早些时候的、更早的。 */
+enum class ArchivePeriod { ThisWeek, ThisMonth, Earlier }
+
+/** 归档视图里的一组。[rows] 保持传进来的顺序(按归档时间倒序)。 */
+data class ArchiveGroup(val period: ArchivePeriod, val rows: List<DrawerConversation>)
 
 /** 侧栏里的对话分段:进行中、置顶、最近。 */
 data class DrawerSections(
@@ -245,7 +255,7 @@ internal fun drawerEntry(
     return DrawerConversation(
         s.id, ChatCopy.plainTitle(s.title), subtitle, running, isCurrent, canSwitch || isCurrent, time,
         pinned = s.pinnedAt != null, site = s.page?.host, branch = s.branchOf != null,
-        archived = s.archivedAt != null, saved = s.updatedAt != 0L, target = target,
+        archived = s.archivedAt != null, saved = s.updatedAt != 0L, archivedAt = s.archivedAt, target = target,
     )
 }
 
@@ -262,6 +272,49 @@ fun conversationTime(at: Long, now: Long, zone: ZoneId = ZoneId.systemDefault())
         day.year == today.year -> tr(R.string.date_month_day, day.monthValue, day.month.getDisplayName(DateTextStyle.SHORT, uiLocale()), day.dayOfMonth)
         else -> tr(R.string.date_year_month_day, day.year, day.monthValue, day.month.getDisplayName(DateTextStyle.SHORT, uiLocale()), day.dayOfMonth)
     }
+}
+
+/** 归档的时间落在哪一段:本周(周一起算)、本月早些时候、更早。 */
+fun archivePeriod(at: Long, now: Long, zone: ZoneId = ZoneId.systemDefault()): ArchivePeriod {
+    val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+    val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    return when {
+        !day.isBefore(weekStart) -> ArchivePeriod.ThisWeek
+        day.year == today.year && day.month == today.month -> ArchivePeriod.ThisMonth
+        else -> ArchivePeriod.Earlier
+    }
+}
+
+/** 归档视图按时间段分组;没记归档时间的归到「更早」,不会漏掉。空组不出现。 */
+fun archiveGroups(
+    rows: List<DrawerConversation>,
+    now: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): List<ArchiveGroup> =
+    ArchivePeriod.values().mapNotNull { period ->
+        val group = rows.filter {
+            (it.archivedAt?.let { at -> archivePeriod(at, now, zone) } ?: ArchivePeriod.Earlier) == period
+        }
+        if (group.isEmpty()) null else ArchiveGroup(period, group)
+    }
+
+/** 分组标题:本周 / 本月 / 更早。 */
+fun archivePeriodLabel(period: ArchivePeriod): String = tr(
+    when (period) {
+        ArchivePeriod.ThisWeek -> R.string.drawer_archive_this_week
+        ArchivePeriod.ThisMonth -> R.string.drawer_archive_this_month
+        ArchivePeriod.Earlier -> R.string.drawer_archive_earlier
+    }
+)
+
+/** 「归档于 3 天前」;当天归档的说「今天归档」。 */
+fun archivedAgo(at: Long, now: Long, zone: ZoneId = ZoneId.systemDefault()): String {
+    val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+    val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val days = (today.toEpochDay() - day.toEpochDay()).coerceAtLeast(0L).toInt()
+    return if (days == 0) tr(R.string.drawer_archived_today)
+    else trPlural(R.plurals.drawer_archived_days_ago, days, days)
 }
 
 /** 侧栏顶上 Mika 名字下面那行状态,和它是不是好的(绿点)还是要处理(橙点)。 */
@@ -398,6 +451,8 @@ fun ChatDrawer(
         }
         LaunchedEffect(first) { list.scrollToItem(0) }
         val terms = remember(query) { ConversationSearch.termsOf(query) }
+        // 归档视图按本周 / 本月 / 更早分组;分组也跟着列表走
+        val archiveGrouping = remember(archived) { archiveGroups(archived, System.currentTimeMillis()) }
         LazyColumn(Modifier.fillMaxWidth().weight(1f).lazyListScrollbar(list), state = list) {
             if (searchActive) {
                 item("h-search") { SectionLabel(stringResource(R.string.drawer_search_results)) }
@@ -424,11 +479,14 @@ fun ChatDrawer(
             } else if (archivedView) {
                 item("h-archive") { ArchiveHeader(archived.size, onExitArchive) }
                 if (archived.isEmpty()) item("archive-empty") { ArchiveEmpty() }
-                items(archived, key = { "a-${it.id}" }) {
-                    ConversationEntry(
-                        it, onOpen, onActions, showArchivedMark = false,
-                        selecting = selecting, selected = it.id in selected, onToggleSelect = onToggleSelect,
-                    )
+                archiveGrouping.forEach { group ->
+                    item("h-archive-${group.period.name}") { SectionLabel(archivePeriodLabel(group.period)) }
+                    items(group.rows, key = { "a-${it.id}" }) {
+                        ConversationEntry(
+                            it, onOpen, onActions, showArchivedMark = false,
+                            selecting = selecting, selected = it.id in selected, onToggleSelect = onToggleSelect,
+                        )
+                    }
                 }
             } else {
                 if (sections.running.isNotEmpty()) {
@@ -1141,7 +1199,7 @@ fun ChatWithDrawer(
                 val sections = remember(all, current, others, canSwitch, deleted) {
                     drawerSections(all.filter { it.id !in deleted }, current, others.filter { it !in deleted }, vm::runningGoal, canSwitch, System.currentTimeMillis())
                 }
-                // 归档视图里的行:按归档时间倒序,最近收起来的在前
+                // 归档视图里的行:按归档时间倒序,最近收起来的在前;副标题写清归档了多久
                 val archivedRows = remember(all, current, canSwitch, deleted, runningIds) {
                     val now = System.currentTimeMillis()
                     all.filter { it.id !in deleted && it.archivedAt != null }
@@ -1150,6 +1208,7 @@ fun ChatWithDrawer(
                             drawerEntry(
                                 s, current.id, canSwitch, running = s.id in runningIds,
                                 time = if (s.updatedAt != 0L) conversationTime(s.updatedAt, now) else "",
+                                subtitle = s.archivedAt?.let { archivedAgo(it, now) }.orEmpty(),
                             )
                         }
                 }

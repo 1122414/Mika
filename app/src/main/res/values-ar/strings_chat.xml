@@ -168,6 +168,18 @@
     <string name="drawer_archived_count">%1$d مؤرشفة</string>
     <string name="drawer_archive_empty">لا توجد محادثات مؤرشفة</string>
     <string name="drawer_archive_done">تمت أرشفة «%1$s»</string>
+    <string name="drawer_archive_this_week">هذا الأسبوع</string>
+    <string name="drawer_archive_this_month">هذا الشهر</string>
+    <string name="drawer_archive_earlier">أقدم</string>
+    <string name="drawer_archived_today">تمت الأرشفة اليوم</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="zero">تمت الأرشفة قبل %1$d يوم</item>
+        <item quantity="one">تمت الأرشفة قبل يوم واحد</item>
+        <item quantity="two">تمت الأرشفة قبل يومين</item>
+        <item quantity="few">تمت الأرشفة قبل %1$d أيام</item>
+        <item quantity="many">تمت الأرشفة قبل %1$d يومًا</item>
+        <item quantity="other">تمت الأرشفة قبل %1$d يوم</item>
+    </plurals>
     <string name="drawer_search_filter_all">الكل</string>
     <string name="drawer_search_filter_active">غير مؤرشفة</string>
     <string name="drawer_search_filter_archived">مؤرشفة</string>

@@ -178,6 +178,41 @@ class ChatCopyTest {
         assertEquals("a.pdf", drawerSearchCandidates(all, deleted, SearchArchiveFilter.All).first().title)
     }
 
+    private fun archivedRow(id: String, archivedAt: Long) =
+        DrawerConversation(id, id, "", running = false, current = false, enabled = true, archived = true, archivedAt = archivedAt)
+
+    /** 归档视图按归档时间分段:本周(周一起算)、本月、更早;没记归档时间的归到更早,不会漏。 */
+    @Test fun archiveViewGroupsByWeekMonthAndOlder() {
+        val now = at(2026, 11, 12, 15) // 周四
+        val rows = listOf(
+            archivedRow("a", at(2026, 11, 12, 9)),
+            archivedRow("b", at(2026, 11, 9, 20)),
+            archivedRow("c", at(2026, 11, 2)),
+            archivedRow("d", at(2026, 9, 30)),
+        )
+        val groups = archiveGroups(rows, now, zone)
+        assertEquals(listOf(ArchivePeriod.ThisWeek, ArchivePeriod.ThisMonth, ArchivePeriod.Earlier), groups.map { it.period })
+        assertEquals(listOf("a", "b"), groups[0].rows.map { it.id })
+        assertEquals(listOf("c"), groups[1].rows.map { it.id })
+        assertEquals(listOf("d"), groups[2].rows.map { it.id })
+        val unknown = archiveGroups(
+            listOf(DrawerConversation("e", "五", "", running = false, current = false, enabled = true, archived = true)),
+            now, zone,
+        )
+        assertEquals(listOf(ArchivePeriod.Earlier), unknown.map { it.period })
+    }
+
+    /** 一行写清归档了多久:当天是「今天归档」,其余是「归档于 N 天前」。 */
+    @Test fun archivedAgoSaysTodayOrDays() {
+        val now = at(2026, 11, 12, 15)
+        assertEquals("今天归档", archivedAgo(at(2026, 11, 12, 9), now, zone))
+        assertEquals("归档于 3 天前", archivedAgo(at(2026, 11, 9, 15), now, zone))
+        assertEquals("归档于 40 天前", archivedAgo(at(2026, 10, 3, 15), now, zone))
+        assertEquals("本周", archivePeriodLabel(ArchivePeriod.ThisWeek))
+        assertEquals("本月", archivePeriodLabel(ArchivePeriod.ThisMonth))
+        assertEquals("更早", archivePeriodLabel(ArchivePeriod.Earlier))
+    }
+
     @Test fun greetingFollowsTheTimeOfDay() {
         assertEquals("早上好", ChatCopy.greeting(7))
         assertEquals("中午好", ChatCopy.greeting(12))

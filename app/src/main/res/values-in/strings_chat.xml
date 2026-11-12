@@ -128,6 +128,13 @@
     <string name="drawer_archived_count">%1$d diarsipkan</string>
     <string name="drawer_archive_empty">Belum ada obrolan yang diarsipkan</string>
     <string name="drawer_archive_done">“%1$s” diarsipkan</string>
+    <string name="drawer_archive_this_week">Minggu ini</string>
+    <string name="drawer_archive_this_month">Bulan ini</string>
+    <string name="drawer_archive_earlier">Lebih lama</string>
+    <string name="drawer_archived_today">Diarsipkan hari ini</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="other">Diarsipkan %1$d hari lalu</item>
+    </plurals>
     <string name="drawer_search_filter_all">Semua</string>
     <string name="drawer_search_filter_active">Aktif</string>
     <string name="drawer_search_filter_archived">Diarsipkan</string>

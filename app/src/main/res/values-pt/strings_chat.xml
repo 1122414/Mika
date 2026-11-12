@@ -144,6 +144,15 @@
     <string name="drawer_archived_count">%1$d arquivadas</string>
     <string name="drawer_archive_empty">Nenhuma conversa arquivada</string>
     <string name="drawer_archive_done">“%1$s” foi arquivada</string>
+    <string name="drawer_archive_this_week">Esta semana</string>
+    <string name="drawer_archive_this_month">Este mês</string>
+    <string name="drawer_archive_earlier">Anteriores</string>
+    <string name="drawer_archived_today">Arquivada hoje</string>
+    <plurals name="drawer_archived_days_ago">
+        <item quantity="one">Arquivada há %1$d dia</item>
+        <item quantity="many">Arquivada há %1$d dias</item>
+        <item quantity="other">Arquivada há %1$d dias</item>
+    </plurals>
     <string name="drawer_search_filter_all">Todas</string>
     <string name="drawer_search_filter_active">Não arquivadas</string>
     <string name="drawer_search_filter_archived">Arquivadas</string>
