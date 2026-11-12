@@ -243,7 +243,7 @@ fun upcoming(def: TriggerDefinition, afterMs: Long, count: Int): List<Long> {
         }
         def.intervalMs != null && def.intervalMs > 0 -> {
             var t = def.nextAtMs
-            if (t < afterMs) t += (afterMs - t) / def.intervalMs * def.intervalMs + def.intervalMs
+            if (t < afterMs) t += ((afterMs - t - 1) / def.intervalMs + 1) * def.intervalMs
             repeat(count) { out += t; t += def.intervalMs }
         }
         else -> out += def.nextAtMs
