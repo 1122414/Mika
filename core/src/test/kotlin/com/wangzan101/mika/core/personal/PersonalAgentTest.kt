@@ -2,6 +2,9 @@ package com.wangzan101.mika.core.personal
 
 import com.wangzan101.mika.core.model.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
@@ -43,6 +46,7 @@ class PersonalAgentTest {
         assertEquals(2, histories.size)
         assertTrue(histories.last().contains("昨天我想做一个个人助手"))
         assertEquals(2, store.state.value.messages.count { it.role == "assistant" })
+        assertTrue(store.state.value.messages.none { it.systemType != null })
     }
 
     @Test fun replyMetadataIsKeptOutOfConversationText() = runTest {
@@ -82,11 +86,12 @@ class PersonalAgentTest {
         agent.updateTask(task.id, "completed", result = "找到了两个项目")
         agent.updateTask(task.id, "completed", result = "找到了两个项目")
         assertEquals(1, store.state.value.messages.count { it.role == "assistant" && it.taskId == task.id })
+        assertFalse(store.state.value.messages.single { it.role == "assistant" && it.taskId == task.id }.systemType != null)
         assertTrue(store.state.value.tasks.single().delivered)
     }
 
     @Test fun explicitAmendmentTargetsOwnedTaskWithoutCreatingNewOne() = runTest {
-        val task = PersonalTask("owned", "thread", "资料", "查资料", "user", 1L, status = "running")
+        val task = PersonalTask("owned", "thread", "资料", "查资料", "user", 1L, status = "running", detail = "等待开始", detailSystemType = "waiting")
         val store = Store(PersonalState(tasks = listOf(task)))
         val actions = Actions()
         var invocation = 0
@@ -97,6 +102,8 @@ class PersonalAgentTest {
         assertEquals(listOf("thread" to "只看开源项目"), actions.revised)
         assertTrue(actions.started.isEmpty())
         assertEquals(1, store.state.value.tasks.size)
+        assertNull(store.state.value.tasks.single().detailSystemType)
+        assertEquals("补充：只看开源项目", store.state.value.tasks.single().detail)
     }
 
     @Test fun duplicateDelegationInOneTurnCannotLaunchWorkTwice() = runTest {
@@ -149,6 +156,8 @@ class PersonalAgentTest {
         assertTrue(actions.started.isEmpty())
         assertTrue(store.state.value.messages.first().handled)
         assertTrue(store.state.value.messages.last().error)
+        assertTrue(store.state.value.messages.last().systemType != null)
+        assertFalse(store.state.value.messages.first().systemType != null)
     }
 
     @Test fun noModelIsAnHonestErrorNotASimulatedReply() = runTest {
@@ -157,7 +166,36 @@ class PersonalAgentTest {
         agent.send("你好"); runCurrent()
         assertTrue(store.state.value.messages.last().error)
         assertTrue(store.state.value.messages.last().text.contains("主模型"))
+        assertTrue(store.state.value.messages.last().systemType != null)
     }
+
+    @Test fun timeoutProducesPersistedSystemMessage() = runTest {
+        val store = Store()
+        val agent = PersonalAgent(store, backgroundScope, { Model { awaitCancellation() } }, Actions())
+        agent.send("你好")
+        runCurrent()
+        advanceTimeBy(150_001)
+        runCurrent()
+        val message = store.state.value.messages.last()
+        assertTrue(message.error)
+        assertTrue(message.systemType != null)
+        assertTrue(message.text.contains("超时"))
+        val restored = Json.decodeFromString<PersonalState>(Json.encodeToString(store.state.value))
+        assertTrue(restored.messages.last().systemType != null)
+    }
+
+    @Test fun legacyRecordsAndOrdinaryMessagesAreNotInferredFromText() {
+        val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        val legacy = """{"messages":[{"id":"old","role":"assistant","text":"这次回复超时了。已有任务不会因此重做，你可以继续发消息。","at":1,"error":true}]}"""
+        val state = json.decodeFromString<PersonalState>(legacy)
+        assertFalse(state.messages.single().systemType != null)
+        val ordinary = state.messages.single().copy(id = "normal", error = false)
+        val system = ordinary.copy(id = "system", systemType = "timeout")
+        val restored = json.decodeFromString<PersonalState>(json.encodeToString(state.copy(messages = listOf(ordinary, system))))
+        assertFalse(restored.messages[0].systemType != null)
+        assertTrue(restored.messages[1].systemType != null)
+    }
+
     @Test fun cancelledTaskCannotLaterDeliverAFakeSuccess() = runTest {
         val task = PersonalTask("owned", "thread", "资料", "查资料", "user", 1L)
         val store = Store(PersonalState(tasks = listOf(task)))
@@ -187,14 +225,31 @@ class PersonalAgentTest {
         assertEquals(original, store.state.value.messages.take(56))
     }
 
-    @Test fun lateStopSummaryUpdatesTheSameBubbleWithoutDuplicatingDelivery() = runTest {
+    @Test fun unmarkedCancellationTextIsNeverTreatedAsPlaceholder() = runTest {
         val task = PersonalTask("owned", "thread", "资料", "查资料", "user", 1L)
         val store = Store(PersonalState(tasks = listOf(task)))
         val agent = PersonalAgent(store, backgroundScope, { null }, Actions())
         agent.updateTask("owned", "cancelled", result = "已取消")
+        agent.updateTask("owned", "cancelled", result = "不应替换")
+        assertEquals("已取消", store.state.value.tasks.single().result)
+        assertNull(store.state.value.tasks.single().resultSystemType)
+        assertEquals("已取消", store.state.value.messages.single().text)
+        assertNull(store.state.value.messages.single().systemType)
+    }
+
+    @Test fun lateStopSummaryUpdatesTheSameBubbleWithoutDuplicatingDelivery() = runTest {
+        val task = PersonalTask("owned", "thread", "资料", "查资料", "user", 1L)
+        val store = Store(PersonalState(tasks = listOf(task)))
+        val agent = PersonalAgent(store, backgroundScope, { null }, Actions())
+        agent.updateTask("owned", "cancelled", result = "已取消", resultSystemType = "task_cancelled")
+        assertEquals("task_cancelled", store.state.value.messages.single().systemType)
+        agent.updateTask("owned", "cancelled", result = "已取消", resultSystemType = "task_cancelled")
+        assertEquals("task_cancelled", store.state.value.tasks.single().resultSystemType)
         agent.updateTask("owned", "cancelled", result = "找到两个项目，尚未整理完成。")
         assertEquals(1, store.state.value.messages.size)
         assertEquals("找到两个项目，尚未整理完成。", store.state.value.messages.single().text)
+        assertNull(store.state.value.messages.single().systemType)
+        assertNull(store.state.value.tasks.single().resultSystemType)
         assertEquals("cancelled", store.state.value.tasks.single().status)
     }
 

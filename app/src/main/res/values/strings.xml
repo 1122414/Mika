@@ -131,4 +131,14 @@
     <string name="terminal_task_running">Mika is working in this workspace too; changes from both sides may interfere.</string>
     <string name="terminal_copy_all">Copy all</string>
     <string name="terminal_copied">Copied</string>
+    <string name="personal_replay_title">Phone screen</string>
+    <string name="personal_replay_close">Close</string>
+    <string name="personal_replay_live_screen">Live phone screen</string>
+    <string name="personal_replay_recorded_screen">Recorded task screen</string>
+    <string name="personal_replay_loading">Loading screen…</string>
+    <string name="personal_replay_empty">No recording available yet.</string>
+    <string name="personal_replay_live">Live</string>
+    <string name="personal_replay_pause">Pause</string>
+    <string name="personal_replay_play">Play</string>
+    <string name="personal_replay_return_live">Return to live</string>
 </resources>
