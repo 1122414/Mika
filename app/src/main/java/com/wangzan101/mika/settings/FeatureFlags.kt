@@ -2,6 +2,7 @@ package com.wangzan101.mika.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.wangzan101.mika.capsule.CapsuleCardScale
 import com.wangzan101.mika.capsule.CapsuleDock
 import com.wangzan101.mika.capsule.CardDocking
 import com.wangzan101.mika.capsule.CapsuleIdleOpacity
@@ -99,6 +100,53 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putString(THEME_MODE, mode.name).commit()
     }
 
+    /** 强调色(见 [ThemeAccent]),默认蓝色。和外观一样跟着 [themeAccentChanges] 当场换,不用重建。 */
+    fun themeAccent(): ThemeAccent = ThemeAccent.parse(prefs.getString(THEME_ACCENT, null))
+
+    /** 强调色的当前值,之后每次改动再发一次。 */
+    fun themeAccentChanges(): Flow<ThemeAccent> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == THEME_ACCENT) trySend(themeAccent())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(themeAccent())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun setThemeAccent(accent: ThemeAccent) {
+        prefs.edit().putString(THEME_ACCENT, accent.name).commit()
+    }
+
+    /** 背景图片怎么显示(见 [SkinSpec]);存的值超出范围时拉回范围内。跟着 [skinChanges] 当场换,不用重建。 */
+    fun skin(): SkinSpec = SkinSpec(
+        version = prefs.getLong(SKIN_VERSION, 0L),
+        scrim = prefs.getInt(SKIN_SCRIM, SkinSpec.DEFAULT_SCRIM).coerceIn(SkinSpec.MIN_SCRIM, SkinSpec.MAX_SCRIM),
+        blur = SkinBlur.parse(prefs.getString(SKIN_BLUR, null)),
+        focus = prefs.getFloat(SKIN_FOCUS, 0f).coerceIn(-1f, 1f),
+        accentFromImage = prefs.getBoolean(SKIN_ACCENT_FOLLOW, true),
+        hue = if (prefs.contains(SKIN_HUE)) prefs.getFloat(SKIN_HUE, 0f) else null,
+    )
+
+    fun skinChanges(): Flow<SkinSpec> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key in SKIN_KEYS) trySend(skin())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(skin())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun setSkin(spec: SkinSpec) {
+        prefs.edit()
+            .putLong(SKIN_VERSION, spec.version)
+            .putInt(SKIN_SCRIM, spec.scrim.coerceIn(SkinSpec.MIN_SCRIM, SkinSpec.MAX_SCRIM))
+            .putString(SKIN_BLUR, spec.blur.name)
+            .putFloat(SKIN_FOCUS, spec.focus.coerceIn(-1f, 1f))
+            .putBoolean(SKIN_ACCENT_FOLLOW, spec.accentFromImage)
+            .also { e -> if (spec.hue == null) e.remove(SKIN_HUE) else e.putFloat(SKIN_HUE, spec.hue) }
+            .commit()
+    }
+
     /**
      * 允许 Mika 改自己的设置(见 core 的 SelfConfig):模型与 Key、删数据不在允许之列。
      * 默认关;开着的时候任务里才有 settings_list、settings_set 这两件工具。
@@ -173,6 +221,22 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
+    /** 展开的胶囊卡片整体缩放的档位;只认 85/100/115/130,默认 100(标准)。 */
+    fun capsuleCardScale(): CapsuleCardScale = CapsuleCardScale.parse(prefs.getInt(CAPSULE_CARD_SCALE, CapsuleCardScale.DEFAULT.percent))
+
+    fun setCapsuleCardScale(scale: CapsuleCardScale) {
+        prefs.edit().putInt(CAPSULE_CARD_SCALE, scale.percent).commit()
+    }
+
+    fun capsuleCardScaleChanges(): Flow<CapsuleCardScale> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == CAPSULE_CARD_SCALE) trySend(capsuleCardScale())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(capsuleCardScale())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
     /**
      * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.quit.MikaQuit])。
      * 在这期间进程可能被无障碍服务重新拉起:胶囊不画、后台服务不补起、自动恢复也不做,直到用户自己打开 App。
@@ -238,8 +302,17 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val EXTERNAL_SCHEDULE = "external_schedule"
         private const val THEME_MODE = "theme_mode"
         private const val PERSONAL_START = "personal_start"
+        private const val THEME_ACCENT = "theme_accent"
+        private const val SKIN_VERSION = "skin_version"
+        private const val SKIN_SCRIM = "skin_scrim"
+        private const val SKIN_BLUR = "skin_blur"
+        private const val SKIN_FOCUS = "skin_focus"
+        private const val SKIN_ACCENT_FOLLOW = "skin_accent_follow"
+        private const val SKIN_HUE = "skin_hue"
+        private val SKIN_KEYS = setOf(SKIN_VERSION, SKIN_SCRIM, SKIN_BLUR, SKIN_FOCUS, SKIN_ACCENT_FOLLOW, SKIN_HUE)
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
+        private const val CAPSULE_CARD_SCALE = "capsule_card_scale"
         private const val QUIT_REQUESTED = "quit_requested"
         private const val CAPSULE_SIDE = "capsule_side"
         private const val CAPSULE_HEIGHT = "capsule_height"
