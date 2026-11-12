@@ -1639,7 +1639,7 @@ class ChatViewModelTest {
         }
     }
 
-    @Test fun attachmentsGoWithTheNextMessage() = runTest {
+    @Test fun partialAttachmentFailureKeepsDraftUntilFailedFileIsRemoved() = runTest {
         val sandbox = MutableStateFlow(false)
         val imported = mutableListOf<Pair<String, List<String>>>()
         val vm = ChatViewModel(
@@ -1647,7 +1647,7 @@ class ChatViewModelTest {
             sandboxReady = sandbox,
             importAttachments = { id, uris ->
                 imported += id to uris
-                com.wangzan101.mika.cap.sandbox.ImportResult(listOf("/workspace/inbox/报表 (1).csv" to 2048L), listOf("big.iso"))
+                ImportResult(listOf("/workspace/inbox/报表 (1).csv" to 2048L), if (uris.size > 1) listOf("big.iso") else emptyList())
             },
             describeAttachments = { uris -> uris.map { PendingAttachment(it, if (it.endsWith("1")) "报表.csv" else "big.iso", 10L) } },
         ).also { runCurrent() }
@@ -1666,15 +1666,26 @@ class ChatViewModelTest {
         assertEquals(listOf("content://x/1", "content://x/2"), vm.ui.value.attachments.map { it.uri })
         assertTrue(imported.isEmpty())
 
-        // 发送时才复制进工作区,路径写进消息
-        assertTrue(vm.send("汇总一下", ok))
+        // 部分失败时不启动,文字和整批附件保留,供用户选择如何继续。
+        vm.input("汇总一下")
+        assertTrue(vm.send(vm.ui.value.input, ok))
         runCurrent()
         val id = vm.ui.value.conversationId!!
         assertEquals(listOf(id to listOf("content://x/1", "content://x/2")), imported)
-        assertEquals(listOf("start:汇总一下\n附件:/workspace/inbox/报表 (1).csv(2 KB)"), calls)
-        assertTrue(vm.ui.value.attachments.isEmpty())
+        assertTrue(calls.isEmpty())
+        assertEquals("汇总一下", vm.ui.value.input)
+        assertEquals(listOf("content://x/1", "content://x/2"), vm.ui.value.attachments.map { it.uri })
         assertEquals(listOf("big.iso"), vm.ui.value.rejectedAttachments)
         assertFalse(vm.ui.value.importing)
+
+        // 用户明确移除失败项后,发送剩余附件。
+        vm.removeAttachment("content://x/2")
+        assertTrue(vm.send(vm.ui.value.input, ok))
+        runCurrent()
+        assertEquals(id to listOf("content://x/1"), imported.last())
+        assertEquals(listOf("start:汇总一下\n附件:/workspace/inbox/报表 (1).csv(2 KB)"), calls)
+        assertTrue(vm.ui.value.attachments.isEmpty())
+        assertTrue(vm.ui.value.input.isEmpty())
         // 任务在跑时不收附件
         vm.attach(listOf("content://x/3"))
         runCurrent()
@@ -1709,6 +1720,52 @@ class ChatViewModelTest {
         assertEquals(listOf("queue:看下一张\n附件:/workspace/inbox/a.jpg(1 KB)"), calls.filter { it.startsWith("queue:") })
         assertTrue(vm.ui.value.exchanges.single().steers.isEmpty())
         assertEquals(listOf("看下一张\n附件:/workspace/inbox/a.jpg(1 KB)"), vm.ui.value.queued.map { it.text })
+    }
+
+    @Test fun failedImportWithTextKeepsDraftAndCanBeRetried() = runTest {
+        var fails = true
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()),
+            sandboxReady = MutableStateFlow(true),
+            importAttachments = { _, _ ->
+                if (fails) throw java.io.IOException("read failed")
+                ImportResult(listOf("/workspace/inbox/a.pdf" to 1L), emptyList())
+            },
+        ).also { runCurrent() }
+        vm.input("分析这个文件")
+        vm.toggleAttachment(PendingAttachment("content://a", "a.pdf", 1L))
+        assertTrue(vm.send(vm.ui.value.input, ok))
+        runCurrent()
+        assertTrue(calls.isEmpty())
+        assertEquals("分析这个文件", vm.ui.value.input)
+        assertEquals(listOf("a.pdf"), vm.ui.value.attachments.map { it.name })
+        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments)
+        fails = false
+        assertTrue(vm.send(vm.ui.value.input, ok))
+        runCurrent()
+        assertEquals(listOf("start:分析这个文件\n附件:/workspace/inbox/a.pdf(1 B)"), calls)
+        assertTrue(vm.ui.value.attachments.isEmpty())
+    }
+
+    @Test fun failedQueuedAttachmentImportDoesNotEnqueueAndKeepsDraft() = runTest {
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()),
+            sandboxReady = MutableStateFlow(true), followUps = followUpFlow,
+            importAttachments = { _, _ -> ImportResult(listOf("/workspace/inbox/a.pdf" to 1L), listOf("b.pdf")) },
+        ).also { runCurrent() }
+        vm.send("当前任务", ok)
+        emit(TaskState.Running(1, "在做"))
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.input("分析文件")
+        vm.toggleAttachment(PendingAttachment("content://a", "a.pdf", 1L))
+        vm.toggleAttachment(PendingAttachment("content://b", "b.pdf", 1L))
+        assertTrue(vm.send(vm.ui.value.input, ok))
+        runCurrent()
+        assertTrue(calls.none { it.startsWith("queue:") })
+        assertTrue(vm.ui.value.queued.isEmpty())
+        assertEquals("分析文件", vm.ui.value.input)
+        assertEquals(listOf("a.pdf", "b.pdf"), vm.ui.value.attachments.map { it.name })
+        assertEquals(listOf("b.pdf"), vm.ui.value.rejectedAttachments)
     }
 
     @Test fun nothingIsSentWhenEveryAttachmentFailsAndThereAreNoWords() = runTest {
