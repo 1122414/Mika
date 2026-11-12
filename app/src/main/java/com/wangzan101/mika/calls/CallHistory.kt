@@ -18,6 +18,25 @@ data class CallTranscriptLine(val role: String, val text: String) {
     override fun toString(): String = "CallTranscriptLine(role=$role)"
 }
 
+/** Structured post-call information is stored with the encrypted call record. */
+@Serializable
+data class CallSummary(
+    val purpose: String? = null,
+    val highlights: List<String> = emptyList(),
+    val conclusion: String? = null,
+    val uncertainties: List<String> = emptyList(),
+    val actions: List<CallFollowUp> = emptyList(),
+)
+
+@Serializable
+data class CallFollowUp(
+    val text: String,
+    val status: Status = Status.UNKNOWN,
+) {
+    @Serializable
+    enum class Status { PENDING, DONE, UNKNOWN }
+}
+
 @Serializable
 data class CallRecord(
     val id: String,
@@ -30,6 +49,7 @@ data class CallRecord(
     val handled: Boolean = false,
     val task: CallTaskBrief? = null,
     val audioReport: CallAudioReport? = null,
+    val summary: CallSummary? = null,
 ) {
     override fun toString(): String = "CallRecord(direction=$direction, result=$result)"
 }
