@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var monitor: SystemStatusMonitor
     private var requestedConversation by mutableStateOf<String?>(null)
     private var requestedCalls by mutableStateOf(false)
+    private var requestedCallHistoryId by mutableStateOf<String?>(null)
     private var openTeach by mutableStateOf(false)
     private var requestedSelfScreen by mutableStateOf<com.wangzan101.mika.core.self.SelfScreen?>(null)
     private var requestedSelfFile by mutableStateOf<com.wangzan101.mika.self.SelfFileRequest?>(null)
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
         }
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
+        requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         takeTeach(intent)
         readSelfIntent(intent)
         shareInCurrent = savedInstanceState?.getBoolean(STATE_SHARE_IN_CURRENT, false) ?: false
@@ -136,7 +138,7 @@ class MainActivity : ComponentActivity() {
                 KeyboardDismissArea(Modifier.fillMaxSize()) {
                     MikaRoot(
                         store, monitor, ::perform, requestedConversation, { requestedConversation = null },
-                        requestedCalls, { requestedCalls = false },
+                        requestedCalls, requestedCallHistoryId, { requestedCalls = false; requestedCallHistoryId = null },
                         requestedSelfScreen, { requestedSelfScreen = null },
                         requestedSelfFile, { requestedSelfFile = null },
                         requestedSelfUrl, { requestedSelfUrl = null },
@@ -168,6 +170,7 @@ class MainActivity : ComponentActivity() {
         shareJob?.cancel()
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
+        requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         if (requestedConversation != null || intent.getBooleanExtra(EXTRA_OPEN_TEACH, false)) {
             app.chat.cancelPendingSharedDraft()
         }
@@ -359,6 +362,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_CONVERSATION = "open_conversation"
         const val EXTRA_OPEN_CALLS = "open_calls"
+        const val EXTRA_CALL_HISTORY_ID = "call_history_id"
         const val EXTRA_OPEN_TEACH = "open_teach"
         const val EXTRA_TEACH_GOAL = "teach_goal"
         private const val STATE_SHARE_IN_CURRENT = "share_in_current"
@@ -393,6 +397,7 @@ private fun MikaRoot(
     requestedConversation: String?,
     onConversationOpened: () -> Unit,
     requestedCalls: Boolean,
+    requestedCallHistoryId: String?,
     onCallsOpened: () -> Unit,
     requestedSelfScreen: com.wangzan101.mika.core.self.SelfScreen?,
     onSelfScreenOpened: () -> Unit,
@@ -778,7 +783,7 @@ private fun MikaRoot(
             app.chat.openConversation(it)
             nav.reset()
         })
-        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true)
+        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true, initialHistoryCallId = requestedCallHistoryId)
     }
 }
 

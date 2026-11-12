@@ -94,6 +94,7 @@ class CallHistoryTest {
         assertNull(legacy.task)
         assertNull(legacy.audioReport)
         assertNull(legacy.summary)
+        assertEquals(SummaryStatus.NOT_REQUESTED, legacy.summaryStatus)
     }
 
     @Test fun summaryAndFollowUpStatusesSurviveSerialization() {

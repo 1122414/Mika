@@ -28,6 +28,12 @@ internal class CallNotifications(private val context: Context) {
                 setShowBadge(false)
             },
         )
+        notificationManager.createNotificationChannel(
+            NotificationChannel(COMPLETED_CHANNEL, context.getString(R.string.calls_completed_notification_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            },
+        )
         notificationManager.areNotificationsEnabled() &&
             notificationManager.getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
     }.getOrDefault(false)
@@ -63,12 +69,38 @@ internal class CallNotifications(private val context: Context) {
 
     fun clear() { runCatching { manager?.cancel(ID) } }
 
+    /** Separate, user-dismissable call-complete notice; never reuses the live-call notification ID. */
+    fun completed(callId: String) = runCatching {
+        val notificationManager = manager ?: return
+        ready() // Ensure channel creation, but a disabled live-call channel must not suppress this one.
+        if (!notificationManager.areNotificationsEnabled() ||
+            notificationManager.getNotificationChannel(COMPLETED_CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) return
+        val openDetail = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(MainActivity.EXTRA_OPEN_CALLS, true)
+            .putExtra(MainActivity.EXTRA_CALL_HISTORY_ID, callId)
+        val pending = PendingIntent.getActivity(context, callId.hashCode(), openDetail,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        notificationManager.notify(completedId(callId), Notification.Builder(context, COMPLETED_CHANNEL)
+            .setContentTitle(context.getString(R.string.calls_completed_notification_title))
+            .setContentText(context.getString(R.string.calls_completed_notification_text))
+            .setSmallIcon(android.R.drawable.sym_action_call)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(false)
+            .setOngoing(false)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setContentIntent(pending)
+            .build())
+    }
+
     companion object {
         const val ACTION = "com.wangzan101.mika.calls.TAKEOVER"
         const val ACTION_CANCEL_LOCKED_DIAL = "com.wangzan101.mika.calls.CANCEL_LOCKED_DIAL"
         const val LOCKED_DIAL_SCHEME = "mika-locked-dial"
         const val CHANNEL = "mika_ai_calls"
+        const val COMPLETED_CHANNEL = "mika_ai_call_completed"
         private const val ID = 90_117
+        private fun completedId(callId: String) = 91_000 + (callId.hashCode() and 0x7fffffff) % 8_000
     }
 }
 
