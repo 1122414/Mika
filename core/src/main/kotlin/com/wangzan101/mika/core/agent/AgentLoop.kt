@@ -102,14 +102,13 @@ private fun cleanReplyParts(parts: List<Part>, text: String): List<Part> {
 }
 
 /**
- * 写 Mika 自己的记忆不先问「是讨论还是要操作」。那个判断管的是要不要去读、去动 App 和网站;memory_save 只往 Mika 自己的记忆里
- * 加一条,有自己的校验(引文必须出自用户这一轮的话,见 MemoryTools),加错了结果卡上可以撤销。
- * 交给它判的话,「总结一下写进记忆」这样的话会被当成讨论:调用被丢掉、改成不带工具重问,模型只好把调用写成文字,
- * 任务以「工具调用没被识别」结束。
- * 改、删记忆(memory_edit)不在这里:它会把已有的东西改掉、删掉,「如果我让你把那条删了你会怎么做」这种讨论里
- * 模型万一真提了删除,还得靠这一关拦住。
+ * 写、改 Mika 自己的记忆不先问「是讨论还是要操作」。那个判断管的是要不要去读、去动 App 和网站;这两个工具只动 Mika 自己的记忆,
+ * 各有校验(引文必须出自用户这一轮的话,改删还要话里明说了要改、要删,见 MemoryTools),改动在结果卡上可以撤销。
+ * 交给它判的话,「总结一下写进记忆」「把那几条改得简洁一点」这样的话在真机上都被判成了讨论:调用被丢掉、改成不带工具重问,
+ * 模型只好把调用写成文字,任务以「工具调用没被识别」结束。
+ * 「如果我让你把那条删了,你会怎么做」这种只是问问的,由 memory_edit 自己拒(见 MemoryEdit 里的 onlyAsking)。
  */
-private val MEMORY_WRITE_VERBS = setOf(Verb.MemorySave)
+private val MEMORY_WRITE_VERBS = setOf(Verb.MemorySave, Verb.MemoryEdit)
 private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave, Verb.MemoryEdit)
 /** 讨论历史时仍可查本地记忆与技能资料、之前几轮的记录；这些调用不会打开 App 或网站。 */
 private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead)

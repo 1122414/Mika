@@ -222,7 +222,8 @@ internal object MemoryEdit : AgentTool {
             "delete" -> DELETE_REQUEST to DELETE_NEGATION
             else -> throw ArgError("op", "must be update or delete")
         }
-        val requested = request.containsMatchIn(quote) && messages.none(negation::containsMatchIn)
+        // 话里明说了要改(删),没说不要,也不是「如果我说……你会怎么做」这种只是问问的
+        val requested = request.containsMatchIn(quote) && messages.none(negation::containsMatchIn) && messages.none(::onlyAsking)
         if (!requested) return refused(ctx, a, "edit_not_requested", Feedback["memory.edit_not_requested"])
         val candidates = ctx.memorySearchCandidates()
         if (candidates == null || id !in candidates) {
@@ -273,4 +274,13 @@ internal object MemoryEdit : AgentTool {
     private val DELETE_REQUEST = Regex("删除|删掉|删了|忘掉|忘记|别记|不要记|取消记忆|\\b(?:delete|forget|remove)\\b", RegexOption.IGNORE_CASE)
     private val UPDATE_NEGATION = Regex("(?:不|别|无需|无须|不用|不必|不要|不能|不准|禁止)\\s*(?:要|用|再|去)?\\s*(?:修改|改成|改为|更新|更正|改掉|编辑)|\\b(?:do\\s+not|don't|dont|never|no\\s+need\\s+to)\\s+(?:update|change|edit|correct)\\b", RegexOption.IGNORE_CASE)
     private val DELETE_NEGATION = Regex("(?:不|别|无需|无须|不用|不必|不要|不能|不准|禁止)\\s*(?:要|用|再|去)?\\s*(?:删(?:除|掉|了)?|忘掉|忘记)|\\b(?:do\\s+not|don't|dont|never)\\s+(?:delete|forget|remove)\\b", RegexOption.IGNORE_CASE)
+
+    /**
+     * 「如果我说把那条删掉,你会怎么处理」:在问它会怎么做,不是让它现在做。改删记忆不过「讨论还是操作」那一关
+     * (见 AgentLoop 的 MEMORY_WRITE_VERBS),这种问法在这里拒。两样都有才算:假设的说法,加上问它会怎么做——
+     * 只有假设的条件句常常就是要记的内容(「如果我说老地方,就是公司楼下那家」)。
+     */
+    private val HYPOTHETICAL = Regex("(?:如果|假如|要是|假设|假設|假使)我(?:说|說|让|讓|叫|要)|\\bif\\s+i\\s+(?:said|asked|told|were\\s+to)\\b", RegexOption.IGNORE_CASE)
+    private val ASKING_HOW = Regex("你会(?:怎么|怎样|如何)|你會(?:怎麼|怎樣|如何)|会(?:发生什么|怎么样)|會(?:發生什麼|怎麼樣)|\\b(?:what|how)\\s+would\\s+you\\b|\\bwhat\\s+would\\s+happen\\b", RegexOption.IGNORE_CASE)
+    private fun onlyAsking(message: String) = HYPOTHETICAL.containsMatchIn(message) && ASKING_HOW.containsMatchIn(message)
 }

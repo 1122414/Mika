@@ -97,27 +97,27 @@ class AgentLoopMemoryTest {
         assertTrue(result, "\"ok\":true" in result)
     }
 
-    // 改、删记忆照旧要过意图判断:判成操作才做(先查到那一条,再按用户这一轮的话删掉)
-    @Test fun editingAMemoryStillGoesThroughTheIntentJudge() {
+    // 改、删记忆也不经过意图判断(先查到那一条,再按用户这一轮的话删掉):真机上正常的修改请求会被它判成讨论
+    @Test fun editingAMemoryIsNotStrippedAsDiscussion() {
         val s = store()
         val target = s.items.value.first { "香菜" in it.content }
         val search = ModelReply(listOf(Part.ToolCall("c1", "memory_search", """{"query":"外卖"}""")), StopReason.ToolUse, null)
         val edit = ModelReply(listOf(Part.ToolCall("c2", "memory_edit",
             """{"op":"delete","id":"${target.id}","quote":"外卖那条记忆删掉"}""")), StopReason.ToolUse, null)
         val model = FakeModel(search, edit, finishReply)
-        val judge = FakeModel(ModelReply(listOf(Part.Text("ACT")), StopReason.EndTurn, null))
+        val judge = FakeModel(ModelReply(listOf(Part.Text("DISCUSS")), StopReason.EndTurn, null))
         runBlocking {
             AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s, intentJudge = judge)
                 .run("把外卖那条记忆删掉")
         }
-        assertEquals("问了一次意图", 1, judge.requests.size)
+        assertEquals("没有去问意图", 0, judge.requests.size)
         val found = model.requests[1].last { it.role == Role.Tool }.parts.filterIsInstance<Part.ToolResult>().single().content
         val result = model.requests[2].last { it.role == Role.Tool }.parts.filterIsInstance<Part.ToolResult>().single().content
         assertTrue("$found -> $result", "\"ok\":true" in result)
         assertTrue(s.items.value.none { it.id == target.id && it.status == com.wangzan101.mika.core.memory.MemoryStatus.active })
     }
 
-    // 只是在讨论「如果让你删你会怎么做」:意图判成讨论,模型万一提了删除也不执行,那条记忆还在
+    // 只是在问「如果让你删你会怎么做」:模型万一真提了删除,工具自己不执行,那条记忆还在
     @Test fun aDeleteProposedDuringADiscussionIsNotCarriedOut() {
         val s = store()
         val target = s.items.value.first { "香菜" in it.content }
@@ -126,12 +126,15 @@ class AgentLoopMemoryTest {
             """{"op":"delete","id":"${target.id}","quote":"把外卖那条记忆删掉"}""")), StopReason.ToolUse, null)
         val model = FakeModel(search, edit, finishReply, finishReply)
         val judge = FakeModel(ModelReply(listOf(Part.Text("DISCUSS")), StopReason.EndTurn, null))
+        val events = mutableListOf<RunEvent>()
         val end = runBlocking {
-            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s, intentJudge = judge)
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s, intentJudge = judge,
+                sink = object : RunSink { override fun event(e: RunEvent) { events += e } })
                 .run("如果我说把外卖那条记忆删掉,你会怎样处理?先解释,不要执行。")
         }
         assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Succeeded)
-        assertEquals(1, judge.requests.size)
+        assertEquals("不靠意图判断", 0, judge.requests.size)
+        assertTrue(events.filterIsInstance<RunEvent.ToolResult>().single { it.tool == "memory_edit" }.resultJson.contains("edit_not_requested"))
         assertTrue("那条还在", s.items.value.any { it.id == target.id && it.status == com.wangzan101.mika.core.memory.MemoryStatus.active })
     }
 
