@@ -809,6 +809,8 @@ internal fun ConversationEntry(
         Column(
             Modifier.padding(horizontal = 12.dp).fillMaxWidth()
                 .onGloballyPositioned { bounds.value = Rect(it.positionInWindow(), it.size.toSize()) }
+                // 侧滑时前景必须遮住归档底层，不能让按钮透过标题和时间。
+                .background(c.bg, NavShape)
                 .then(if (item.current) Modifier.cardSurface(c, NavShape) else Modifier)
                 .clip(NavShape)
                 .then(
@@ -850,14 +852,16 @@ internal fun ConversationEntry(
             state = dismiss,
             enableDismissFromStartToEnd = false,
             backgroundContent = {
-                Box(
-                    Modifier.fillMaxSize().padding(horizontal = 12.dp).clip(NavShape).background(c.accentSoft)
-                        .padding(horizontal = 20.dp).testTag("conversation-archive-swipe"),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(MikaIcons.Archive, null, Modifier.size(16.dp), tint = c.accent)
-                        Text(stringResource(R.string.drawer_archive), style = MikaType.Label, color = c.accent)
+                if (dismiss.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                    Box(
+                        Modifier.fillMaxSize().padding(horizontal = 12.dp).clip(NavShape).background(c.accentSoft)
+                            .padding(horizontal = 20.dp).testTag("conversation-archive-swipe"),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(MikaIcons.Archive, null, Modifier.size(16.dp), tint = c.accent)
+                            Text(stringResource(R.string.drawer_archive), style = MikaType.Label, color = c.accent)
+                        }
                     }
                 }
             },
