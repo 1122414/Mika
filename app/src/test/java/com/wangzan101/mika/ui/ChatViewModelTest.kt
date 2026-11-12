@@ -1647,7 +1647,10 @@ class ChatViewModelTest {
             sandboxReady = sandbox,
             importAttachments = { id, uris ->
                 imported += id to uris
-                com.wangzan101.mika.cap.sandbox.ImportResult(listOf("/workspace/inbox/报表 (1).csv" to 2048L), listOf("big.iso"))
+                com.wangzan101.mika.cap.sandbox.ImportResult(
+                    listOf("/workspace/inbox/报表 (1).csv" to 2048L), listOf("big.iso"),
+                    listOf(com.wangzan101.mika.cap.sandbox.AttachmentFailure("big.iso", com.wangzan101.mika.cap.sandbox.AttachmentFailureReason.TOO_LARGE)),
+                )
             },
             describeAttachments = { uris -> uris.map { PendingAttachment(it, if (it.endsWith("1")) "报表.csv" else "big.iso", 10L) } },
         ).also { runCurrent() }
@@ -1673,7 +1676,8 @@ class ChatViewModelTest {
         assertEquals(listOf(id to listOf("content://x/1", "content://x/2")), imported)
         assertEquals(listOf("start:汇总一下\n附件:/workspace/inbox/报表 (1).csv(2 KB)"), calls)
         assertTrue(vm.ui.value.attachments.isEmpty())
-        assertEquals(listOf("big.iso"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("big.iso"), vm.ui.value.rejectedAttachments.map { it.name })
+        assertEquals(com.wangzan101.mika.cap.sandbox.AttachmentFailureReason.TOO_LARGE, vm.ui.value.rejectedAttachments.single().reason)
         assertFalse(vm.ui.value.importing)
         // 任务在跑时不收附件
         vm.attach(listOf("content://x/3"))
@@ -1722,7 +1726,7 @@ class ChatViewModelTest {
         runCurrent()
         assertTrue(calls.isEmpty())
         assertTrue(vm.ui.value.exchanges.isEmpty())
-        assertEquals(listOf("huge.mov"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("huge.mov"), vm.ui.value.rejectedAttachments.map { it.name })
     }
 
     @Test fun pickingPhotosStopsAtTheLimit() = runTest {
@@ -3309,7 +3313,7 @@ class ChatViewModelTest {
         runCurrent()
         assertTrue(calls.none { it.startsWith("start:") })
         assertEquals("看看", vm.ui.value.input)
-        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments.map { it.name })
         assertEquals(1, vm.ui.value.attachments.size)
     }
 

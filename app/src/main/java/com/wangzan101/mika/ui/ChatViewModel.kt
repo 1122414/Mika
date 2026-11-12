@@ -20,6 +20,8 @@ import com.wangzan101.mika.chat.SharedDraft
 import com.wangzan101.mika.chat.SharedDraftStore
 import com.wangzan101.mika.chat.SharedFile
 import com.wangzan101.mika.cap.sandbox.ImportResult
+import com.wangzan101.mika.cap.sandbox.AttachmentFailure
+import com.wangzan101.mika.cap.sandbox.AttachmentFailureReason
 import com.wangzan101.mika.confirm.ConfirmationCopy
 import com.wangzan101.mika.confirm.ConfirmationNotifier
 import com.wangzan101.mika.core.agent.AttachmentLines
@@ -308,7 +310,7 @@ data class ChatUi(
     /** 正在把附件复制进工作区(发送时)。 */
     val importing: Boolean = false,
     /** 没收下的附件(太大或读不了);为空不提示。 */
-    val rejectedAttachments: List<String> = emptyList(),
+    val rejectedAttachments: List<AttachmentFailure> = emptyList(),
     /** 超过一次能带的个数([AttachTray.LIMIT])没加上的个数;为 0 不提示。 */
     val overLimit: Int = 0,
     /** 系统分享刚预填到新对话的内容;只供输入框展示,不会触发任务。 */
@@ -330,7 +332,7 @@ private data class ComposerDraft(
     val followUpMode: FollowUpMode = FollowUpMode.Steer,
     val sharedDraft: SharedDraft? = null,
     val importing: Boolean = false,
-    val rejected: List<String> = emptyList(),
+    val rejected: List<AttachmentFailure> = emptyList(),
     val overLimit: Int = 0,
 ) {
     val hasContent: Boolean get() = input.isNotEmpty() || attachments.isNotEmpty() || quote != null || importing || rejected.isNotEmpty()
@@ -1101,6 +1103,7 @@ class ChatViewModel(
                     var checked = 0
                     val added = mutableListOf<Pair<String, Long>>()
                     val rejected = mutableListOf<String>()
+                    val failures = mutableListOf<AttachmentFailure>()
                     for (item in items) {
                         if (item.workspacePath != null) {
                             val result = checks[checked++]
@@ -1109,9 +1112,10 @@ class ChatViewModel(
                             val result = importAttachments(id, listOf(item.uri))
                             added += result.added
                             rejected += result.rejected
+                            failures += result.failures
                         }
                     }
-                    ImportResult(added, rejected)
+                    ImportResult(added, rejected, failures)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -1126,7 +1130,7 @@ class ChatViewModel(
                 releaseUnusedLibraryCopies()
             }
             val goal = withAttachments(text, r.added)
-            updateDraft(id) { it.copy(importing = false, rejected = r.rejected) }
+            updateDraft(id) { it.copy(importing = false, rejected = r.failures) }
             if (items.any { it.workspacePath != null } && r.added.isEmpty() && r.rejected.isNotEmpty()) return@launch
             val now = _ui.value
             if (goal.isEmpty() || now.conversationId != id || id in _deleted.value) return@launch
@@ -1760,7 +1764,9 @@ class ChatViewModel(
         val prefill = retryText(raw)
         updateDraft(targetId) {
             it.copy(input = prefill, attachments = accepted,
-                rejected = if (_ui.value.conversationId == targetId) emptyList() else failures.map { failure -> failure.path.substringAfterLast('/') })
+                rejected = if (_ui.value.conversationId == targetId) emptyList() else failures.map { failure ->
+                    AttachmentFailure(failure.path.substringAfterLast('/'), AttachmentFailureReason.IO_ERROR)
+                })
         }
         val screen = UserScreenMessage.parse(AttachmentMessage.parse(QuoteMessage.words(AttachedPage.words(raw))).words).hasScreen
         return BranchRetry(targetId, prefill, screen || failures.isNotEmpty(), failures, screenNeedsReattach = screen)
