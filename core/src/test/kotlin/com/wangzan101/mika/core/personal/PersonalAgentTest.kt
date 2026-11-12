@@ -25,8 +25,8 @@ class PersonalAgentTest {
         override fun remember(text: String, quote: String) = "已记住"
         override fun memory() = ""
     }
-    private class Model(val block: suspend (List<Message>) -> ModelReply) : ChatModel {
-        override val capabilities = Capabilities(true, false, 128_000, false)
+    private class Model(contextTokens: Int = 128_000, val block: suspend (List<Message>) -> ModelReply) : ChatModel {
+        override val capabilities = Capabilities(true, false, contextTokens, false)
         override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>) = block(messages)
     }
     private fun text(value: String) = ModelReply(listOf(Part.Text(value)), StopReason.EndTurn, null)
@@ -148,6 +148,50 @@ class PersonalAgentTest {
         assertFalse(store.state.value.messages.any { !it.handled })
     }
 
+    @Test fun pendingMessagesBeyondTheHistoryLimitAreSentInOrder() = runTest {
+        val sent = List(62) { "queued message $it" }
+        assertPendingMessagesReachModel(sent)
+    }
+
+    @Test fun pendingMessagesBeyondTheTokenBudgetAreSentInOrder() = runTest {
+        val sent = List(3) { "queued message $it " + "x".repeat(8_000) }
+        assertPendingMessagesReachModel(sent, contextTokens = 6_000)
+    }
+
+    @Test fun oversizedPendingMessageIsLocalizedAndDoesNotBlockNextMessage() = runTest {
+        val store = Store()
+        val received = mutableListOf<String>()
+        val agent = PersonalAgent(store, backgroundScope, { Model(6_000) { history ->
+            received += flatten(history)
+            text("reply")
+        } }, Actions())
+        agent.send("x".repeat(29_000))
+        agent.send("next message")
+        runCurrent()
+
+        assertTrue(store.state.value.messages.any { it.error && it.systemType == "context_long" })
+        assertTrue(received.any { it.contains("next message") })
+        assertFalse(store.state.value.messages.any { it.role == "user" && !it.handled })
+    }
+
+    private fun TestScope.assertPendingMessagesReachModel(sent: List<String>, contextTokens: Int = 128_000) {
+        val store = Store()
+        val received = mutableListOf<String>()
+        val model = Model(contextTokens) { history ->
+            val pending = store.state.value.messages.filterNot { it.handled }.map { it.text }.toSet()
+            received += history.filter { it.role == Role.User }
+                .flatMap { it.parts }.filterIsInstance<Part.Text>().map { it.text }.filter { it in pending }
+            text("reply")
+        }
+        val agent = PersonalAgent(store, backgroundScope, { model }, Actions())
+        sent.forEach(agent::send)
+        runCurrent()
+
+        assertEquals(sent.size, received.size)
+        assertEquals(sent, received)
+        assertFalse(store.state.value.messages.any { !it.handled })
+    }
+
     @Test fun restartDoesNotReplayPendingActionsAndRetainsHistory() = runTest {
         val store = Store(PersonalState(messages = listOf(PersonalMessage("pending", "user", "查资料", 1, handled = false))))
         val actions = Actions()
@@ -158,6 +202,41 @@ class PersonalAgentTest {
         assertTrue(store.state.value.messages.last().error)
         assertTrue(store.state.value.messages.last().systemType != null)
         assertFalse(store.state.value.messages.first().systemType != null)
+    }
+
+    @Test fun compactionAdvancesOnlyPastMessagesInTheSummaryRequest() = runTest {
+        val messages = List(53) { i ->
+            val body = if (i < 2) "entry-$i " + "x".repeat(26_000) else "entry-$i"
+            PersonalMessage("old-$i", "user", body, i.toLong())
+        }
+        val store = Store(PersonalState(messages = messages))
+        val inputs = mutableListOf<String>()
+        val agent = PersonalAgent(store, backgroundScope, { Model { inputs += flatten(it); text("摘要") } }, Actions())
+        agent.send("继续")
+        runCurrent()
+
+        assertEquals(1, store.state.value.covered)
+        assertTrue(inputs.first().contains(messages[0].text))
+        assertFalse(inputs.first().contains("entry-1 "))
+        assertEquals(messages, store.state.value.messages.take(messages.size))
+    }
+
+    @Test fun oversizedHistoryEntryIsCoveredAfterAllItsPartsAreSummarized() = runTest {
+        val marker = "end-of-long-entry"
+        val messages = List(53) { i ->
+            val body = if (i == 0) "x".repeat(51_000) + marker else "entry-$i"
+            PersonalMessage("old-$i", "assistant", body, i.toLong())
+        }
+        val store = Store(PersonalState(messages = messages))
+        val inputs = mutableListOf<String>()
+        val agent = PersonalAgent(store, backgroundScope, { Model { inputs += flatten(it); text("摘要") } }, Actions())
+        agent.send("继续")
+        runCurrent()
+
+        assertEquals(1, store.state.value.covered)
+        assertTrue(inputs.dropLast(1).size > 1)
+        assertTrue(inputs.dropLast(1).all { it.length <= 50_000 })
+        assertTrue(inputs.dropLast(1).last().contains(marker))
     }
 
     @Test fun noModelIsAnHonestErrorNotASimulatedReply() = runTest {

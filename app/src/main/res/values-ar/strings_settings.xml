@@ -98,6 +98,12 @@
     <string name="capsule_mode_always_detail">تُبقي أيقونة Mika على الشاشة حتى عند عدم وجود مهام</string>
     <string name="capsule_idle_opacity">عتامة الكبسولة عند السكون</string>
     <string name="capsule_idle_opacity_detail">بعد ثوانٍ من دون لمسها؛ يبقى كل ما يحتاج إلى انتباهك ظاهرًا بالكامل</string>
+    <string name="capsule_card_size">حجم البطاقة</string>
+    <string name="capsule_card_size_detail">تتمدد البطاقة الموسّعة ونصّها معًا؛ الكبسولة المطوية لا تتغير</string>
+    <string name="capsule_card_size_small">صغير</string>
+    <string name="capsule_card_size_normal">عادي</string>
+    <string name="capsule_card_size_large">كبير</string>
+    <string name="capsule_card_size_xlarge">كبير جدًا</string>
     <string name="routes_saved">المسارات المحفوظة</string>
     <string name="loading">جارٍ التحميل</string>
     <plurals name="routes_count">

@@ -11,6 +11,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -251,15 +252,19 @@ class CapsuleController(
         val mode = combine(flags.capsuleModeChanges(), flags.quitChanges()) { m, quit -> if (quit) CapsuleMode.Off else m }
         scope.launch {
             combine(
-                combine(runs(), combine(mode, flags.capsuleIdleOpacityChanges()) { m, o -> m to o }, foreground.visible, screen.locked, ScreenAccessibility.instance) { r, settings, f, l, a ->
-                    Snapshot(r, settings.first, f, l, a, opacity = settings.second)
+                combine(
+                    runs(),
+                    combine(mode, flags.capsuleIdleOpacityChanges(), flags.capsuleCardScaleChanges()) { m, o, s -> Triple(m, o, s) },
+                    foreground.visible, screen.locked, ScreenAccessibility.instance,
+                ) { r, settings, f, l, a ->
+                    Snapshot(r, settings.first, f, l, a, opacity = settings.second, cardScale = settings.third)
                 },
                 ticks,
                 keeper.page,
             ) { s, _, kept -> s.copy(kept = kept) }.collect(::render)
         }
-        // 说话面板出来时铺满整屏(压暗背后),收起时回到没有大小
-        scope.launch { snapshotFlow { talk.active }.collect { panelWindow?.setFullScreen(it) } }
+        // 说话面板出来时铺满整屏(压暗背后),收起时显式收掉(见 [syncPanelWindow])
+        scope.launch { snapshotFlow { talk.active }.collect { syncPanelWindow() } }
         // 排队条:卡片按自己的对话显示还有几件
         scope.launch { (context.applicationContext as MikaApp).followUpQueue.changes.collect { followUps = it } }
         // 停止后的交代写好(或写不成)时那一轮已改进对话:重读记下的轮次
@@ -314,6 +319,8 @@ class CapsuleController(
         /** 任务结束后留在后台运行的那一页。 */
         val kept: KeptPage? = null,
         val opacity: CapsuleIdleOpacity = CapsuleIdleOpacity.DEFAULT,
+        /** 展开卡片的缩放档位,改了当场生效(见 [CardOverlay])。 */
+        val cardScale: CapsuleCardScale = CapsuleCardScale.DEFAULT,
     )
 
     /**
@@ -424,6 +431,8 @@ class CapsuleController(
         panelWindow = panel
         windowOn = service
         syncWindowVisibility()
+        // 新加的面板窗口先藏起来:没在说话时它不该在屏幕上留任何东西
+        syncPanelWindow()
         for (it in listOf(ball, cardW)) it.onResize(::place)
         ball.onTouch { e ->
             wake()
@@ -499,6 +508,22 @@ class CapsuleController(
         val visible = capsuleWindowVisibility(expanded, cardOut, closing)
         window?.setVisible(visible.capsule)
         cardWindow?.setVisible(visible.card)
+    }
+
+    /**
+     * 说话面板窗口:在说时铺满整屏(压暗背后)、才显出来;收起时先显式设为不可见再缩回没有大小。
+     * 和一颗、卡片一样,不能拿空内容和零尺寸当作已经不可见:Compose 内容清空后可能不再出新帧,
+     * 系统画布上会留着最后一帧「转文字…」,面板看上去就卡在屏幕上了。
+     */
+    private fun syncPanelWindow() {
+        val w = panelWindow ?: return
+        if (talk.active) {
+            w.setFullScreen(true)
+            w.setVisible(true)
+        } else {
+            w.setVisible(false)
+            w.setFullScreen(false)
+        }
     }
 
     // ---------- 输入 ----------
@@ -1348,24 +1373,31 @@ class CapsuleController(
         }
     }
 
-    /** 卡片窗口里:展开时是卡片,收起时窗口先显式隐藏、内容随后清空。标题栏的电源按钮点过时换成退出的确认。 */
+    /** 卡片窗口里:展开时是卡片,收起时窗口先显式隐藏、内容随后清空。标题栏的电源按钮点过时换成退出的确认。
+     * 非标准档时整张卡换 [Density.zoomed] 的密度渲染:宽、字、间距等比缩放;高度上限仍按真实屏幕高换算(在 Provider 里 toDp)。 */
     @Composable
     private fun CardOverlay() {
         val c = card ?: return
         MikaTheme(reduceMotion = animationsOff(context)) {
-            val height = if (cardHeight > 0) with(LocalDensity.current) { cardHeight.toDp() } else Dp.Unspecified
-            OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = {
-                cardOut = true
-                syncWindowVisibility()
-            }) {
-                if (quitConfirm) QuitCard(actions, height)
-                else CapsuleCard(
-                    c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle,
-                    queuedCount = CapsuleCards.conversationOf(c)?.let { id ->
-                        followUps.count { it.conversationId == id && !it.claimed && it.source == com.wangzan101.mika.task.QueuedSource.Explicit }
-                    } ?: 0,
-                    onQueued = { CapsuleCards.conversationOf(c)?.let(::open) },
-                )
+            val scale = last?.cardScale ?: CapsuleCardScale.DEFAULT
+            CompositionLocalProvider(
+                LocalDensity provides LocalDensity.current.zoomed(scale.factor),
+                LocalCapsuleCardScale provides scale,
+            ) {
+                val height = if (cardHeight > 0) with(LocalDensity.current) { cardHeight.toDp() } else Dp.Unspecified
+                OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = {
+                    cardOut = true
+                    syncWindowVisibility()
+                }) {
+                    if (quitConfirm) QuitCard(actions, height)
+                    else CapsuleCard(
+                        c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle,
+                        queuedCount = CapsuleCards.conversationOf(c)?.let { id ->
+                            followUps.count { it.conversationId == id && !it.claimed && it.source == com.wangzan101.mika.task.QueuedSource.Explicit }
+                        } ?: 0,
+                        onQueued = { CapsuleCards.conversationOf(c)?.let(::open) },
+                    )
+                }
             }
         }
     }
