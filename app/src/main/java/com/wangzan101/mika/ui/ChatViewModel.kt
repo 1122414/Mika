@@ -1076,7 +1076,8 @@ class ChatViewModel(
 
     /**
      * 带着附件开新任务:先把附件复制进对话工作区的 inbox/(期间输入框上方显示正在添加),
-     * 再把每个附件写成一行「附件:<路径>(<大小>)」接在话后面开始任务。没收下的列在输入框上方;话和附件都没有了就不发。
+     * 全部复制成功后,把每个附件写成一行「附件:<路径>(<大小>)」接在话后面开始任务。
+     * 有附件没收下时保留草稿并列出失败项,由用户重试或移除后再发送。
      * 复制期间换了对话或开始了别的任务就不发了(复制进去的文件留在原对话的工作区里)。
      */
     private fun sendWithAttachments(text: String, items: List<PendingAttachment>, check: Prerequisites.Check): Boolean {
@@ -1130,9 +1131,9 @@ class ChatViewModel(
                 }
                 releaseUnusedLibraryCopies()
             }
-            val goal = withAttachments(text, r.added)
             updateDraft(id) { it.copy(importing = false, rejected = r.rejected) }
-            if (items.any { it.workspacePath != null } && r.added.isEmpty() && r.rejected.isNotEmpty()) return@launch
+            if (r.rejected.isNotEmpty()) return@launch
+            val goal = withAttachments(text, r.added)
             val now = _ui.value
             if (goal.isEmpty() || now.conversationId != id || id in _deleted.value) return@launch
             val currentAttachments = now.attachments
