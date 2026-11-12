@@ -142,7 +142,7 @@ class AutoArchiveTest {
         assertEquals(now, store.archivedAt("old"))
     }
 
-    @Test fun appendWaitsForArchiveAndThenUnarchives() {
+    @Test fun appendDoesNotWaitForArchiveReadAndInvalidatesCandidate() {
         val dir = tmp.newFolder()
         val now = System.currentTimeMillis()
         val entered = CountDownLatch(1)
@@ -164,9 +164,8 @@ class AutoArchiveTest {
         try {
             assertTrue(entered.await(10, TimeUnit.SECONDS))
             append.start()
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-            while (append.state != Thread.State.BLOCKED && System.nanoTime() < deadline) Thread.yield()
-            assertEquals(Thread.State.BLOCKED, append.state)
+            append.join(5_000)
+            assertTrue("append should finish while archive read is blocked", !append.isAlive)
         } finally {
             release.countDown()
             archive.join(10_000)
@@ -176,6 +175,38 @@ class AutoArchiveTest {
         assertTrue(!archive.isAlive && !append.isAlive)
         assertNull(store.archivedAt("old"))
         assertEquals(2, store.turns("old").size)
+    }
+
+    @Test fun unchangedConversationsReuseMessageTimeAndWritesInvalidateIt() {
+        val dir = tmp.newFolder()
+        val now = System.currentTimeMillis()
+        var reads = 0
+        val store = ConversationStore(dir, readConversation = { file -> reads++; file.readText() })
+        store.append("fresh", Turn("新消息", "好", "succeeded", runId = "run", atMs = now))
+
+        assertEquals(0, AutoArchive.run(store, 30, now = now))
+        assertEquals(1, reads)
+        assertEquals(0, AutoArchive.run(store, 30, now = now))
+        assertEquals(1, reads)
+
+        store.updateTurn("fresh", "run") { it.copy(atMs = now - 40 * day) }
+        val afterUpdate = reads
+        assertEquals(1, AutoArchive.run(store, 30, now = now))
+        assertEquals(afterUpdate + 1, reads)
+        assertEquals(now, store.archivedAt("fresh"))
+    }
+
+    @Test fun changedLegacyFileTimeInvalidatesCachedFallback() {
+        val dir = tmp.newFolder()
+        val now = System.currentTimeMillis()
+        val store = ConversationStore(dir)
+        store.append("legacy", Turn("旧格式", "好", "succeeded", atMs = now))
+        val legacy = File(dir, "legacy.json")
+        legacy.writeText(legacy.readText().replace(Regex(",\\\"atMs\\\":\\d+"), ""))
+        assertTrue(legacy.setLastModified(now))
+        assertEquals(0, AutoArchive.run(store, 30, now = now))
+        assertTrue(legacy.setLastModified(now - 40 * day))
+        assertEquals(1, AutoArchive.run(store, 30, now = now))
     }
 
     @Test fun messageTimeSurvivesUpdatesAndBranchesWhileLegacyFallsBackToFileTime() {

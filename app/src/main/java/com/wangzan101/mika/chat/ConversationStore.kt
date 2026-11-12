@@ -153,6 +153,8 @@ class ConversationStore(
     private val deleted = mutableSetOf<String>()
     // 只在本进程、这把锁内使用，防止筛选后发生写入的对话被旧快照归档。
     private val archiveVersions = mutableMapOf<String, Long>()
+    private data class MessageTime(val modified: Long, val size: Long, val time: Long?)
+    private val messageTimes = mutableMapOf<String, MessageTime>()
     private fun bumpArchiveVersion(id: String) {
         val key = safe(id)
         archiveVersions[key] = (archiveVersions[key] ?: 0L) + 1L
@@ -180,6 +182,7 @@ class ConversationStore(
         }
         deleted += safe(conversationId)
         firstMessages.remove(main)
+        messageTimes.remove(main)
         // 删掉的正是用户此刻在的那个:不再指着它,胶囊回落到最近那个
         if (_current.value == CurrentChat.Open(safe(conversationId))) setCurrent(null)
         _changes.tryEmit(conversationId)
@@ -276,23 +279,37 @@ class ConversationStore(
             ArchiveCandidate(id, archiveVersions[id] ?: 0L)
         }
 
-    /** 逐条在同一把锁里检查快照版本、状态和消息时间，再写入归档。运行状态只读最新值，不引入任务锁。 */
-    @Synchronized
+    /** 正文在锁外读取，写入前再次检查状态和文件是否变化。 */
     internal fun archiveIfStillEligible(
         candidate: ArchiveCandidate,
         cutoff: Long,
         at: Long,
         isRunning: (String) -> Boolean = { false },
     ): Boolean {
-        val conversationId = candidate.id
-        if (isRunning(conversationId) ||
-            (archiveVersions[conversationId] ?: 0L) != candidate.version ||
-            pinnedAt(conversationId) != null || archivedAt(conversationId) != null ||
-            (restoredAt(conversationId)?.let { it >= cutoff } == true) ||
-            currentChat() == CurrentChat.Open(conversationId)) return false
-        val f = file(conversationId)
-        if (!f.isFile || (lastMessageAt(f) ?: return false) >= cutoff) return false
-        return setArchived(conversationId, archived = true, at = at)
+        val id = candidate.id
+        val f = file(id)
+        fun eligible(): Boolean = !isRunning(id) &&
+            (archiveVersions[id] ?: 0L) == candidate.version &&
+            pinnedAt(id) == null && archivedAt(id) == null &&
+            (restoredAt(id)?.let { it >= cutoff } != true) &&
+            currentChat() != CurrentChat.Open(id)
+
+        val snapshot = synchronized(this) {
+            if (!eligible() || !f.isFile) return false
+            val modified = f.lastModified()
+            val size = f.length()
+            val cached = messageTimes[f.name]?.takeIf { it.modified == modified && it.size == size }
+            (cached ?: MessageTime(modified, size, null)) to (cached != null)
+        }
+        val (fileState, cached) = snapshot
+        val time = if (cached) fileState.time else runCatching { lastMessageAt(f) }.getOrNull()
+        return synchronized(this) {
+            if (!eligible() || !f.isFile || f.lastModified() != fileState.modified || f.length() != fileState.size) return false
+            if (time == null) return false
+            messageTimes[f.name] = fileState.copy(time = time)
+            if (time >= cutoff) return false
+            setArchived(id, archived = true, at = at)
+        }
     }
 
     /**
@@ -504,6 +521,8 @@ class ConversationStore(
     }
 
     private fun write(conversationId: String, all: List<Pair<Turn, List<SharedFile>>>) {
+        bumpArchiveVersion(conversationId)
+        messageTimes.remove(file(conversationId).name)
         dir.mkdirs()
         val json = JsonArray(all.map { (it, fs) ->
             buildJsonObject {
