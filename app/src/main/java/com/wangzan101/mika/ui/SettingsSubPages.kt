@@ -479,7 +479,7 @@ fun CapsuleScreen(
         GroupCard {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 ListRow(
-                    MikaIcons.Photo, CapsuleSettingsCopy.IDLE_OPACITY,
+                    MikaIcons.Photo, CapsuleSettingsCopy.IDLE_OPACITY, CapsuleSettingsCopy.IDLE_OPACITY_DETAIL,
                     first = true, titleColor = if (mode == CapsuleMode.Off) MikaTheme.colors.ink3 else androidx.compose.ui.graphics.Color.Unspecified,
                 ) { RowValue("${idleOpacity.percent}%") }
                 Slider(
