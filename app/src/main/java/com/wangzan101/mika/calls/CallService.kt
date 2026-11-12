@@ -70,11 +70,12 @@ internal class CallNotifications(private val context: Context) {
     fun clear() { runCatching { manager?.cancel(ID) } }
 
     /** Separate, user-dismissable call-complete notice; never reuses the live-call notification ID. */
-    fun completed(callId: String) = runCatching {
-        val notificationManager = manager ?: return
+    fun completed(callId: String) {
+        runCatching {
+        val notificationManager = manager ?: return@runCatching
         ready() // Ensure channel creation, but a disabled live-call channel must not suppress this one.
         if (!notificationManager.areNotificationsEnabled() ||
-            notificationManager.getNotificationChannel(COMPLETED_CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) return
+            notificationManager.getNotificationChannel(COMPLETED_CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) return@runCatching
         val openDetail = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(MainActivity.EXTRA_OPEN_CALLS, true)
@@ -91,6 +92,7 @@ internal class CallNotifications(private val context: Context) {
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setContentIntent(pending)
             .build())
+        }
     }
 
     companion object {
