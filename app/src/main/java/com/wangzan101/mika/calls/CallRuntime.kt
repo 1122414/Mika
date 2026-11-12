@@ -994,7 +994,8 @@ class CallRuntime(private val app: MikaApp) {
                             summaryStatus = if (summaryRequested) SummaryStatus.PENDING else SummaryStatus.NOT_REQUESTED)
                         scope.launch {
                             records.append(record)
-                            if (answeredByAi) notifications.completed(w.id)
+                            if (answeredByAi) notifications.completed(w.id, record.number,
+                                summaryPending = summaryRequested)
                             if (summaryRequested) summarizeCall(w.id, record.transcript)
                         }
                     }
@@ -1036,8 +1037,15 @@ class CallRuntime(private val app: MikaApp) {
         }
         return if (summary == null) {
             records.setSummary(id, null, SummaryStatus.FAILED)
+            records.state.value.firstOrNull { it.id == id }?.let { notifications.updateCompletedSummary(id, it.number, null, failed = true) }
             false
-        } else records.setSummary(id, summary, SummaryStatus.READY) == CallHistory.Result.SAVED
+        } else {
+            val saved = records.setSummary(id, summary, SummaryStatus.READY) == CallHistory.Result.SAVED
+            if (saved) records.state.value.firstOrNull { it.id == id }?.let {
+                notifications.updateCompletedSummary(id, it.number, summary, failed = false)
+            }
+            saved
+        }
     }
 
     /** Only a pending AI attempt or active call can hold a timed partial wake lock. */

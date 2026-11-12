@@ -70,26 +70,58 @@ internal class CallNotifications(private val context: Context) {
     fun clear() { runCatching { manager?.cancel(ID) } }
 
     /** Separate, user-dismissable call-complete notice; never reuses the live-call notification ID. */
-    fun completed(callId: String) {
+    fun completed(callId: String, number: String?, summary: CallSummary? = null, summaryPending: Boolean = false, summaryFailed: Boolean = false) {
+        postCompleted(callId, number, summary, summaryPending, summaryFailed, onlyIfActive = false)
+    }
+
+    fun updateCompletedSummary(callId: String, number: String?, summary: CallSummary?, failed: Boolean) {
+        postCompleted(callId, number, summary, summaryPending = false, summaryFailed = failed, onlyIfActive = true)
+    }
+
+    private fun postCompleted(callId: String, number: String?, summary: CallSummary?, summaryPending: Boolean,
+                              summaryFailed: Boolean, onlyIfActive: Boolean) {
         runCatching {
         val notificationManager = manager ?: return@runCatching
         ready() // Ensure channel creation, but a disabled live-call channel must not suppress this one.
         if (!notificationManager.areNotificationsEnabled() ||
             notificationManager.getNotificationChannel(COMPLETED_CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) return@runCatching
+        val notificationId = completedId(callId)
+        if (onlyIfActive && notificationManager.activeNotifications.none { it.id == notificationId }) return@runCatching
         val openDetail = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(MainActivity.EXTRA_OPEN_CALLS, true)
             .putExtra(MainActivity.EXTRA_CALL_HISTORY_ID, callId)
         val pending = PendingIntent.getActivity(context, callId.hashCode(), openDetail,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        notificationManager.notify(completedId(callId), Notification.Builder(context, COMPLETED_CHANNEL)
+        val caller = number?.takeIf { it.isNotBlank() } ?: context.getString(R.string.calls_completed_notification_text)
+        val title = "${context.getString(R.string.calls_completed_notification_title)} · $caller"
+        val summaryText = summary?.let { value ->
+            buildList {
+                value.purpose?.takeIf(String::isNotBlank)?.let { add("${context.getString(R.string.calls_summary_purpose)}: $it") }
+                value.highlights.take(3).forEach { add("• $it") }
+                value.actions.filter { it.status == CallFollowUp.Status.PENDING }.take(2)
+                    .forEach { add("• ${it.text}") }
+            }.joinToString("\n").take(700).ifBlank { null }
+        }
+        val body = summaryText ?: when {
+            summaryPending -> context.getString(R.string.calls_summary_generating)
+            summaryFailed -> context.getString(R.string.calls_summary_failed)
+            else -> context.getString(R.string.calls_completed_notification_text)
+        }
+        val publicNotification = Notification.Builder(context, COMPLETED_CHANNEL)
             .setContentTitle(context.getString(R.string.calls_completed_notification_title))
             .setContentText(context.getString(R.string.calls_completed_notification_text))
+            .setSmallIcon(android.R.drawable.sym_action_call).build()
+        notificationManager.notify(notificationId, Notification.Builder(context, COMPLETED_CHANNEL)
+            .setContentTitle(title)
+            .setContentText(body.lineSequence().firstOrNull().orEmpty())
+            .setStyle(Notification.BigTextStyle().bigText(body))
             .setSmallIcon(android.R.drawable.sym_action_call)
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
             .setOngoing(false)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicNotification)
             .setContentIntent(pending)
             .build())
         }

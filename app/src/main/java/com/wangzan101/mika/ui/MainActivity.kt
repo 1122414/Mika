@@ -415,6 +415,7 @@ private fun MikaRoot(
     onTeachOpened: () -> Unit,
 ) {
     val context = LocalContext.current
+    var focusedCallHistoryId by remember { mutableStateOf<String?>(null) }
     val personalStart = remember { FeatureFlags.get(context).personalStart() }
     val nav = rememberNavStack(if (personalStart && requestedConversation == null) Route.Personal else Route.Chat)
     var filesFromDrawer by rememberSaveable { mutableStateOf(false) }
@@ -455,8 +456,9 @@ private fun MikaRoot(
             onConversationOpened()
         }
     }
-    LaunchedEffect(requestedCalls) {
+    LaunchedEffect(requestedCalls, requestedCallHistoryId) {
         if (requestedCalls) {
+            focusedCallHistoryId = requestedCallHistoryId
             nav.push(Route.Calls)
             onCallsOpened()
         }
@@ -783,7 +785,7 @@ private fun MikaRoot(
             app.chat.openConversation(it)
             nav.reset()
         })
-        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true, initialHistoryCallId = requestedCallHistoryId)
+        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true, initialHistoryCallId = focusedCallHistoryId)
     }
 }
 
