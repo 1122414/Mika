@@ -259,7 +259,7 @@
 - `RemoteTaskHub`(`app/task/RemoteTaskHub.kt`)实现 `RemoteTasks`:`TaskService.startMcp` 开始任务,和对话界面同一条路,CLI 与 MCP 均沿用现有外部任务来源 `RunOrigin.Mcp` 的权限策略(此处是历史名称,不表示 CLI 经过 MCP 协议)、在场情况 `Reachable`(追问照常等,到时限当作没回答;交给用户的一步也有同样的时限,过时没人处理任务就停下)。同一对话里还有任务时排在后面。
   - 收件记录(`app/task/RemoteTaskReceipts.kt`):App 私有 SQLite 库 `remote-tasks.db` 的 `receipts` 表,一行一个远程任务:编号、对话、原话、收件时间、是否新开对话、是否已被任务服务领取、终态、插话去向。终态和插话去向按 `RemoteTaskRecord`(`app/task/RemoteTaskRecord.kt`)自己的格式存成 JSON,不直接序列化 `TaskState` / `FailKind`:失败类别在盘上有固定的名字(`gave_up`、`interrupted` 等);读不懂的(坏数据、更新版本写的类别)不抛错,类别认不出按 `environment`,整份读不出按一个失败终态返回。回答的证据账本不存。
   - request_id 去重:电脑可先选一个小写 UUID 作为请求字段 request_id,它就是任务编号。Hub 在同一临界区核对原请求(原话和对话参数都要一样,不一样回 409)、写入收件记录、再发启动 Intent;任务服务只领取还没领取的编号(`claimStart`),所以并发重试、进程重建后才投递的旧 Intent 都只开跑一次。运行进度读 TaskRun,终态先落盘再向电脑返回;写盘失败时先记在内存里,查询时重写,写不上就回 503 让电脑稍后再查。
-  - 中断:打开库时(新进程)把还没终态的收件标成失败、类别 `FailKind.Interrupted`;任务服务被销毁时正在跑的远程任务也这样记。`Interrupted` 和 `Environment` 一样:打分算运行环境的事,技能试用记 unreviewed,学东西不当成做不成;给人看的原因用 `task_interrupted`(10 种语言都有)。
+  - 中断:打开库时(新进程)把还没终态的收件标成失败、类别 `FailKind.Interrupted`;任务服务被销毁时正在跑的远程任务也这样记。`Interrupted` 和 `Environment` 一样:打分算运行环境的事,技能试用记 unreviewed,学东西不当成做不成;给人看的原因用 `task_interrupted`(11 种语言都有)。
   - 删对话:清掉这个对话的远程内容,留下已用过的编号做占位(保留收件时间),迟到的重试回 410,不会重新执行。
   - 保留:收件时和打开库时各清一次,只清已收尾的和占位——收件超过 30 天的,以及按收件先后排在最近 1000 条之外的;没收尾的不清。清掉后同一编号再来按新请求处理,所以去重只在这个窗口里成立。升级前只在内存里的编号无法恢复。
   - 回答直接交给 `TaskRun.answer`，停止经 `TaskService` 的 `ACTION_CANCEL_MCP` 处理，排队中的任务直接移出。只有在这里登记过的远程任务可以从电脑查询和控制。新对话照常请模型起标题。
