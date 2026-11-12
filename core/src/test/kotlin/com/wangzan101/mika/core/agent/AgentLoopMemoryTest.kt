@@ -79,6 +79,59 @@ class AgentLoopMemoryTest {
         assertEquals(listOf(ids), events.filterIsInstance<RunEvent.MemoryUsed>().map { it.ids })
     }
 
+    // 用户让记住一件事,意图判断却会把这句话当成讨论:写记忆只动 Mika 自己的记忆,不经过那个判断,照常执行、存得下来
+    @Test fun savingAMemoryIsNotStrippedAsDiscussion() {
+        val s = store()
+        val said = UserUtterances()
+        val save = ModelReply(listOf(Part.ToolCall("c1", "memory_save",
+            """{"kind":"preference","content":"用户希望回答简短","quote":"回答简短一点"}""")), StopReason.ToolUse, null)
+        val model = FakeModel(save, finishReply)
+        val judge = FakeModel(ModelReply(listOf(Part.Text("DISCUSS")), StopReason.EndTurn, null))
+        runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = said), "B", memory = s, intentJudge = judge)
+                .run("你自己总结一下:以后回答简短一点,写进记忆")
+        }
+        assertEquals("没有去问意图", 0, judge.requests.size)
+        assertTrue("存下来了", "用户希望回答简短" in s.items.value.map { it.content })
+        val result = model.requests[1].last { it.role == Role.Tool }.parts.filterIsInstance<Part.ToolResult>().single().content
+        assertTrue(result, "\"ok\":true" in result)
+    }
+
+    // 改、删记忆也一样不经过意图判断(先查到那一条,再按用户这一轮的话删掉)
+    @Test fun editingAMemoryIsNotStrippedAsDiscussion() {
+        val s = store()
+        val target = s.items.value.first { "香菜" in it.content }
+        val search = ModelReply(listOf(Part.ToolCall("c1", "memory_search", """{"query":"外卖"}""")), StopReason.ToolUse, null)
+        val edit = ModelReply(listOf(Part.ToolCall("c2", "memory_edit",
+            """{"op":"delete","id":"${target.id}","quote":"外卖那条记忆删掉"}""")), StopReason.ToolUse, null)
+        val model = FakeModel(search, edit, finishReply)
+        val judge = FakeModel(ModelReply(listOf(Part.Text("DISCUSS")), StopReason.EndTurn, null))
+        runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s, intentJudge = judge)
+                .run("把外卖那条记忆删掉")
+        }
+        assertEquals("没有去问意图", 0, judge.requests.size)
+        val found = model.requests[1].last { it.role == Role.Tool }.parts.filterIsInstance<Part.ToolResult>().single().content
+        val result = model.requests[2].last { it.role == Role.Tool }.parts.filterIsInstance<Part.ToolResult>().single().content
+        assertTrue("$found -> $result", "\"ok\":true" in result)
+        assertTrue(s.items.value.none { it.id == target.id && it.status == com.wangzan101.mika.core.memory.MemoryStatus.active })
+    }
+
+    // 别的工具照旧:判成讨论时,提议的调用换成不带工具的直接回答
+    @Test fun otherToolsAreStillGated() {
+        val s = store()
+        val said = UserUtterances()
+        val apps = ModelReply(listOf(Part.ToolCall("c1", "phone_list_apps", "{}")), StopReason.ToolUse, null)
+        val model = FakeModel(apps, finishReply)
+        val judge = FakeModel(ModelReply(listOf(Part.Text("DISCUSS")), StopReason.EndTurn, null))
+        runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = said), "B", memory = s, intentJudge = judge)
+                .run("以后可以帮我看看装了哪些 App,对吧?")
+        }
+        assertEquals(1, judge.requests.size)
+        assertTrue(model.requests.none { m -> m.any { it.role == Role.Tool } })
+    }
+
     // 浏览器页上问:页面说明里的标题、网址、选中的字是网页上的,不算用户说的话;记忆的引文出自它们时不收
     @Test fun pageDescriptionIsNotTheUserWords() {
         val s = store()

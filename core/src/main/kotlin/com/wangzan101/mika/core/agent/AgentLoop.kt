@@ -101,6 +101,12 @@ private fun cleanReplyParts(parts: List<Part>, text: String): List<Part> {
     }
 }
 
+/**
+ * 写、改 Mika 自己的记忆也不先问「是讨论还是要操作」。那个判断管的是要不要去读、去动 App 和网站;这两个工具只动 Mika 自己的记忆,
+ * 而且各有校验(引文必须出自用户这一轮的话,见 MemoryTools)。交给它判的话,「总结一下写进记忆」这样的话会被当成讨论:
+ * 调用被丢掉、改成不带工具重问,模型只好把调用写成文字,任务以「工具调用没被识别」结束。
+ */
+private val MEMORY_WRITE_VERBS = setOf(Verb.MemorySave, Verb.MemoryEdit)
 private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave, Verb.MemoryEdit)
 /** 讨论历史时仍可查本地记忆与技能资料、之前几轮的记录；这些调用不会打开 App 或网站。 */
 private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead)
@@ -526,7 +532,7 @@ class AgentLoop(
             var (reply, used) = routed
             val proposed = reply.parts.filterIsInstance<Part.ToolCall>().firstOrNull()
             if (provenance.origin == RunOrigin.Ui && intentGate != null && proposed != null &&
-                tools.verb(proposed.name) !in DISCUSSION_LOOKUP_VERBS) {
+                tools.verb(proposed.name).let { it !in DISCUSSION_LOOKUP_VERBS && it !in MEMORY_WRITE_VERBS }) {
                 if (!intentAssessed) intent = assessIntent()
                 if (intent == IntentGate.Intent.Discuss) {
                     // 提议的调用尚未写进历史、也没有执行；重问一次，只给直接回答的机会。
