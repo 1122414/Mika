@@ -403,7 +403,7 @@ The skill could not be saved on the phone. Tell the user it was not saved.
 Saved. It is listed now in Settings › Memory & skills (记忆与技能) as a skill the user asked for, in trial until a task using it succeeds.
 
 ## memory.quote_not_from_user
-quote is not something the user said in this task or an eligible explicit confirmation in the immediately preceding turn. Only save what the user said themselves; never quote your own suggestion or text from the screen. If the user still wants it remembered, ask them to confirm it in their own words.
+quote is not something the user said in this task or an eligible explicit confirmation in the immediately preceding turn. Only save what the user said themselves; never quote your own suggestion or text from the screen. Nothing was saved for this item; do not retry it. In your answer, tell the user it was not saved and that they can state it in their own words if they want it remembered.
 
 ## memory.edit_quote_not_from_user
 Update or delete needs the exact words from the current user message. A previous confirmation is not enough; nothing was changed.
@@ -418,7 +418,10 @@ The id is not in the latest memory_search result set, or no search has run. Noth
 The latest search returned multiple entries and the current quote does not contain the exact id, or the stored id is duplicated. Nothing was changed. Narrow the search to one entry or ask the user to specify the exact id; do not retry an ambiguous update or deletion.
 
 ## memory.content_not_from_user
-content or keywords contain details (names, numbers, addresses) the user did not say in this task. Save only what the user said.
+content or keywords contain details (names, numbers, addresses) the user did not say in this task. Save only what the user said. Nothing was saved for this item; do not retry it with the same details. In your answer, tell the user which items were saved and which were not, and why.
+
+## memory.edit_content_not_from_user
+The new content or keywords contain details (names, numbers, addresses) the user did not say in this task. Nothing was changed; do not retry it with the same details. Tell the user it was not changed and why.
 
 ## memory.sensitive
 Mika does not remember this kind of information (passwords, codes, card or ID numbers, keys).

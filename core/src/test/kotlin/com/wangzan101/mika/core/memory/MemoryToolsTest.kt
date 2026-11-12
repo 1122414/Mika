@@ -265,6 +265,44 @@ class MemoryToolsTest {
         assertEquals(emptyList<String>(), UserUtterances().apply { add(own) }.unsupportedMemorySpecifics("用户住在张江路一品苑", own))
     }
 
+    // 按规矩不收的是对这一条的答复,不是操作故障:结果里标明不计入连续失败,仍是不可恢复(同一条别再试)
+    @Test fun rulesBasedRefusalsDoNotCountAsOperationFailures() {
+        val store = memStore()
+        val d = dispatcher(store, UserUtterances().apply { add("帮我把这个地址记下来,以后都寄这里") })
+        val notSaid = d.run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路100号", "以后都寄这里"))
+        val badQuote = d.run("memory_save", saveArgs("fact", "用户喜欢喝茶", "屏幕上写着喜欢喝茶"))
+        for (r in listOf(notSaid, badQuote)) {
+            assertEquals("false", r.s("ok"))
+            assertEquals("false", r.s("counts_as_failure"))
+            assertEquals("false", r.s("recoverable"))
+        }
+        assertEquals("content_not_from_user", notSaid.s("error"))
+        assertEquals("quote_not_from_user", badQuote.s("error"))
+        assertTrue(store.items.value.isEmpty())
+    }
+
+    // 改记忆也一样:没明确要改、新内容里有用户没说过的具体值,都是对这一条的答复,不计入连续失败
+    @Test fun refusedEditsDoNotCountAsOperationFailuresEither() {
+        val store = memStore()
+        val item = store.add(MemoryKind.fact, "用户家住浦东", listOf("地址"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val d = dispatcher(store, UserUtterances().apply { add("那条地址记得不对"); add("把那条地址改成我现在住的地方") })
+        assertTrue(item.id in d.search("地址").toString())
+        val notAsked = d.run("memory_edit", editArgs("update", item.id, "那条地址记得不对", "用户家住张江"))
+        val notSaid = d.run("memory_edit", editArgs("update", item.id, "把那条地址改成我现在住的地方", "用户家住张江路100号"))
+        assertEquals("edit_not_requested", notAsked.s("error"))
+        assertEquals("content_not_from_user", notSaid.s("error"))
+        for (r in listOf(notAsked, notSaid)) {
+            assertEquals("false", r.s("counts_as_failure"))
+            assertEquals("false", r.s("recoverable"))
+        }
+        assertTrue("改的那条说的是「没改」,不是「没存」", "Nothing was changed" in notSaid.s("message"))
+        assertEquals("用户家住浦东", store.items.value.single().content)
+        // 真的故障照旧计数:没搜过就改,属于用法不对,模型应当重来
+        val missing = d.run("memory_edit", editArgs("update", "nope", "把那条地址改成我现在住的地方", "用户家住张江"))
+        assertEquals("not_found", missing.s("error"))
+        assertFalse(missing.containsKey("counts_as_failure"))
+    }
+
     @Test fun previousConfirmationDoesNotWeakenCurrentQuoteChecks() {
         val store = memStore()
         val said = UserUtterances().apply {

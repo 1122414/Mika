@@ -117,6 +117,49 @@ class AgentLoopMemoryTest {
         assertTrue(s.items.value.none { it.id == target.id && it.status == com.wangzan101.mika.core.memory.MemoryStatus.active })
     }
 
+    // 一次记好几条,其中几条按规矩不收:不把整个任务按「操作连续失败」停掉。存上的照存,模型接着如实回答
+    @Test fun severalRefusedSavesDoNotStopTheRunAsFailed() {
+        val s = store()
+        val before = s.items.value.size
+        fun save(id: String, content: String, quote: String) = ModelReply(listOf(Part.ToolCall(id, "memory_save",
+            """{"kind":"preference","content":"$content","quote":"$quote"}""")), StopReason.ToolUse, null)
+        val model = FakeModel(
+            save("c1", "用户希望回答简短", "回答简短一点"),
+            save("c2", "用户常用 Python 写脚本", "回答简短一点"),
+            save("c3", "用户住在张江路100号", "回答简短一点"),
+            save("c4", "用户每天 7 点起床", "回答简短一点"),
+            save("c5", "用户喜欢喝茶", "屏幕上写着喜欢喝茶"),
+            finishReply,
+        )
+        val end = runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s)
+                .run("以后回答简短一点,别的你自己总结几条写进记忆")
+        }
+        assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Succeeded)
+        assertEquals("只存上了那一条", before + 1, s.items.value.size)
+        // 模型走到了最后:五次调用都发生了,接着给出回答
+        assertEquals(6, model.requests.size)
+    }
+
+    // 一口气十条都不收(每条内容不同):不再有「连续失败」来拦,模型自己停下来收尾;真停不下来的由步数上限管。
+    // 这里记下这个行为:每条不收的答复里都写了别再试,靠它让模型收手
+    @Test fun aLongRunOfRefusedSavesStillEnds() {
+        val s = store()
+        val before = s.items.value.size
+        val calls = (1..10).map { i ->
+            ModelReply(listOf(Part.ToolCall("r$i", "memory_save",
+                """{"kind":"fact","content":"用户住在张江路${100 + i}号","quote":"回答简短一点"}""")), StopReason.ToolUse, null)
+        }
+        val model = FakeModel(*(calls + finishReply).toTypedArray())
+        val end = runBlocking {
+            AgentLoop(model, toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s)
+                .run("以后回答简短一点,别的你自己总结几条写进记忆")
+        }
+        assertTrue(end.toString(), end is com.wangzan101.mika.core.agent.TaskState.Succeeded)
+        assertEquals(11, model.requests.size)
+        assertEquals(before, s.items.value.size)
+    }
+
     // 别的工具照旧:判成讨论时,提议的调用换成不带工具的直接回答
     @Test fun otherToolsAreStillGated() {
         val s = store()
