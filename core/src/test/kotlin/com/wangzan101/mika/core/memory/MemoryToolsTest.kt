@@ -257,6 +257,15 @@ class MemoryToolsTest {
         assertEquals(listOf("贸大楼"), bad("用户在国贸大楼上班"))
         assertEquals(listOf("福社区"), bad("用户住在幸福社区"))
         assertTrue(bad("用户常去人民路上的店").contains("人民路"))
+        // 行政区划后面直接跟着机构名:拆开看像「市民」「区分」「省事」「村民」,地名照样算
+        assertEquals(listOf("南京市"), bad("用户在南京市民政局工作"))
+        assertEquals(listOf("朝阳区"), bad("用户在朝阳区分局上班"))
+        assertEquals(listOf("广东省"), bad("用户在广东省事业单位工作"))
+        assertEquals(listOf("李家村"), bad("用户在李家村民委员会办过事"))
+        // 以「一路」「马路」「山区」结尾的真地名
+        assertEquals(listOf("技一路"), bad("用户的公司在科技一路"))
+        assertEquals(listOf("宝山区"), bad("用户住在宝山区"))
+        assertEquals(listOf("大马路"), bad("用户住在大马路"))
         assertTrue(bad("用户家在张江路口").contains("张江路"))
         assertTrue(bad("用户住在李家村里").contains("李家村"))
         assertTrue("3" in bad("用户住在3号楼"))
