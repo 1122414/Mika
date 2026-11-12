@@ -219,6 +219,52 @@ class MemoryToolsTest {
         assertEquals("true", ok.s("ok"))
     }
 
+    // 转述时换个说法,难免带出「知道」「公园」「味道」这类以「道、园、里、市…」结尾的普通词:它们不是地址,不能算成用户没说过的具体值
+    @Test fun ordinaryWordsThatEndLikeAPlaceNameAreNotTakenForDetails() {
+        val cases = listOf(
+            "记住我周末喜欢逛公园" to "用户周末喜欢去公园散步",
+            "以后回答简短点,背景我都知道" to "用户已经知道背景,希望回答简短",
+            "记住我喜欢重口味" to "用户喜欢重口味,偏好味道浓的菜",
+            "记住我上班的地方在城西" to "用户的公司在城市西边",
+            "记住我平时在家办公" to "用户平时在家里办公,很少去办公室",
+            "记住我不爱逛街" to "用户不喜欢上街购物,也不常去超市",
+            "记住我换了新号码" to "用户最近更换了手机号",
+            "记住我想多了解这个频道" to "用户想了解这个频道的内容,问过哪里可以看",
+        )
+        for ((said, content) in cases) {
+            val u = UserUtterances().apply { add(said) }
+            assertEquals("$said -> $content", emptyList<String>(), u.unsupportedMemorySpecifics(content, said))
+        }
+        val store = memStore()
+        val ok = dispatcher(store, UserUtterances().apply { add("记住我周末喜欢逛公园") })
+            .run("memory_save", saveArgs("preference", "用户周末喜欢去公园散步", "我周末喜欢逛公园"))
+        assertEquals("true", ok.s("ok"))
+    }
+
+    // 真的地址片段照旧要用户说过才行:路名、小区名、行政区、带号的楼
+    @Test fun realAddressFragmentsStillNeedTheUsersWords() {
+        val said = "帮我把这个地址记下来,以后都寄这里"
+        fun bad(content: String) = UserUtterances().apply { add(said) }.unsupportedMemorySpecifics(content, said)
+        assertEquals(listOf("张江路"), bad("用户的收货地址在张江路"))
+        assertEquals(listOf("一品苑"), bad("用户住在一品苑"))
+        assertEquals(listOf("东新区"), bad("用户住在浦东新区"))
+        assertEquals(listOf("幸福村"), bad("用户老家在幸福村"))
+        assertEquals(listOf("万科小区"), bad("用户住在万科小区"))
+        assertTrue(bad("用户住在人民路附近,常去公园").contains("人民路"))
+        // 同时也是普通词的地名后缀、跟在真地名后面的方位说法:照样算
+        assertEquals(listOf("安大街"), bad("用户住在长安大街"))
+        assertEquals(listOf("福家园"), bad("用户住在幸福家园"))
+        assertEquals(listOf("贸大楼"), bad("用户在国贸大楼上班"))
+        assertEquals(listOf("福社区"), bad("用户住在幸福社区"))
+        assertTrue(bad("用户常去人民路上的店").contains("人民路"))
+        assertTrue(bad("用户家在张江路口").contains("张江路"))
+        assertTrue(bad("用户住在李家村里").contains("李家村"))
+        assertTrue("3" in bad("用户住在3号楼"))
+        // 用户自己说过的照收
+        val own = "记住我住在张江路的一品苑"
+        assertEquals(emptyList<String>(), UserUtterances().apply { add(own) }.unsupportedMemorySpecifics("用户住在张江路一品苑", own))
+    }
+
     @Test fun previousConfirmationDoesNotWeakenCurrentQuoteChecks() {
         val store = memStore()
         val said = UserUtterances().apply {
