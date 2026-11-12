@@ -168,6 +168,12 @@ class ManifestProvidersTest {
             (actions.item(0) as Element).getAttributeNS(androidNs, "name"))
     }
 
+    @Test fun capsuleTileRuntimeKeepsTheSameSystemSafeIcon() {
+        val service = File("src/main/java/com/wangzan101/mika/capsule/CapsuleTileService.kt").readText()
+        assertTrue(service.contains("Icon.createWithResource(this, R.drawable.ic_notification)"))
+        assertTrue(!service.contains("Icon.createWithResource(this, R.mipmap.ic_launcher)"))
+    }
+
     @Test fun capsuleTileLongPressOpensMikaInsteadOfAppDetails() {
         val doc = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
             .newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
