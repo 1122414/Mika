@@ -1665,7 +1665,11 @@ class ChatViewModelTest {
             sandboxReady = sandbox,
             importAttachments = { id, uris ->
                 imported += id to uris
-                ImportResult(listOf("/workspace/inbox/报表 (1).csv" to 2048L), if (uris.size > 1) listOf("big.iso") else emptyList())
+                ImportResult(
+                    listOf("/workspace/inbox/报表 (1).csv" to 2048L),
+                    if (uris.size > 1) listOf("big.iso") else emptyList(),
+                    if (uris.size > 1) listOf(com.wangzan101.mika.cap.sandbox.AttachmentFailure("big.iso", com.wangzan101.mika.cap.sandbox.AttachmentFailureReason.TOO_LARGE)) else emptyList(),
+                )
             },
             describeAttachments = { uris -> uris.map { PendingAttachment(it, if (it.endsWith("1")) "报表.csv" else "big.iso", 10L) } },
         ).also { runCurrent() }
@@ -1693,7 +1697,8 @@ class ChatViewModelTest {
         assertTrue(calls.isEmpty())
         assertEquals("汇总一下", vm.ui.value.input)
         assertEquals(listOf("content://x/1", "content://x/2"), vm.ui.value.attachments.map { it.uri })
-        assertEquals(listOf("big.iso"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("big.iso"), vm.ui.value.rejectedAttachments.map { it.name })
+        assertEquals(com.wangzan101.mika.cap.sandbox.AttachmentFailureReason.TOO_LARGE, vm.ui.value.rejectedAttachments.single().reason)
         assertFalse(vm.ui.value.importing)
 
         // 用户明确移除失败项后,发送剩余附件。
@@ -1757,7 +1762,7 @@ class ChatViewModelTest {
         assertTrue(calls.isEmpty())
         assertEquals("分析这个文件", vm.ui.value.input)
         assertEquals(listOf("a.pdf"), vm.ui.value.attachments.map { it.name })
-        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments.map { it.name })
         fails = false
         assertTrue(vm.send(vm.ui.value.input, ok))
         runCurrent()
@@ -1783,7 +1788,7 @@ class ChatViewModelTest {
         assertTrue(vm.ui.value.queued.isEmpty())
         assertEquals("分析文件", vm.ui.value.input)
         assertEquals(listOf("a.pdf", "b.pdf"), vm.ui.value.attachments.map { it.name })
-        assertEquals(listOf("b.pdf"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("b.pdf"), vm.ui.value.rejectedAttachments.map { it.name })
     }
 
     @Test fun nothingIsSentWhenEveryAttachmentFailsAndThereAreNoWords() = runTest {
@@ -1797,7 +1802,7 @@ class ChatViewModelTest {
         runCurrent()
         assertTrue(calls.isEmpty())
         assertTrue(vm.ui.value.exchanges.isEmpty())
-        assertEquals(listOf("huge.mov"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("huge.mov"), vm.ui.value.rejectedAttachments.map { it.name })
     }
 
     @Test fun pickingPhotosStopsAtTheLimit() = runTest {
@@ -3384,7 +3389,7 @@ class ChatViewModelTest {
         runCurrent()
         assertTrue(calls.none { it.startsWith("start:") })
         assertEquals("看看", vm.ui.value.input)
-        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments)
+        assertEquals(listOf("a.pdf"), vm.ui.value.rejectedAttachments.map { it.name })
         assertEquals(1, vm.ui.value.attachments.size)
     }
 

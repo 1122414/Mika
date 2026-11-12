@@ -1,6 +1,8 @@
 package com.wangzan101.mika.ui
 
 import androidx.compose.foundation.gestures.scrollBy
+import com.wangzan101.mika.cap.sandbox.AttachmentFailure
+import com.wangzan101.mika.cap.sandbox.AttachmentFailureReason
 import com.wangzan101.mika.core.agent.QuoteMessage
 import com.wangzan101.mika.core.record.ConversationTokens
 import com.wangzan101.mika.core.cap.web.AttachedPage
@@ -1376,7 +1378,7 @@ internal fun Composer(
     onTeach: (() -> Unit)? = null,
     attachments: List<PendingAttachment> = emptyList(),
     importing: Boolean = false,
-    rejected: List<String> = emptyList(),
+    rejected: List<AttachmentFailure> = emptyList(),
     overLimit: Int = 0,
     onRemove: (String) -> Unit = {},
     onDismissRejected: () -> Unit = {},
@@ -1491,7 +1493,15 @@ internal fun Composer(
                     if (importing) Text(AttachCopy.IMPORTING, style = MikaType.Caption, color = c.ink3)
                     if (rejected.isNotEmpty() || overLimit > 0) {
                         val why = listOfNotNull(
-                            rejected.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.chat_attach_unavailable, it.joinToString(stringResource(R.string.list_sep))) },
+                            rejected.takeIf { it.isNotEmpty() }?.map { failure ->
+                                val reason = when (failure.reason) {
+                                    AttachmentFailureReason.TOO_LARGE -> R.string.chat_attach_too_large
+                                    AttachmentFailureReason.LOW_DEVICE_SPACE -> R.string.chat_attach_low_device_space
+                                    AttachmentFailureReason.WORKSPACE_LIMIT -> R.string.chat_attach_workspace_limit
+                                    AttachmentFailureReason.IO_ERROR -> R.string.chat_attach_io_error
+                                }
+                                stringResource(reason, failure.name)
+                            }?.joinToString("\n"),
                             overLimit.takeIf { it > 0 }?.let(AttachCopy::overLimit),
                         ).joinToString("\n")
                         Row(verticalAlignment = Alignment.CenterVertically) {
