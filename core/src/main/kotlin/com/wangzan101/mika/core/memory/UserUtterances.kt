@@ -51,6 +51,13 @@ class UserUtterances {
     @Synchronized fun unsupportedSpecifics(content: String, quote: String): List<String> =
         unsupportedSpecifics(content, quote, texts)
 
+    /**
+     * 改一条记忆时用:同 [unsupportedSpecifics],另外把 [known](那一条原来的内容和关键词)里有的也算数——
+     * 原样带过来的具体值不是新补的。「把那条改得简洁一点」时用户不会把里面的地址、数字再说一遍。
+     */
+    @Synchronized fun unsupportedEditSpecifics(content: String, quote: String, known: List<String>): List<String> =
+        unsupportedSpecifics(content, quote, texts + known)
+
     /** memory_save 只有引文本身来自上一轮确认时才让那段话参与具体值核对;普通本轮写入保持原校验。 */
     @Synchronized fun unsupportedMemorySpecifics(content: String, quote: String): List<String> {
         val sources = if (matches(quote, texts)) texts else texts + listOfNotNull(previousConfirmation)

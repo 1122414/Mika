@@ -232,13 +232,24 @@ internal object MemoryEdit : AgentTool {
         if (candidates.size > 1 && !quotesExactId(quote, id)) {
             return fail("ambiguous_target", Feedback["memory.ambiguous_target"], recoverable = false)
         }
-        if (op == "update" && (listOf(content!!) + keywords.orEmpty()).any { utterances.unsupportedSpecifics(it, quote).isNotEmpty() }) {
-            return refused(ctx, a, "content_not_from_user", Feedback["memory.edit_content_not_from_user"])
-        }
         val store = ctx.config.memory!!
+        // 这一条原来的样子:里面本来就有的具体值(地址、数字、名字)照样带着不算新补的
+        val before = store.items.value.firstOrNull { it.id == id }
+        var carried = false
+        if (op == "update") {
+            val texts = listOf(content!!) + keywords.orEmpty()
+            val known = before?.let { listOf(it.content) + it.keywords }.orEmpty()
+            if (texts.any { utterances.unsupportedEditSpecifics(it, quote, known).isNotEmpty() }) {
+                return refused(ctx, a, "content_not_from_user", Feedback["memory.edit_content_not_from_user"])
+            }
+            // 新内容里有靠原来那条才站得住的具体值(用户这一轮没说)
+            carried = texts.any { utterances.unsupportedSpecifics(it, quote).isNotEmpty() }
+        }
+        // Mika 自己归纳的那条改写之后还是它归纳的:里面的具体值仍然不是用户说的。用户这一轮把内容都亲口说了的,才改记成用户说的
+        val type = if (carried && before?.source?.type == MemoryContext.INFERRED) MemoryContext.INFERRED else "user_said"
         val changed: Result<Change> = when (op) {
             "update" -> store.update(id, content!!, keywords,
-                MemorySource("user_said", quote.trim(), ctx.config.conversationId, store.clock(), ctx.config.runSpec?.provenance?.origin?.name))
+                MemorySource(type, quote.trim(), ctx.config.conversationId, store.clock(), ctx.config.runSpec?.provenance?.origin?.name))
             "delete" -> store.forget(id)
             else -> throw ArgError("op", "must be update or delete")
         }

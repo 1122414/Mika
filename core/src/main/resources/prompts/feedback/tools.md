@@ -427,7 +427,7 @@ content or keywords contain details the user did not say in this task, and the p
 Saved as your own conclusion, not as something the user said: it contains details the user did not say in this task. Tell the user it was saved that way.
 
 ## memory.edit_content_not_from_user
-The new content or keywords contain details (names, numbers, addresses) the user did not say in this task. Nothing was changed; do not retry it with the same details. Tell the user it was not changed and why.
+The new content or keywords contain details (names, numbers, addresses) that are neither in the entry as it stands nor in what the user said in this task. Nothing was changed; do not retry it with the same details. Tell the user it was not changed and why.
 
 ## memory.sensitive
 Mika does not remember this kind of information (passwords, codes, card or ID numbers, keys).

@@ -332,6 +332,42 @@ class MemoryToolsTest {
         assertEquals("true", attempt("把外卖那条改成:如果我说老样子,就是不要香菜", "update").s("ok"))
     }
 
+    // 「把那条改得简洁一点」:条目里本来就有的地址、数字照样带着,不算新补的;另外补进来的还是不收
+    @Test fun rewordingAnEntryMayKeepTheDetailsItAlreadyHas() {
+        val store = memStore()
+        val item = store.add(MemoryKind.fact, "用户常在张江路100号附近点外卖,一周 3 次", listOf("外卖", "Meituan"), MemorySource("manual", atMs = 1)).getOrThrow().item
+        val d = dispatcher(store, UserUtterances().apply { add("把外卖那条改的简洁一点") })
+        d.search("外卖")
+        val shorter = d.run("memory_edit", editArgs("update", item.id, "把外卖那条改的简洁一点", "用户常点张江路100号的外卖,每周 3 次"))
+        assertEquals("true", shorter.s("ok"))
+        assertEquals("用户常点张江路100号的外卖,每周 3 次", store.items.value.single().content)
+        // 原来没有、用户这一轮也没说的:不收,条目不动
+        val added = d.run("memory_edit", editArgs("update", item.id, "把外卖那条改的简洁一点", "用户常点张江路100号和世纪大道200号的外卖"))
+        assertEquals("content_not_from_user", added.s("error"))
+        assertEquals("用户常点张江路100号的外卖,每周 3 次", store.items.value.single().content)
+        // 关键词里原来就有的也算
+        val args = buildJsonObject {
+            put("op", "update"); put("id", item.id); put("quote", "把外卖那条改的简洁一点"); put("content", "用户常点张江路100号的外卖")
+            putJsonArray("keywords") { add(kotlinx.serialization.json.JsonPrimitive("Meituan")) }
+        }
+        assertEquals("true", d.run("memory_edit", args).s("ok"))
+    }
+
+    // Mika 自己归纳的那条改写之后还是它归纳的;用户这一轮把内容亲口说了的,才改记成用户说的
+    @Test fun rewordingMikasOwnConclusionKeepsItMarkedAsSuch() {
+        val store = memStore(inferenceAllowed = { true })
+        val item = store.add(MemoryKind.fact, "用户常在张江路100号附近点外卖", listOf("外卖"),
+            MemorySource(MemoryContext.INFERRED, "你自己总结几条写进记忆", atMs = 1)).getOrThrow().item
+        val d = dispatcher(store, UserUtterances().apply { add("把外卖那条改的简洁一点"); add("把外卖那条改成我常点世纪大道200号的外卖") })
+        d.search("外卖")
+        assertEquals("true", d.run("memory_edit", editArgs("update", item.id, "把外卖那条改的简洁一点", "用户常点张江路100号的外卖")).s("ok"))
+        assertEquals(MemoryContext.INFERRED, store.items.value.single().source.type)
+        assertEquals("true", d.search("外卖")["memories"]!!.jsonArray.single().jsonObject.s("inferred"))
+        // 用户亲口说了新的内容:这一条现在是用户说的
+        assertEquals("true", d.run("memory_edit", editArgs("update", item.id, "把外卖那条改成我常点世纪大道200号的外卖", "用户常点世纪大道200号的外卖")).s("ok"))
+        assertEquals("user_said", store.items.value.single().source.type)
+    }
+
     // 改记忆也一样:没明确要改、新内容里有用户没说过的具体值,都是对这一条的答复,不计入连续失败
     @Test fun refusedEditsDoNotCountAsOperationFailuresEither() {
         val store = memStore()
