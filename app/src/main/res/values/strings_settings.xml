@@ -217,4 +217,11 @@
     <string name="settings_token_budget_custom">Custom token budget</string>
     <string name="settings_token_budget_apply">Use</string>
     <string name="settings_token_budget_invalid">Enter a whole number from %1$s to %2$s.</string>
+    <string name="settings_auto_archive">Auto-archive chats</string>
+    <string name="settings_auto_archive_sub">Chats without new messages for a while move to the archive</string>
+    <string name="settings_auto_archive_hint">Chats without new messages for the chosen time are moved to the archive. Pinned chats and chats with a task running stay put. You can restore them from the archive in the chat list at any time.</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
 </resources>

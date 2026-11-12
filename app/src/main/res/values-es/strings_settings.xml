@@ -210,4 +210,12 @@
     <string name="settings_token_budget_custom">Presupuesto de tokens personalizado</string>
     <string name="settings_token_budget_apply">Usar</string>
     <string name="settings_token_budget_invalid">Introduce un número entero entre %1$s y %2$s.</string>
+    <string name="settings_auto_archive">Archivar chats automáticamente</string>
+    <string name="settings_auto_archive_sub">Los chats sin mensajes nuevos durante un tiempo pasan al archivo</string>
+    <string name="settings_auto_archive_hint">Los chats sin mensajes nuevos durante el tiempo elegido pasan al archivo. Los chats fijados y los que tienen una tarea en curso no se tocan. Puedes restaurarlos desde el archivo en la lista de chats cuando quieras.</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="one">%1$d día</item>
+        <item quantity="many">%1$d días</item>
+        <item quantity="other">%1$d días</item>
+    </plurals>
 </resources>

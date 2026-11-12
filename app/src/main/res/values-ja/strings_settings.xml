@@ -202,4 +202,10 @@
     <string name="settings_token_budget_custom">カスタム Token 予算</string>
     <string name="settings_token_budget_apply">使用</string>
     <string name="settings_token_budget_invalid">%1$s〜%2$s の整数を入力してください。</string>
+    <string name="settings_auto_archive">チャットを自動アーカイブ</string>
+    <string name="settings_auto_archive_sub">しばらく新しいメッセージがないチャットをアーカイブに移します</string>
+    <string name="settings_auto_archive_hint">選んだ期間、新しいメッセージがないチャットをアーカイブに移します。ピン留めしたチャットとタスク実行中のチャットは対象外です。チャット一覧のアーカイブからいつでも戻せます。</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="other">%1$d 日</item>
+    </plurals>
 </resources>

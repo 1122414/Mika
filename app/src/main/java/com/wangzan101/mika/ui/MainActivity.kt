@@ -241,6 +241,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         monitor.refresh()
+        // 回到前台时按最新设置查一次自动归档(启动时也查过,这里照顾长期不退出的进程)
+        (application as MikaApp).autoArchiveNow()
     }
 
     override fun onStop() {

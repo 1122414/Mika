@@ -217,4 +217,11 @@
     <string name="settings_token_budget_custom">سقف توکن دلخواه</string>
     <string name="settings_token_budget_invalid">یک عدد صحیح از %1$s تا %2$s وارد کنید.</string>
     <string name="settings_token_budget_unlimited">بدون محدودیت</string>
+    <string name="settings_auto_archive">بایگانی خودکار گفتگوها</string>
+    <string name="settings_auto_archive_sub">گفتگوهایی که مدتی پیام جدید ندارند به بایگانی منتقل می‌شوند</string>
+    <string name="settings_auto_archive_hint">گفتگوهایی که در مدت انتخاب‌شده پیام جدیدی ندارند به بایگانی منتقل می‌شوند. گفتگوهای سنجاق‌شده و گفتگوهایی که وظیفه‌ای در آن‌ها در حال اجراست دست‌نخورده می‌مانند. هر زمان می‌توانید آن‌ها را از بایگانی در فهرست گفتگوها بازیابی کنید.</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="one">%1$d روز</item>
+        <item quantity="other">%1$d روز</item>
+    </plurals>
 </resources>

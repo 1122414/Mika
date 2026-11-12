@@ -202,4 +202,10 @@
     <string name="settings_token_budget_custom">Anggaran token kustom</string>
     <string name="settings_token_budget_apply">Pakai</string>
     <string name="settings_token_budget_invalid">Masukkan bilangan bulat dari %1$s sampai %2$s.</string>
+    <string name="settings_auto_archive">Arsipkan chat otomatis</string>
+    <string name="settings_auto_archive_sub">Chat tanpa pesan baru untuk sementara waktu dipindahkan ke arsip</string>
+    <string name="settings_auto_archive_hint">Chat tanpa pesan baru selama waktu yang dipilih dipindahkan ke arsip. Chat yang disematkan dan chat dengan tugas yang sedang berjalan tidak diubah. Anda dapat memulihkannya dari arsip di daftar chat kapan saja.</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="other">%1$d hari</item>
+    </plurals>
 </resources>

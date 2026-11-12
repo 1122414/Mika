@@ -222,4 +222,15 @@
     <string name="settings_token_budget_custom">ميزانية Token مخصصة</string>
     <string name="settings_token_budget_apply">استخدام</string>
     <string name="settings_token_budget_invalid">أدخل عددًا صحيحًا من %1$s إلى %2$s.</string>
+    <string name="settings_auto_archive">أرشفة المحادثات تلقائيًا</string>
+    <string name="settings_auto_archive_sub">المحادثات التي لا تصلها رسائل جديدة لفترة تنتقل إلى الأرشيف</string>
+    <string name="settings_auto_archive_hint">المحادثات التي لا تصلها رسائل جديدة خلال المدة المختارة تنتقل إلى الأرشيف. تبقى المحادثات المثبتة والمحادثات التي تعمل فيها مهمة كما هي. يمكنك استعادتها من الأرشيف في قائمة المحادثات في أي وقت.</string>
+    <plurals name="settings_auto_archive_days">
+        <item quantity="zero">%1$d يوم</item>
+        <item quantity="one">يوم واحد</item>
+        <item quantity="two">يومان</item>
+        <item quantity="few">%1$d أيام</item>
+        <item quantity="many">%1$d يومًا</item>
+        <item quantity="other">%1$d يوم</item>
+    </plurals>
 </resources>
