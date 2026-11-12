@@ -104,7 +104,7 @@ class IncrementalSummaryTest {
         val model = FakeModel(answer("ok"), answer("ok"))
         val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true), RetryPolicy.NONE, {}, { 0L })
         caller.ask(raw, tools.definitions(), 12)
-        assertTrue("archiveKey" in model.requests.last()[3].parts.filterIsInstance<Part.ToolResult>().single().content)
+        assertEquals(screen(2), model.requests.last()[3].parts.filterIsInstance<Part.ToolResult>().single().content)
         caller.ask(raw, emptyList(), 13)
         assertEquals(screen(2), model.requests.last()[3].parts.filterIsInstance<Part.ToolResult>().single().content)
         assertNull(ScreenArchive().page(key,0))

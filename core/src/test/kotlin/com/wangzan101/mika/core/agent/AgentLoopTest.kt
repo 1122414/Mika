@@ -95,6 +95,26 @@ class AgentLoopTest {
         gate: suspend (setWaiting: (TaskState?) -> Unit) -> Unit = {},
     ) = AgentLoop(model, toolDispatcher(screen, vision), "BASE", maxSteps, gate, sink = sink, retry = FIXED_RETRY)
 
+    @Test fun reliableOfferAndSystemStayIdenticalAcrossTenCalls() = runTest {
+        val script = (1..9).map { tools(call("history_read", if (it == 1) "{}" else """{"turn":$it}""")) } + finish()
+        val fake = FakeModel(*script.toTypedArray())
+        val offers = mutableListOf<Pair<String, List<ToolSpec>>>()
+        val recording = object : ChatModel by fake {
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                offers += system to tools.toList()
+                return fake.complete(system, messages, tools)
+            }
+        }
+        AgentLoop(recording, toolDispatcher(FakeScreen(), reliableContext = true), "BASE",
+            flags = SpeedFlags(reliableContext = true)).run("查看历史记录")
+        assertEquals(10, offers.size)
+        assertEquals(1, offers.distinct().size)
+        assertTrue(offers.first().second.any { it.name == "history_read" })
+        val result = fake.requests[1].flatMap { it.parts }.filterIsInstance<Part.ToolResult>().single()
+        assertFalse(result.isError)
+        assertEquals("[]", result.json()["turns"].toString())
+    }
+
     @Test fun discussionToolProposalIsReplacedByDirectAnswer() = runTest {
         val main = FakeModel(tools(call("phone_list_apps")), finish("可以，先讨论具体流程。"))
         val judge = FakeModel(finish("DISCUSS"))

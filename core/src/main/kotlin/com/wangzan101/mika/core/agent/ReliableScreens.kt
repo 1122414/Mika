@@ -11,11 +11,7 @@ internal class ReliableScreens {
     private var original = emptyList<Message>()
     private var packed = emptyList<Message>()
 
-    var changed = false
-        private set
-    fun consumeChange() = changed.also { changed = false }
-
-    fun clear() { changed = original.isNotEmpty(); original = emptyList(); packed = emptyList() }
+    fun clear() { original = emptyList(); packed = emptyList() }
 
     fun project(history: List<Message>): List<Message> {
         if (original.size > history.size || original != history.subList(0, original.size)) clear()
@@ -25,7 +21,6 @@ internal class ReliableScreens {
         if (cut > original.size) {
             val add = history.subList(original.size, cut)
             val batch = add.map(::packMessage)
-            if (batch != add) changed = true
             packed = packed + batch
             original = history.take(cut)
         }

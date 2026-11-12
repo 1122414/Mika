@@ -1,7 +1,5 @@
 package com.wangzan101.mika.core.agent
 
-import com.wangzan101.mika.core.context.ScreenArchive
-import com.wangzan101.mika.core.context.TaskMemory
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.StopReason
@@ -139,12 +137,12 @@ class HotelContextReplayTest {
             }
             if ((end - 1) / 2 in listOf(30, 100)) {
                 println("product replay rounds=${(end-1)/2} A=$a B=$b")
-                assertTrue(b < a)
+                assertEquals(a, b)
             }
             if (after.take(prev.size) != prev) rewrites += (end - 1) / 2
             prev = after
         }
-        assertEquals(listOf(10, 20, 40, 80), rewrites)
+        assertEquals(emptyList<Int>(), rewrites)
         assertEquals(source, history.take(source.size))
     }
 
@@ -152,12 +150,15 @@ class HotelContextReplayTest {
      * The 33 tool actions and the two tool errors follow the verified 34-request run. The export
      * has no bodies: page contents, trees and arguments below are a fixed, synthetic fixture.
      */
-    @Test fun replayOrderPageAndPriceOnTheSame34Requests() = runTest {
+    @Test fun replayOrderPageAndPriceOnTheSame34Requests() = runTest { replay(34, 0.66255136 * 1.01) }
+    @Test fun replayPastTheFortiethRound() = runTest { replay(45, 0.93615964 * 1.01) }
+
+    private suspend fun replay(length: Int, ceiling: Double) {
         fixture()
         val evidencePages = history.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
             .filter { it.callId in evidence }.map { Json.parseToJsonElement(it.content).jsonObject.getValue("screen").jsonObject }
         val pages = listOf(12, 18, 23, 29).zip(evidencePages).toMap()
-        val actions = (1..33).associateWith { step -> when (step) {
+        val actions = (1 until length).associateWith { step -> when (step) {
             1 -> "phone_list_apps"; 2, 13, 30 -> "phone_launch_app"; 3 -> "task_progress"; 7 -> "do_steps"
             15, 20, 24, 28 -> "phone_type_text"; 19, 23, 27 -> "phone_clear_text"; else -> "phone_tap"
         } }
@@ -169,25 +170,23 @@ class HotelContextReplayTest {
         val caller = ModelCaller(model, tools, null, SpeedFlags(reliableContext = true, semanticSummaries = false),
             RetryPolicy.NONE, {}, { 0L })
         val wire = HotelReplayMeter()
-        // Isolate each projection on exactly the same input, independently of the pricing model.
-        val tables = ContextCompressor(TOOLS, reliable = true)
-        val archive = ArchivedScreens(ScreenArchive())
-        val memory = TaskMemory({ null })
-        val previous = mutableMapOf<String, List<Message>>()
+        // Compare the representation of previously sent results on the product path.
+        var previous = emptyMap<String, Pair<Boolean, Boolean>>()
         val changes = mutableMapOf<String, MutableList<Int>>()
         var selected: Choice? = null
-        for (step in 1..34) {
+        for (step in 1..length) {
             val specs = tools.definitions()
             caller.ask(raw, specs, step)
             val view = model.requests.last()
             wire.observe(step, view, specs)
-            for ((kind, projected) in listOf("tables" to tables.compress(raw, 1_000_000).messages,
-                "archive" to archive.project(raw, memory))) {
-                val prev = previous.put(kind, projected.toList()).orEmpty()
-                if (projected.take(prev.size) != prev) changes.getOrPut(kind) { mutableListOf() }.add(step)
+            val shapes = view.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().associate {
+                it.callId to (("\"elementTables\"" in it.content) to ("\"archiveKey\"" in it.content))
             }
-            if (step == 32) selected = choose(view)
-            if (step == 34) {
+            if (previous.any { (id, old) -> shapes[id]?.first != old.first }) changes.getOrPut("tables") { mutableListOf() }.add(step)
+            if (previous.any { (id, old) -> shapes[id]?.second != old.second }) changes.getOrPut("archive") { mutableListOf() }.add(step)
+            previous = shapes
+            if (step == length - 2) selected = choose(view)
+            if (step == length) {
                 val page = Json.parseToJsonElement((view.last().parts.single() as Part.ToolResult).content)
                     .jsonObject.getValue("screen").jsonObject
                 assertEquals("携程", page.getValue("currentApp").jsonPrimitive.content)
@@ -204,7 +203,7 @@ class HotelContextReplayTest {
                     val source = pages[step]
                     val page = buildJsonObject {
                         put("currentApp", if (step in 13..29) maps else listing)
-                        put("title", if (step == 33) "订单填写：${requireNotNull(selected).name}；2026-11-20" else "页面 $step")
+                        put("title", if (step == length - 1) "订单填写：${requireNotNull(selected).name}；2026-11-20" else "页面 $step")
                         put("full", true); put("snapshotId", "s$step")
                         putJsonArray("elements") {
                             source?.get("elements")?.jsonArray?.forEach(::add)
@@ -221,12 +220,11 @@ class HotelContextReplayTest {
             raw += Message(Role.Tool, listOf(Part.ToolResult(id, response, isError)), Author.Mika)
         }
         assertEquals(expected, selected)
-        println("34-request hotel replay: $wire isolated=$changes")
-        assertEquals(listOf(11, 21), wire.rewrites)
-        assertEquals(wire.rewrites, changes["tables"])
-        assertEquals(wire.rewrites, changes["archive"])
-        // Same input fixture and price calculation as the pre-change run at 0c76c196.
-        assertTrue("regressed against the measured replay baseline: $wire", wire.estimatedCost < 0.84786696 * 0.90)
+        println("$length-request hotel replay: $wire representationChanges=$changes")
+        assertEquals(emptyList<Int>(), wire.rewrites)
+        assertTrue(changes["tables"].isNullOrEmpty())
+        assertTrue(changes["archive"].isNullOrEmpty())
+        assertTrue("append-only replay exceeds $ceiling: $wire", wire.estimatedCost <= ceiling)
     }
 
     @Test fun cannotConfirmWinnerWithOneCompetitorsWalkMissing() {

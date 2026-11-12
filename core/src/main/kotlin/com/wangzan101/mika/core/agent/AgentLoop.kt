@@ -398,12 +398,8 @@ class AgentLoop(
         emit(RunEvent.PromptVersion(now(), PromptVersion.of(SystemPrompt.assemble(basePrompt, tools.promptSections(everything, all = true)), everything)))
         var specs = emptyList<ToolSpec>()
         // 每次问模型之前:展开了新的组时,工具和系统提示词跟着换;没展开就一字不变
-        fun refreshOffer(step: Int = 1) {
-            val offer = tools.offeredNow(listOfNotNull(batchSpec)).filter(::keep).mapNotNull { spec ->
-                if (tools.ctx.taskMemory == null || step >= 7 || spec.name != com.wangzan101.mika.core.general.HISTORY_READ) spec
-                else if (tools.ctx.config.runRecords != null && rawPrior.any { it.runId != null })
-                    com.wangzan101.mika.core.general.HistoryRead.def.spec() else null
-            }
+        fun refreshOffer() {
+            val offer = tools.offeredNow(listOfNotNull(batchSpec)).filter(::keep)
             if (offer == specs) return
             specs = offer
             caller.systemPrompt = SystemPrompt.assemble(basePrompt, tools.promptSections(specs))
@@ -525,7 +521,7 @@ class AgentLoop(
             if (maxSteps != Int.MAX_VALUE) TurnPolicy.beforeStep(TurnSnapshot(step, maxSteps))?.let { history += ctx.notice(it.source, it.text) }
             appendRuntimeState(history, place, labels, step)
             _state.value = TaskState.Running(step, note, progress = progressState())
-            refreshOffer(step)
+            refreshOffer()
             var asked = now()
             val routed = try {
                 routedOrRedirect(inbox, history, specs, track, step, { asked = it }, previewFor(step))

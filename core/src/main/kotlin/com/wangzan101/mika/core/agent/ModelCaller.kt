@@ -182,7 +182,7 @@ internal class ModelCaller(
             if (summaries.advance(memory, tools.ctx.evidence.ledger.all.filter { it.id > tools.ctx.runFloor }, step, summaryWriter ?: model, user))
                 emit(RunEvent.State(now(), "summary_committed", memory.state.cursor.toString()))
         }
-        val history = if (canRecall && memory != null && flags.reliableContext) archiveViews.project(original, memory) else original
+        val history = original
         val body = memory?.projection()
         val working = body?.let { Message(Role.User, listOf(Part.Text(ContextBuilder.envelope(ContextKind.UserScreen,
             "historical quotations; verify current state before external actions", it))), com.wangzan101.mika.core.model.Author.Mika) }
@@ -194,7 +194,6 @@ internal class ModelCaller(
         var overflowRewrote = false
         while (true) {
             val current = ContextRecovery.ensure(history, compressor.current(history, contextTokens))
-            if (flags.reliableContext && compressor.consumeProjectionChange()) anchors.entries.removeAll { it.value.first === using }
             val currentTokens = requestTokens(current, using, overhead, compressor.scale)
             val raw = compressor.compress(history, contextTokens, currentTokens, compaction.aggressive, overhead, using.capabilities.maxImages)
             if (raw.rewritten) anchors.clear()
