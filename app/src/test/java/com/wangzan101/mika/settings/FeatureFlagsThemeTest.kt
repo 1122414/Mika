@@ -28,4 +28,23 @@ class FeatureFlagsThemeTest {
         job.join()
         assertEquals(listOf(ThemeMode.System, ThemeMode.Dark, ThemeMode.Light), seen)
     }
+
+    @Test fun accentDefaultsToBlueAndUnknownFallsBack() {
+        val prefs = FeatureFlagsCapsuleTest.MemoryPrefs()
+        assertEquals(ThemeAccent.Blue, FeatureFlags(prefs).themeAccent())
+        prefs.edit().putString("theme_accent", "Neon").commit()
+        assertEquals(ThemeAccent.Blue, FeatureFlags(prefs).themeAccent())
+    }
+
+    @Test fun accentChangesEmitCurrentThenEachChange() = runTest {
+        val flags = FeatureFlags(FeatureFlagsCapsuleTest.MemoryPrefs())
+        val seen = mutableListOf<ThemeAccent>()
+        val job = launch { flags.themeAccentChanges().take(3).toList(seen) }
+        runCurrent()
+        flags.setThemeAccent(ThemeAccent.Teal)
+        runCurrent()
+        SelfConfigImpl(flags).set("accent_color", "graphite")
+        job.join()
+        assertEquals(listOf(ThemeAccent.Blue, ThemeAccent.Teal, ThemeAccent.Graphite), seen)
+    }
 }

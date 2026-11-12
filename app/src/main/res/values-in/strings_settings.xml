@@ -124,8 +124,16 @@
     <string name="appearance_system_detail">Terang atau gelap, mengikuti mode ponsel</string>
     <string name="appearance_light">Selalu terang</string>
     <string name="appearance_dark">Selalu gelap</string>
+    <string name="accent_group">Warna aksen</string>
+    <string name="accent_default">Bawaan</string>
+    <string name="accent_blue">Biru</string>
+    <string name="accent_indigo">Nila</string>
+    <string name="accent_purple">Ungu</string>
+    <string name="accent_pink">Merah muda</string>
+    <string name="accent_teal">Hijau kebiruan</string>
+    <string name="accent_graphite">Grafit</string>
     <string name="settings_self_config">Biarkan Mika mengubah pengaturannya sendiri</string>
-    <string name="settings_self_config_sub">Jika aktif, tugas mendapat satu alat untuk membaca dan mengubah preferensi ini (kecepatan, bisu, kapsul, tampilan, layar menyala). Model, kunci API, jaringan kontainer, dan apa pun yang menghapus data tidak pernah disertakan</string>
+    <string name="settings_self_config_sub">Jika aktif, tugas mendapat satu alat untuk membaca dan mengubah preferensi ini (kecepatan, bisu, kapsul, tampilan, warna aksen, layar menyala). Model, kunci API, jaringan kontainer, dan apa pun yang menghapus data tidak pernah disertakan</string>
     <string name="settings_step_limit">Batas langkah per tugas</string>
     <string name="settings_step_limit_sub">Mati berarti tanpa batas. Saat batas tercapai, tugas berhenti dan menyebutkan di mana berhentinya.</string>
     <string name="settings_step_limit_off">Tanpa batas</string>

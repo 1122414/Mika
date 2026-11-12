@@ -132,8 +132,16 @@
     <string name="appearance_system_detail">Claro u oscuro, según esté el teléfono</string>
     <string name="appearance_light">Siempre claro</string>
     <string name="appearance_dark">Siempre oscuro</string>
+    <string name="accent_group">Color de énfasis</string>
+    <string name="accent_default">Predeterminado</string>
+    <string name="accent_blue">Azul</string>
+    <string name="accent_indigo">Índigo</string>
+    <string name="accent_purple">Morado</string>
+    <string name="accent_pink">Rosa</string>
+    <string name="accent_teal">Verde azulado</string>
+    <string name="accent_graphite">Grafito</string>
     <string name="settings_self_config">Dejar que Mika cambie sus propios ajustes</string>
-    <string name="settings_self_config_sub">Si está activado, las tareas tienen una herramienta para leer y cambiar estas preferencias (ritmo, silencio, cápsula, apariencia, pantalla encendida). Nunca se incluyen los modelos, las claves de API, la red del contenedor ni nada que elimine datos</string>
+    <string name="settings_self_config_sub">Si está activado, las tareas tienen una herramienta para leer y cambiar estas preferencias (ritmo, silencio, cápsula, apariencia, color de énfasis, pantalla encendida). Nunca se incluyen los modelos, las claves de API, la red del contenedor ni nada que elimine datos</string>
     <string name="settings_step_limit">Límite de pasos por tarea</string>
     <string name="settings_step_limit_sub">Desactivado significa sin límite. Al alcanzarlo, la tarea se detiene e indica dónde se detuvo.</string>
     <string name="settings_step_limit_off">Sin límite</string>

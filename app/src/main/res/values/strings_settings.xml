@@ -139,8 +139,16 @@
     <string name="appearance_system_detail">Light or dark, whichever the phone is in</string>
     <string name="appearance_light">Always light</string>
     <string name="appearance_dark">Always dark</string>
+    <string name="accent_group">Accent color</string>
+    <string name="accent_default">Default</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_indigo">Indigo</string>
+    <string name="accent_purple">Purple</string>
+    <string name="accent_pink">Pink</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_graphite">Graphite</string>
     <string name="settings_self_config">Let Mika change its own settings</string>
-    <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
+    <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, accent color, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
     <string name="settings_step_limit">Step limit per task</string>
     <string name="settings_step_limit_sub">Off means no limit. When the limit is reached, the task stops and says where it stopped.</string>
     <string name="settings_step_limit_off">No limit</string>

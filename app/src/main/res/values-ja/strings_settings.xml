@@ -124,8 +124,16 @@
     <string name="appearance_system_detail">スマホの設定に合わせて、ライトまたはダーク</string>
     <string name="appearance_light">常にライト</string>
     <string name="appearance_dark">常にダーク</string>
+    <string name="accent_group">アクセントカラー</string>
+    <string name="accent_default">デフォルト</string>
+    <string name="accent_blue">ブルー</string>
+    <string name="accent_indigo">インディゴ</string>
+    <string name="accent_purple">パープル</string>
+    <string name="accent_pink">ピンク</string>
+    <string name="accent_teal">ティール</string>
+    <string name="accent_graphite">グラファイト</string>
     <string name="settings_self_config">Mika に自分の設定を変更させる</string>
-    <string name="settings_self_config_sub">オンにすると、タスクがこれらの設定(ペース、ミュート、カプセル、外観、画面オン)を読み取り・変更するツールを 1 つ使えるようになります。モデル、API キー、コンテナのネットワーク、データを削除するものは含まれません</string>
+    <string name="settings_self_config_sub">オンにすると、タスクがこれらの設定(ペース、ミュート、カプセル、外観、アクセントカラー、画面オン)を読み取り・変更するツールを 1 つ使えるようになります。モデル、API キー、コンテナのネットワーク、データを削除するものは含まれません</string>
     <string name="settings_step_limit">タスクごとのステップ上限</string>
     <string name="settings_step_limit_sub">オフは無制限です。上限に達するとタスクは止まり、どこで止まったかを表示します。</string>
     <string name="settings_step_limit_off">上限なし</string>

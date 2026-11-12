@@ -136,8 +136,16 @@
     <string name="appearance_system_detail">Светлое или тёмное, как на телефоне</string>
     <string name="appearance_light">Всегда светлое</string>
     <string name="appearance_dark">Всегда тёмное</string>
+    <string name="accent_group">Цвет акцента</string>
+    <string name="accent_default">По умолчанию</string>
+    <string name="accent_blue">Синий</string>
+    <string name="accent_indigo">Индиго</string>
+    <string name="accent_purple">Фиолетовый</string>
+    <string name="accent_pink">Розовый</string>
+    <string name="accent_teal">Бирюзовый</string>
+    <string name="accent_graphite">Графит</string>
     <string name="settings_self_config">Разрешить Mika менять свои настройки</string>
-    <string name="settings_self_config_sub">Когда включено, у задач появляется один инструмент для чтения и изменения этих настроек (темп, звук, капсула, оформление, экран не гаснет). Модели, ключи API, сеть контейнера и всё, что удаляет данные, никогда не включаются</string>
+    <string name="settings_self_config_sub">Когда включено, у задач появляется один инструмент для чтения и изменения этих настроек (темп, звук, капсула, оформление, цвет акцента, экран не гаснет). Модели, ключи API, сеть контейнера и всё, что удаляет данные, никогда не включаются</string>
     <string name="settings_step_limit">Лимит шагов на задачу</string>
     <string name="settings_step_limit_sub">Выключено — без ограничения. При достижении лимита задача остановится и укажет, где остановилась.</string>
     <string name="settings_step_limit_off">Без ограничения</string>

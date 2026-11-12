@@ -132,8 +132,16 @@
     <string name="appearance_system_detail">Claro ou escuro, conforme o celular estiver</string>
     <string name="appearance_light">Sempre claro</string>
     <string name="appearance_dark">Sempre escuro</string>
+    <string name="accent_group">Cor de destaque</string>
+    <string name="accent_default">Padrão</string>
+    <string name="accent_blue">Azul</string>
+    <string name="accent_indigo">Índigo</string>
+    <string name="accent_purple">Roxo</string>
+    <string name="accent_pink">Rosa</string>
+    <string name="accent_teal">Verde-azulado</string>
+    <string name="accent_graphite">Grafite</string>
     <string name="settings_self_config">Deixar o Mika alterar as próprias configurações</string>
-    <string name="settings_self_config_sub">Ativado, as tarefas ganham uma ferramenta para ler e alterar estas preferências (ritmo, silenciar, cápsula, aparência, tela ligada). Modelos, chaves de API, rede do contêiner e qualquer coisa que apague dados nunca são incluídos</string>
+    <string name="settings_self_config_sub">Ativado, as tarefas ganham uma ferramenta para ler e alterar estas preferências (ritmo, silenciar, cápsula, aparência, cor de destaque, tela ligada). Modelos, chaves de API, rede do contêiner e qualquer coisa que apague dados nunca são incluídos</string>
     <string name="settings_step_limit">Limite de passos por tarefa</string>
     <string name="settings_step_limit_sub">Desligado significa sem limite. Ao atingir o limite, a tarefa para e indica onde parou.</string>
     <string name="settings_step_limit_off">Sem limite</string>

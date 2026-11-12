@@ -124,8 +124,16 @@
     <string name="appearance_system_detail">휴대전화가 라이트 모드면 라이트, 다크 모드면 다크</string>
     <string name="appearance_light">항상 라이트</string>
     <string name="appearance_dark">항상 다크</string>
+    <string name="accent_group">강조 색상</string>
+    <string name="accent_default">기본값</string>
+    <string name="accent_blue">파랑</string>
+    <string name="accent_indigo">남색</string>
+    <string name="accent_purple">보라</string>
+    <string name="accent_pink">분홍</string>
+    <string name="accent_teal">청록</string>
+    <string name="accent_graphite">그래파이트</string>
     <string name="settings_self_config">Mika가 자신의 설정을 바꾸도록 허용</string>
-    <string name="settings_self_config_sub">켜면 작업에서 이 환경설정(속도, 음소거, 캡슐, 화면 모드, 화면 켜 두기)을 읽고 바꾸는 도구를 하나 쓸 수 있어요. 모델, API 키, 컨테이너 네트워크, 데이터를 삭제하는 항목은 포함되지 않아요</string>
+    <string name="settings_self_config_sub">켜면 작업에서 이 환경설정(속도, 음소거, 캡슐, 화면 모드, 강조 색상, 화면 켜 두기)을 읽고 바꾸는 도구를 하나 쓸 수 있어요. 모델, API 키, 컨테이너 네트워크, 데이터를 삭제하는 항목은 포함되지 않아요</string>
     <string name="settings_step_limit">작업당 단계 상한</string>
     <string name="settings_step_limit_sub">끄면 제한 없음입니다. 상한에 도달하면 작업이 멈추고 어디서 멈췄는지 알려 줍니다.</string>
     <string name="settings_step_limit_off">제한 없음</string>

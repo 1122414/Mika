@@ -99,6 +99,23 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putString(THEME_MODE, mode.name).commit()
     }
 
+    /** 强调色(见 [ThemeAccent]),默认蓝色。和外观一样跟着 [themeAccentChanges] 当场换,不用重建。 */
+    fun themeAccent(): ThemeAccent = ThemeAccent.parse(prefs.getString(THEME_ACCENT, null))
+
+    /** 强调色的当前值,之后每次改动再发一次。 */
+    fun themeAccentChanges(): Flow<ThemeAccent> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == THEME_ACCENT) trySend(themeAccent())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(themeAccent())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun setThemeAccent(accent: ThemeAccent) {
+        prefs.edit().putString(THEME_ACCENT, accent.name).commit()
+    }
+
     /**
      * 允许 Mika 改自己的设置(见 core 的 SelfConfig):模型与 Key、删数据不在允许之列。
      * 默认关;开着的时候任务里才有 settings_list、settings_set 这两件工具。
@@ -238,6 +255,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val EXTERNAL_SCHEDULE = "external_schedule"
         private const val THEME_MODE = "theme_mode"
         private const val PERSONAL_START = "personal_start"
+        private const val THEME_ACCENT = "theme_accent"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
         private const val QUIT_REQUESTED = "quit_requested"

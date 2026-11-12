@@ -139,8 +139,16 @@
     <string name="appearance_system_detail">روشن یا تیره، مطابق تنظیم گوشی</string>
     <string name="appearance_light">همیشه روشن</string>
     <string name="appearance_dark">همیشه تیره</string>
+    <string name="accent_group">رنگ تأکیدی</string>
+    <string name="accent_default">پیش‌فرض</string>
+    <string name="accent_blue">آبی</string>
+    <string name="accent_indigo">نیلی</string>
+    <string name="accent_purple">بنفش</string>
+    <string name="accent_pink">صورتی</string>
+    <string name="accent_teal">سبزآبی</string>
+    <string name="accent_graphite">گرافیتی</string>
     <string name="settings_self_config">اجازه به میکا برای تغییر تنظیمات خودش</string>
-    <string name="settings_self_config_sub">در حالت روشن، کارها یک ابزار برای خواندن و تغییر این ترجیحات دارند (سرعت، بی‌صدا کردن، کپسول، ظاهر و روشن ماندن صفحه). مدل‌ها، کلیدهای API، شبکهٔ محیط اجرا و موارد حذف داده هرگز شامل آن نیستند</string>
+    <string name="settings_self_config_sub">در حالت روشن، کارها یک ابزار برای خواندن و تغییر این ترجیحات دارند (سرعت، بی‌صدا کردن، کپسول، ظاهر، رنگ تأکیدی و روشن ماندن صفحه). مدل‌ها، کلیدهای API، شبکهٔ محیط اجرا و موارد حذف داده هرگز شامل آن نیستند</string>
     <string name="settings_step_limit">محدودیت مراحل هر کار</string>
     <string name="settings_step_limit_sub">خاموش یعنی بدون محدودیت. با رسیدن به محدودیت، کار متوقف می‌شود و محل توقف را اعلام می‌کند.</string>
     <string name="settings_step_limit_off">بدون محدودیت</string>

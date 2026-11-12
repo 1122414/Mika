@@ -7,7 +7,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import com.wangzan101.mika.settings.FeatureFlags
+import com.wangzan101.mika.settings.ThemeAccent
 import com.wangzan101.mika.settings.ThemeMode
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import com.wangzan101.mika.ui.theme.accentTone
 import com.wangzan101.mika.ui.components.MikaSwitch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -467,6 +473,7 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
     val flags = remember { FeatureFlags.get(context) }
     // 跟着设置走:任务里改了外观,这页也对得上
     val themeMode by remember(flags) { flags.themeModeChanges() }.collectAsState(flags.themeMode())
+    val themeAccent by remember(flags) { flags.themeAccentChanges() }.collectAsState(flags.themeAccent())
     PageScaffold(stringResource(R.string.appearance_title), onBack) {
         // 语言和外观放在同一页:都是「界面长什么样」
         GroupLabel(stringResource(R.string.appearance_group))
@@ -480,6 +487,20 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
                         if (m != themeMode) flags.setThemeMode(m)
                     },
                 )
+            }
+        }
+        GroupLabel(stringResource(R.string.accent_group))
+        GroupCard {
+            val dark = MikaTheme.colors.isDark
+            ThemeAccent.entries.forEachIndexed { idx, a ->
+                RadioRow(
+                    accentLabel(a), selected = a == themeAccent, first = idx == 0,
+                    subtitle = if (a == ThemeAccent.Blue) stringResource(R.string.accent_default) else null,
+                    onClick = { if (a != themeAccent) flags.setThemeAccent(a) },
+                ) {
+                    // 色块按此刻的深浅色画,和选上以后看到的一样
+                    Box(Modifier.size(18.dp).background(accentTone(a, dark).first, CircleShape))
+                }
             }
         }
         GroupLabel(stringResource(R.string.language_title))
@@ -577,5 +598,16 @@ fun appearanceLabel(mode: ThemeMode): String = tr(
         ThemeMode.System -> R.string.appearance_system
         ThemeMode.Light -> R.string.appearance_light
         ThemeMode.Dark -> R.string.appearance_dark
+    },
+)
+
+fun accentLabel(accent: ThemeAccent): String = tr(
+    when (accent) {
+        ThemeAccent.Blue -> R.string.accent_blue
+        ThemeAccent.Indigo -> R.string.accent_indigo
+        ThemeAccent.Purple -> R.string.accent_purple
+        ThemeAccent.Pink -> R.string.accent_pink
+        ThemeAccent.Teal -> R.string.accent_teal
+        ThemeAccent.Graphite -> R.string.accent_graphite
     },
 )
