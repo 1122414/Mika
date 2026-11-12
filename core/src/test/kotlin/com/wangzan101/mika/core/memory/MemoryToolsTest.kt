@@ -302,6 +302,36 @@ class MemoryToolsTest {
         assertEquals("false", d.run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路200号", "以后都寄这里")).s("counts_as_failure"))
     }
 
+    // 要改、要删的各种平常说法都认(「改得简洁一点」「精简一下」「合并」「去掉」);说了不要的、只是问问的、没提要改的不认
+    @Test fun everydayWaysOfAskingToEditAreRecognised() {
+        fun attempt(said: String, op: String): JsonObject {
+            val store = memStore()
+            val item = store.add(MemoryKind.preference, "用户点外卖不要香菜", listOf("外卖"), MemorySource("manual", atMs = 1)).getOrThrow().item
+            val d = dispatcher(store, UserUtterances().apply { add(said) })
+            d.search("外卖")
+            return d.run("memory_edit", editArgs(op, item.id, said, if (op == "update") "用户点外卖不要香菜" else null))
+        }
+        for (ask in listOf(
+            "把外卖那条记忆的改的简洁一点", "把外卖那条改得短一些", "外卖那条改一下", "外卖那条精简一下", "把外卖这几条合并成一条",
+            "整理一下外卖那条记忆", "把外卖那条换成新的说法", "把外卖那条修改一下", "Please shorten the takeaway memory", "Rewrite that memory",
+            // 「能不能改」「要不要改」是在请它改,不是不让改
+            "外卖那条能不能改得简洁一点", "外卖那条可不可以改短",
+        )) assertEquals(ask, "true", attempt(ask, "update").s("ok"))
+        for (ask in listOf("把外卖那条删了", "外卖那条去掉", "把外卖那条清掉", "外卖那条不用留了,移除吧", "Erase the takeaway memory", "能不能删掉外卖那条")) {
+            assertEquals(ask, "true", attempt(ask, "delete").s("ok"))
+        }
+        for (no in listOf("外卖那条先别改", "不要改外卖那条", "外卖那条改天再说", "外卖那条记得对吗", "Don't change the takeaway memory",
+            "如果我说把外卖那条改得简洁一点,你会怎么改?")) {
+            assertEquals(no, "edit_not_requested", attempt(no, "update").s("error"))
+        }
+        for (no in listOf("不要删外卖那条", "外卖那条别去掉", "如果我说把外卖那条记忆删掉,你会怎样处理?先解释,不要执行。",
+            "If I asked you to delete that memory, what would you do?")) {
+            assertEquals(no, "edit_not_requested", attempt(no, "delete").s("error"))
+        }
+        // 条件句本身是要记的内容、没有在问「你会怎么做」:照改
+        assertEquals("true", attempt("把外卖那条改成:如果我说老样子,就是不要香菜", "update").s("ok"))
+    }
+
     // 改记忆也一样:没明确要改、新内容里有用户没说过的具体值,都是对这一条的答复,不计入连续失败
     @Test fun refusedEditsDoNotCountAsOperationFailuresEither() {
         val store = memStore()
@@ -438,7 +468,7 @@ class MemoryToolsTest {
                 .run("memory_save", saveArgs("fact", "用户常在张江路一带活动", quote))
         val asks = listOf(
             "根据今天的消息来觉认为我是个什么样的人,然后写,然后写入一些你觉得合适的东西到记忆里", "你自己总结一下记下来", "幫我歸納幾條存到記憶裡",
-            "把你觉得重要的加到记忆里", "别忘了这些", "Remember whatever you think matters about me", "Save a few notes about my habits",
+            "把你觉得重要的加到记忆里", "别忘了这些", "你能不能帮我记住这些", "Remember whatever you think matters about me", "Save a few notes about my habits",
             "Please add what matters to your memory",
             // 被拒之后用户顺口回的几种短句
             "那就记吧", "都存吧,没关系", "这几条都记上", "存起来吧",

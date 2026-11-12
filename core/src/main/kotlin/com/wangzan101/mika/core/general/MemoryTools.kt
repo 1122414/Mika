@@ -172,7 +172,7 @@ internal object MemorySave : AgentTool {
     private val RECALL_QUESTION = Regex("\\b(?:do|did)\\s+you\\s+(?:still\\s+|even\\s+)?remember\\b|\\bwhat\\s+(?:do|did|can)\\s+you\\s+remember\\b", RegexOption.IGNORE_CASE)
     /** 这半句是不让记:「别记」「不要把这些存进去」「don't save」。「别忘了记下来」「不记得」不是。 */
     private val SAVE_NEGATION = Regex(
-        "(?:不|别|別|勿|无需|無需|无须|無須|禁止)\\s*(?:要|用|再|去|必|该|該|应该|應該|许|許|准|可以|能)?\\s*(?:把[^,，。;；!！?？\\n]{0,12}?)?(?:给我|給我|帮我|幫我|替我)?\\s*" +
+        "(?<![能要用可])(?:不|别|別|勿|无需|無需|无须|無須|禁止)\\s*(?:要|用|再|去|必|该|該|应该|應該|许|許|准|可以|能)?\\s*(?:把[^,，。;；!！?？\\n]{0,12}?)?(?:给我|給我|帮我|幫我|替我)?\\s*" +
             "(?:[记記](?![得忆憶性])|[写寫][入进進到下]|存(?![在款货貨量储儲])|保存|儲存)|" +
             "\\b(?:do\\s+not|don'?t|never|no\\s+need\\s+to|not\\s+to|shouldn'?t|should\\s+not|mustn'?t|must\\s+not|won'?t|without)\\s+" +
             "(?:ever\\s+|actually\\s+|please\\s+|you\\s+)?(?:remember|memori[sz]e|sav(?:e|ing)|stor(?:e|ing)|not(?:e|ing)|keep(?:ing)?|add(?:ing)?|writ(?:e|ing)|put(?:ting)?|commit(?:ting)?)\\b",
@@ -270,10 +270,19 @@ internal object MemoryEdit : AgentTool {
     private fun quotesExactId(quote: String, id: String): Boolean =
         Regex("(?<![A-Za-z0-9_-])" + Regex.escape(id) + "(?![A-Za-z0-9_-])").containsMatchIn(quote)
 
-    private val UPDATE_REQUEST = Regex("修改|改成|改为|更新|更正|改掉|编辑|\\b(?:update|change|edit|correct)\\b", RegexOption.IGNORE_CASE)
-    private val DELETE_REQUEST = Regex("删除|删掉|删了|忘掉|忘记|别记|不要记|取消记忆|\\b(?:delete|forget|remove)\\b", RegexOption.IGNORE_CASE)
-    private val UPDATE_NEGATION = Regex("(?:不|别|无需|无须|不用|不必|不要|不能|不准|禁止)\\s*(?:要|用|再|去)?\\s*(?:修改|改成|改为|更新|更正|改掉|编辑)|\\b(?:do\\s+not|don't|dont|never|no\\s+need\\s+to)\\s+(?:update|change|edit|correct)\\b", RegexOption.IGNORE_CASE)
-    private val DELETE_NEGATION = Regex("(?:不|别|无需|无须|不用|不必|不要|不能|不准|禁止)\\s*(?:要|用|再|去)?\\s*(?:删(?:除|掉|了)?|忘掉|忘记)|\\b(?:do\\s+not|don't|dont|never)\\s+(?:delete|forget|remove)\\b", RegexOption.IGNORE_CASE)
+    // 要改:「改」字的各种说法(改成、改得简洁一点、改一下;「改天」「改变」这类不算),和精简、合并、整理、换成这些说的就是改的词。
+    // 只认这几个固定说法的话,「把那几条改得简洁一点」会被当成没说要改
+    private const val UPDATE_WORDS = "修改|改(?![天日期变變革善观觀口])|更新|更正|编辑|編輯|精简|精簡|缩短|縮短|简化|簡化|压缩|壓縮|合并|合併|整理|重写|重寫|换成|換成|替换|替換|调整|調整|润色|潤色"
+    private const val UPDATE_WORDS_EN = "update|change|edit|correct|rewrite|reword|rephrase|shorten|simplify|merge|replace|trim|tidy"
+    private const val DELETE_WORDS = "删|刪|忘掉|忘记|忘記|去掉|移除|清掉|清除"
+    private const val DELETE_WORDS_EN = "delete|forget|remove|erase|drop"
+    // 「能不能改」「要不要删」是在问、在请它做,不是不让:前面紧挨着同一个字的「不」不算否定
+    private const val NOT = "(?<![能要用可])(?:不|别|別|无需|無需|无须|無須|不用|不必|不要|不能|不准|禁止)\\s*(?:要|用|再|去)?\\s*"
+    private const val NOT_EN = "\\b(?:do\\s+not|don't|dont|never|no\\s+need\\s+to)\\s+"
+    private val UPDATE_REQUEST = Regex("$UPDATE_WORDS|\\b(?:$UPDATE_WORDS_EN)\\b", RegexOption.IGNORE_CASE)
+    private val DELETE_REQUEST = Regex("$DELETE_WORDS|别记|別記|不要记|不要記|取消记忆|取消記憶|\\b(?:$DELETE_WORDS_EN)\\b", RegexOption.IGNORE_CASE)
+    private val UPDATE_NEGATION = Regex("$NOT(?:$UPDATE_WORDS)|$NOT_EN(?:$UPDATE_WORDS_EN)\\b", RegexOption.IGNORE_CASE)
+    private val DELETE_NEGATION = Regex("$NOT(?:$DELETE_WORDS)|$NOT_EN(?:$DELETE_WORDS_EN)\\b", RegexOption.IGNORE_CASE)
 
     /**
      * 「如果我说把那条删掉,你会怎么处理」:在问它会怎么做,不是让它现在做。改删记忆不过「讨论还是操作」那一关
