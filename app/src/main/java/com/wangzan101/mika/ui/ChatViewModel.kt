@@ -506,7 +506,8 @@ class ChatViewModel(
     fun withDrafts(history: List<ConversationSummary>): List<ConversationSummary> =
         draftConversations.value.filter { draft -> history.none { it.id == draft.id } }.map {
             it.copy(title = store.title(it.id) ?: it.title, pinnedAt = store.pinnedAt(it.id),
-                page = store.pageOrigin(it.id), branchOf = store.branchOrigin(it.id), archivedAt = store.archivedAt(it.id))
+                page = store.pageOrigin(it.id), branchOf = store.branchOrigin(it.id), archivedAt = store.archivedAt(it.id),
+                restoredAt = store.restoredAt(it.id))
         } + history
 
     private fun draftConversation(): String {

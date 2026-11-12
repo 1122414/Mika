@@ -586,6 +586,22 @@ class ConversationStoreTest {
         assertEquals(setOf("a", "b"), reopened.list().map { it.id }.toSet())
     }
 
+    /** 取消归档记下恢复时间(自动归档据此给一段宽限);删对话时一起删。 */
+    @Test fun unarchiveRecordsTheRestoreTime() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        store.append("a", Turn("查天气", "晴", "succeeded"))
+        store.setArchived("a", true, at = 1L)
+
+        assertTrue(store.setArchived("a", false, at = 456L))
+        assertEquals(456L, store.restoredAt("a"))
+        assertEquals(456L, ConversationStore(dir).list(includeArchived = true).single().restoredAt)
+
+        store.delete("a")
+        assertFalse(File(dir, "a.restored").exists())
+        assertNull(ConversationStore(dir).restoredAt("a"))
+    }
+
     /** 删掉归档的对话时,旁文件一起删;用新实例看,免得进程里的删除记录挡住。 */
     @Test fun deleteRemovesArchiveSidecar() {
         val dir = tmp.newFolder("c")

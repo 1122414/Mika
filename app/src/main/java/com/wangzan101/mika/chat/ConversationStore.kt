@@ -91,7 +91,8 @@ class ConversationStore(
     /**
      * 对话列表,最近改过的在前;[ConversationSummary.title] 是标题(用户改的或起好的),没有时是第一句话;
      * [ConversationSummary.pinnedAt] 是置顶的时间;[ConversationSummary.page] 是从哪一页开始的;
-     * [ConversationSummary.branchOf] 是从哪个对话的第几轮分出来的;[ConversationSummary.archivedAt] 是归档的时间。
+     * [ConversationSummary.branchOf] 是从哪个对话的第几轮分出来的;[ConversationSummary.archivedAt] 是归档的时间;
+     * [ConversationSummary.restoredAt] 是最近一次手动取消归档的时间(自动归档据此给一段宽限)。
      * 没有内容的对话不列;归档的对话默认不列,见 [includeArchived]。
      */
     fun list(includeArchived: Boolean = false): List<ConversationSummary> =
@@ -122,7 +123,7 @@ class ConversationStore(
                 val id = f.nameWithoutExtension
                 val archivedAt = archivedAt(id)
                 if (!includeArchived && archivedAt != null) return@mapNotNull null
-                ConversationSummary(id, title(id) ?: first, updatedAt, pinnedAt(id), pageOrigin(id), branchOrigin(id), archivedAt)
+                ConversationSummary(id, title(id) ?: first, updatedAt, pinnedAt(id), pageOrigin(id), branchOrigin(id), archivedAt, restoredAt(id))
             }
         return (unsaved + saved).drop(offset).take(limit).toList()
     }
@@ -160,7 +161,8 @@ class ConversationStore(
     fun delete(conversationId: String) {
         val main = file(conversationId).name
         val metadata = setOf(titleFile(conversationId).name, pinFile(conversationId).name,
-            pageFile(conversationId).name, branchFile(conversationId).name, archiveFile(conversationId).name)
+            pageFile(conversationId).name, branchFile(conversationId).name, archiveFile(conversationId).name,
+            restoreFile(conversationId).name)
         val files = dir.listFiles { f -> f.name == main || f.name.startsWith("$main.") || f.name in metadata }
             ?: if (Files.notExists(dir.toPath())) emptyArray() else throw IOException("Cannot list conversation files")
         // Leave the history in place if any of its companion files cannot be removed.
@@ -223,7 +225,15 @@ class ConversationStore(
     fun archivedAt(conversationId: String): Long? =
         runCatching { archiveFile(conversationId).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull() }.getOrNull()
 
-    /** 归档([archived] 为真,记下时间 [at])或取消归档。删掉的对话不动。改了返回 true。 */
+    /**
+     * 最近一次手动取消归档的时间;没取消过、读不到为 null。放在 `.restored` 文件里。
+     * 自动归档据此给手动恢复的对话一段宽限,不会刚恢复就又被收走。
+     */
+    @Synchronized
+    fun restoredAt(conversationId: String): Long? =
+        runCatching { restoreFile(conversationId).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull() }.getOrNull()
+
+    /** 归档([archived] 为真,记下时间 [at])或取消归档。取消归档时另记下恢复时间,见 [restoredAt]。删掉的对话不动。改了返回 true。 */
     @Synchronized
     fun setArchived(conversationId: String, archived: Boolean, at: Long = System.currentTimeMillis()): Boolean {
         if (safe(conversationId) in deleted) return false
@@ -231,7 +241,12 @@ class ConversationStore(
         val ok = if (archived) {
             dir.mkdirs()
             runCatching { f.writeText(at.toString()) }.isSuccess
-        } else !f.exists() || f.delete()
+        } else {
+            val removed = !f.exists() || f.delete()
+            // 手动恢复的时间单独记着:自动归档看到它,会给这个对话一段宽限
+            if (removed && dir.isDirectory) runCatching { restoreFile(conversationId).writeText(at.toString()) }
+            removed
+        }
         if (ok) _changes.tryEmit(conversationId)
         return ok
     }
@@ -506,6 +521,7 @@ class ConversationStore(
     private fun pageFile(id: String) = File(dir, "${safe(id)}.page")
     private fun branchFile(id: String) = File(dir, "${safe(id)}.branch")
     private fun archiveFile(id: String) = File(dir, "${safe(id)}.archive")
+    private fun restoreFile(id: String) = File(dir, "${safe(id)}.restored")
 
     /** 用户此刻在哪个对话,见 [CurrentChat];不是 `.json`,不进 [list]。 */
     private fun currentFile() = File(dir, "current")
@@ -520,6 +536,8 @@ data class ConversationSummary(
     val page: PageOrigin? = null,
     val branchOf: BranchOrigin? = null,
     val archivedAt: Long? = null,
+    /** 最近一次手动取消归档的时间;自动归档给它一段宽限。 */
+    val restoredAt: Long? = null,
 )
 
 /** 分支来源:从 [parentId] 的第 [parentTurn] 轮(0 起)分出来的;[afterTurn] 为 false 时是复制到这一轮之前(第 2 阶段从用户消息重新问)。 */

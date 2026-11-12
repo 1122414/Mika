@@ -12,13 +12,15 @@ object AutoArchive {
     fun cutoff(days: Int, now: Long): Long = now - days * DAY_MS
 
     /**
-     * 从 [all] 里挑出这次该归档的:还没归档、没置顶、最后改动早于 [cutoff] 的。
+     * 从 [all] 里挑出这次该归档的:还没归档、没置顶、最后改动早于 [cutoff],
+     * 而且最近没有手动取消归档(手动恢复的对话在 [cutoff] 之前恢复的才算又静下来了)。
      * [keep] 里的不动(在跑的任务、用户此刻在看的对话)。
      */
     fun candidates(all: List<ConversationSummary>, cutoff: Long, keep: Set<String> = emptySet()): List<String> =
         all.asSequence()
             .filter { it.archivedAt == null && it.pinnedAt == null }
             .filter { it.updatedAt < cutoff }
+            .filter { it.restoredAt == null || it.restoredAt < cutoff }
             .filter { it.id !in keep }
             .map { it.id }
             .toList()
