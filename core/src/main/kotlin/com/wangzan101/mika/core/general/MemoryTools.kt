@@ -122,9 +122,10 @@ internal object MemorySave : AgentTool {
         val inferred = (listOf(content) + keywords).any { utterances.unsupportedMemorySpecifics(it, quote).isNotEmpty() }
         if (inferred) {
             if (!store.inferenceAllowed()) return refused("content_not_from_user", Feedback["memory.content_not_from_user"])
-            // 开着也不是见什么收什么:引的那句得是用户这一轮自己的话,话里让它记。
-            // 不然随便一句「帮我看看这个网页」都能被拿来当引文,把屏幕、网页上的字存进来
-            if (utterances.matchingCurrentMessages(quote).none(::asksToRemember)) {
+            // 开着也不是见什么收什么:引文得落在用户这一轮自己说的、让它记的那半句上。
+            // 不然随便一句「帮我看看这个网页」都能被拿来当引文,把屏幕、网页上的字存进来;
+            // 「别记我的地址,记住我喜欢喝茶」里引前半句也不行——让记的是后半句
+            if (utterances.quotedClauses(quote).none { clauses -> clauses.any(::asksToRemember) }) {
                 return refused("inference_not_requested", Feedback["memory.inference_not_requested"])
             }
         }
@@ -151,27 +152,33 @@ internal object MemorySave : AgentTool {
     }
 
     /**
-     * 用户让它记:记住、记下、写入记忆、保存、remember、save……别的界面语言各认几个最常见的说法。
-     * 只在收「Mika 自己归纳的」时用(见 [execute]):用户原话照旧不需要这些字眼。
+     * 这半句让它记:记住、记下、写入记忆、存起来、保存、别忘了、remember、save、add … to memory。只认中文和英文的动词说法
+     * (改删记忆的 [MemoryEdit] 也只认这两种),光提到「记忆」「memory」这个词不算,别的语言一律按没让它记处理——
+     * 认错了就是把用户没同意的东西存进去,宁可不认。只在收「Mika 自己归纳的」时用:用户原话照旧不需要这些字眼。
      */
     private val SAVE_REQUEST = Regex(
-        "记(?:[住下一到进入着好忆上吧]|录(?:一下|下|到|进|在))|記(?:[住下一到進入著好憶上吧]|錄(?:一下|下|到|進|在))|" +
-            "写[入进到]|寫[入進到]|存[入进進到下一上吧]|存起[来來]|保存|儲存|别忘|別忘|" +
-            "\\b(?:remember|memori[sz]e|save|store|note\\s+(?:that|this|down)|keep\\s+in\\s+mind|memory|memories)\\b|" +
-            "覚え|記憶|メモ|기억|저장|메모|" +
-            "\\b(?:recu[eé]rd|guard[aeá]|memoriz|an[oó]t[ae]|lembr|ingat|simpan|catat)|" +
-            "запомн|сохран|запиш|تذك|احفظ|سجل|سجّل|ذاكرة|به خاطر|به یاد|یادت|ذخیره|حافظه",
+        "[记記](?:住|下|一下|一[条條]|一[笔筆]|[几幾][条條]|到|[进進]|入|[着著]|好|上|吧|[录錄](?:一下|下|到|[进進]|在))|" +
+            "[写寫][入进進到]|存[入进進到下一上吧]|存起[来來]|保存|儲存|[别別]忘|不要忘|(?:加|添加|放|收)[到进進入]\\S{0,8}?(?:记忆|記憶)|" +
+            "\\b(?:remember|memori[sz]e|save|store|note\\s+(?:that|this|it|down)|keep\\s+in\\s+mind|" +
+            "(?:add|write|put|commit)\\b[^,.;!?\\n]{0,40}?\\b(?:to|in|into)\\s+(?:your\\s+|the\\s+|my\\s+)?memor(?:y|ies))\\b",
         RegexOption.IGNORE_CASE,
     )
-    /** 「别记……」那半句,一直到句读为止:「总结几条写进记忆,别记我的手机号」里只有后半句是不让记。 */
+    /** 问它还记不记得,不是让它记。 */
+    private val RECALL_QUESTION = Regex("\\b(?:do|did)\\s+you\\s+(?:still\\s+|even\\s+)?remember\\b|\\bwhat\\s+(?:do|did|can)\\s+you\\s+remember\\b", RegexOption.IGNORE_CASE)
+    /** 这半句是不让记:「别记」「不要把这些存进去」「don't save」。「别忘了记下来」「不记得」不是。 */
     private val SAVE_NEGATION = Regex(
-        "(?:不|别|別|无需|無需|無須|无须|不用|不必|不要|不准|禁止)\\s*(?:要|用|再|去|必)?\\s*(?:记(?!得)|記(?!得)|写[入进到]|寫[入進到]|存[入进進到下一上起]|保存|儲存)[^,，。;；!！?？、\\n]*|" +
-            "\\b(?:do\\s+not|don't|dont|never|no\\s+need\\s+to)\\s+(?:remember|memori[sz]e|save|store|note|keep)\\b[^,.;!?\\n]*",
+        "(?:不|别|別|勿|无需|無需|无须|無須|禁止)\\s*(?:要|用|再|去|必|该|該|应该|應該|许|許|准|可以|能)?\\s*(?:把[^,，。;；!！?？\\n]{0,12}?)?(?:给我|給我|帮我|幫我|替我)?\\s*" +
+            "(?:[记記](?![得忆憶性])|[写寫][入进進到下]|存(?![在款货貨量储儲])|保存|儲存)|" +
+            "\\b(?:do\\s+not|don'?t|never|no\\s+need\\s+to|not\\s+to|shouldn'?t|should\\s+not|mustn'?t|must\\s+not|won'?t|without)\\s+" +
+            "(?:ever\\s+|actually\\s+|please\\s+|you\\s+)?(?:remember|memori[sz]e|sav(?:e|ing)|stor(?:e|ing)|not(?:e|ing)|keep(?:ing)?|add(?:ing)?|writ(?:e|ing)|put(?:ting)?|commit(?:ting)?)\\b",
         RegexOption.IGNORE_CASE,
     )
 
-    /** 这句话让它记了没有:先去掉不让记的那半句,剩下的里面还有让它记的意思才算。 */
-    private fun asksToRemember(message: String) = SAVE_REQUEST.containsMatchIn(SAVE_NEGATION.replace(message, " "))
+    /** 这半句话让它记了没有:有让它记的动词说法,而且不是不让记。 */
+    private fun asksToRemember(clause: String): Boolean {
+        val c = clause.replace('’', '\'')
+        return SAVE_REQUEST.containsMatchIn(RECALL_QUESTION.replace(c, " ")) && !SAVE_NEGATION.containsMatchIn(c)
+    }
 }
 
 /** 用户本轮明确要求时,按 memory_search 返回的稳定编号改或删一条;变更交给现有结果提示与撤销机制。 */

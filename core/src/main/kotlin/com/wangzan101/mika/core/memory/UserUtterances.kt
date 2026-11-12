@@ -88,6 +88,31 @@ class UserUtterances {
     @Synchronized internal fun matchingCurrentMessages(quote: String): List<String> =
         matchingMessages(quote, texts).toList()
 
+    /**
+     * 引文落在本轮哪句话里、压着其中哪几个分句(按句读切开):每句话一组;本轮没有哪句含着引文时为空。
+     * 「别记我的地址,记住我喜欢喝茶」里引「别记我的地址」只压着前半句——后半句的「记住」不能借给它。
+     */
+    @Synchronized internal fun quotedClauses(quote: String): List<List<String>> {
+        val q = norm(quote)
+        if (q.length < MIN_QUOTE) return emptyList()
+        return texts.map(::norm).mapNotNull { m ->
+            val hits = generateSequence(m.indexOf(q)) { at -> m.indexOf(q, at + 1) }.takeWhile { it >= 0 }.toList()
+            if (hits.isEmpty()) null
+            else clauses(m).filter { c -> hits.any { at -> c.first < at + q.length && at <= c.last } }.map { m.substring(it.first, it.last + 1) }
+        }
+    }
+
+    private fun clauses(m: String): List<IntRange> {
+        val out = mutableListOf<IntRange>()
+        var start = 0
+        for (end in CLAUSE_END.findAll(m)) {
+            if (end.range.first > start) out += start until end.range.first
+            start = end.range.last + 1
+        }
+        if (start < m.length) out += start until m.length
+        return out
+    }
+
     /** memory_save 另认已登记的上一轮明确确认;助手建议本身永远不是可引用的用户原话。 */
     @Synchronized fun containsMemoryQuote(quote: String): Boolean =
         matches(quote, texts + listOfNotNull(previousConfirmation))
@@ -104,6 +129,8 @@ class UserUtterances {
 
     private companion object {
         const val MIN_QUOTE = 2
+        // 句读;英文句号只在后面是空白或结尾时算(3.5、example.com 里的点不算)
+        val CLAUSE_END = Regex("[,，。;；!！?？\\n]|\\.(?=\\s|$)")
         val CONFIRMATION = Regex("""^(?:(?:嗯+|恩+|呃|哦|噢|啊)[\s,，。.!！~～]*)?(?:好的?|好呀|好嘞|行|可以|对的?|是的?|没错|同意|就这样|就这么|ok(?:ay)?|yes|yeah|yep|sure|correct|exactly|agreed|sounds\s+good|go\s+ahead)(?=$|[\s,，。.!！:：;；~～])""", RegexOption.IGNORE_CASE)
         val NEGATION = Regex("""不|别|算了|取消|但是|不过|\b(?:no|not|don't|do\s+not|stop|cancel|wrong|but)\b""", RegexOption.IGNORE_CASE)
         val PROPOSAL = Regex("""建议|推荐|可以叫|叫我|命名为|起名|名字|要不要|不如|我可以|你觉得|怎么样|suggest|recommend|how\s+about|would\s+you\s+like|shall\s+(?:i|we)|you\s+can\s+call|i\s+(?:can|could)|let['’]s""", RegexOption.IGNORE_CASE)

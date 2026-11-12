@@ -419,32 +419,39 @@ class MemoryToolsTest {
         assertTrue(store.items.value.isEmpty())
     }
 
-    // 各界面语言里最常见的说法认得出来(句首大写的也认);没让它记的普通话不认
-    @Test fun requestsToRememberAreRecognisedAcrossLanguages() {
+    // 中文、英文里让它记的说法认得出来(句首大写、弯引号也认);别的话、别的语言一律按没让它记
+    @Test fun requestsToRememberAreRecognisedInChineseAndEnglishOnly() {
+        fun save(said: String, quote: String = said): JsonObject =
+            dispatcher(memStore(inferenceAllowed = { true }), UserUtterances().apply { add(said) })
+                .run("memory_save", saveArgs("fact", "用户常在张江路一带活动", quote))
         val asks = listOf(
             "根据今天的消息来觉认为我是个什么样的人,然后写,然后写入一些你觉得合适的东西到记忆里", "你自己总结一下记下来", "幫我歸納幾條存到記憶裡",
-            "Remember whatever you think matters about me", "Save a few notes about my habits",
-            "これまでの内容をまとめて覚えておいて", "지금까지 내용을 정리해서 기억해 줘",
-            "Recuerda lo que creas importante sobre mí", "Lembre o que achar importante sobre mim",
-            "Запомни, что считаешь важным обо мне", "Ingat hal yang menurutmu penting tentang saya",
-            "تذكّر ما تراه مهمًا عني", "هرچه مهم است را به خاطر بسپار",
+            "把你觉得重要的加到记忆里", "别忘了这些", "Remember whatever you think matters about me", "Save a few notes about my habits",
+            "Please add what matters to your memory",
             // 被拒之后用户顺口回的几种短句
             "那就记吧", "都存吧,没关系", "这几条都记上", "存起来吧",
-            // 让记,只是其中一样不让记:不让记的只是那半句
+            // 让记,只是其中一样不让记:整句引来,让记的那半句算数
             "总结几条写进记忆,别记我的手机号", "Save a summary of my habits, but don't save my phone number",
-            "别记错了,把这些记到记忆里",
+            "别记错了,把这些记到记忆里", "别忘了把这些记下来",
         )
-        for (ask in asks) {
-            val store = memStore(inferenceAllowed = { true })
-            val r = dispatcher(store, UserUtterances().apply { add(ask) }).run("memory_save", saveArgs("fact", "用户常在张江路一带活动", ask))
-            assertTrue("$ask -> $r", r.toString().contains("\"inferred\":true"))
-        }
-        for (plain in listOf("帮我看看聊天记录里有什么", "这个地址存在吗,查一下", "我不记得了,你查查看", "What is on this page?", "Don't remember any of this",
-            "这些不要记到记忆里,帮我核对一下就行", "先别存,我再想想")) {
-            val store = memStore(inferenceAllowed = { true })
-            val r = dispatcher(store, UserUtterances().apply { add(plain) }).run("memory_save", saveArgs("fact", "用户常在张江路一带活动", plain))
-            assertTrue("$plain -> $r", r.toString().contains("inference_not_requested"))
-        }
+        for (ask in asks) assertTrue("$ask -> ${save(ask)}", save(ask).toString().contains("\"inferred\":true"))
+        val plain = listOf(
+            "帮我看看聊天记录里有什么", "这个地址存在吗,查一下", "我不记得了,你查查看", "What is on this page?",
+            "这些不要记到记忆里,帮我核对一下就行", "先别存,我再想想", "别把这些存进去", "不用帮我记",
+            // 光提到「记忆」「memory」这个词不算让它记
+            "你记忆功能是怎么工作的?", "This page has a memory error; explain what it means.", "Do you remember what I said yesterday?",
+            // 不让记:直引号、弯引号都认
+            "Don't remember any of this", "Don’t remember any of this", "Please do not save anything from this page",
+            // 别的语言暂不认(改删记忆也只认中英文):让记的、不让记的都按没让它记
+            "これまでの内容をまとめて覚えておいて", "この情報を記憶しないでください", "지금까지 내용을 정리해서 기억해 줘", "이 정보는 기억하지 마세요",
+            "Recuerda lo que creas importante sobre mí", "No guardes nada de esta página", "Запомни, что считаешь важным обо мне", "Не сохраняй эту информацию",
+        )
+        for (p in plain) assertTrue("$p -> ${save(p)}", save(p).toString().contains("inference_not_requested"))
+        // 引的是不让记的那半句:后半句的「记住」不能借给它;引让记的那半句才收
+        val mixed = "别记我的地址,记住我喜欢喝茶"
+        assertEquals("inference_not_requested", save(mixed, "别记我的地址").s("error"))
+        assertTrue(save(mixed, "记住我喜欢喝茶").toString().contains("\"inferred\":true"))
+        assertEquals("inference_not_requested", save("Don't save my address. Remember that I like tea.", "Don't save my address").s("error"))
     }
 
     // 查出来的时候标明哪几条是归纳的;给核查的材料里,它们是工具查到的事实,不算用户给的事实
