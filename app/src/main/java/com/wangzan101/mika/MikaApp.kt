@@ -463,6 +463,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                     conversations, days,
                     running = taskState.activeConversations.value,
                     currentId = (conversations.currentChat() as? CurrentChat.Open)?.id,
+                    isRunning = { it in taskState.activeConversations.value },
                 )
             }.onFailure { Log.w("MikaChat", "could not auto archive conversations", it) }
         }

@@ -276,11 +276,17 @@ class ConversationStore(
             ArchiveCandidate(id, archiveVersions[id] ?: 0L)
         }
 
-    /** 逐条在同一把锁里检查快照版本、状态和消息时间，再写入归档。 */
+    /** 逐条在同一把锁里检查快照版本、状态和消息时间，再写入归档。运行状态只读最新值，不引入任务锁。 */
     @Synchronized
-    internal fun archiveIfStillEligible(candidate: ArchiveCandidate, cutoff: Long, at: Long): Boolean {
+    internal fun archiveIfStillEligible(
+        candidate: ArchiveCandidate,
+        cutoff: Long,
+        at: Long,
+        isRunning: (String) -> Boolean = { false },
+    ): Boolean {
         val conversationId = candidate.id
-        if ((archiveVersions[conversationId] ?: 0L) != candidate.version ||
+        if (isRunning(conversationId) ||
+            (archiveVersions[conversationId] ?: 0L) != candidate.version ||
             pinnedAt(conversationId) != null || archivedAt(conversationId) != null ||
             (restoredAt(conversationId)?.let { it >= cutoff } == true) ||
             currentChat() == CurrentChat.Open(conversationId)) return false

@@ -35,13 +35,14 @@ object AutoArchive {
         running: Collection<String> = emptyList(),
         currentId: String? = null,
         now: Long = System.currentTimeMillis(),
+        isRunning: (String) -> Boolean = { false },
     ): Int {
         if (days <= 0) return 0
         val keep = running.toSet() + listOfNotNull(currentId)
         val cutoff = cutoff(days, now)
         return store.autoArchiveCandidates().asSequence()
             .filter { it.id !in keep }
-            .count { store.archiveIfStillEligible(it, cutoff, at = now) }
+            .count { store.archiveIfStillEligible(it, cutoff, at = now, isRunning = isRunning) }
     }
 
     private const val DAY_MS = 24L * 60 * 60 * 1000

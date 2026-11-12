@@ -118,8 +118,8 @@ class AutoArchiveTest {
         assertEquals(now, store.archivedAt("old"))
     }
 
-    /** 模拟扫描已读取运行列表后，旧对话才开始任务，且任务尚未写入消息。 */
-    @Test fun taskStartingAfterRunningSnapshotCanStillBeArchived() {
+    /** 扫描已读取运行列表后旧对话才开始任务：逐条归档前重查，不能拿旧快照把它收走。 */
+    @Test fun taskStartingAfterRunningSnapshotIsRecheckedBeforeArchiving() {
         val dir = tmp.newFolder()
         val now = System.currentTimeMillis()
         val store = ConversationStore(dir)
@@ -128,11 +128,18 @@ class AutoArchiveTest {
         val runningSnapshot = active.toList()
         active.add("old") // 模拟任务在快照之后开始，并尚未追加结果。
 
-        assertEquals(1, AutoArchive.run(store, days = 30, running = runningSnapshot, now = now))
-        assertTrue("old" in active)
-        assertEquals(now, store.archivedAt("old"))
-        store.append("old", Turn("任务结果", "好", "succeeded", atMs = now))
+        assertEquals(0, AutoArchive.run(
+            store, days = 30, running = runningSnapshot, now = now,
+            isRunning = { it in active },
+        ))
         assertNull(store.archivedAt("old"))
+
+        active.clear()
+        assertEquals(1, AutoArchive.run(
+            store, days = 30, running = runningSnapshot, now = now,
+            isRunning = { it in active },
+        ))
+        assertEquals(now, store.archivedAt("old"))
     }
 
     @Test fun appendWaitsForArchiveAndThenUnarchives() {
