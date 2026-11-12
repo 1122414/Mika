@@ -2,6 +2,7 @@ package com.wangzan101.mika.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.wangzan101.mika.capsule.CapsuleCardScale
 import com.wangzan101.mika.capsule.CapsuleDock
 import com.wangzan101.mika.capsule.CardDocking
 import com.wangzan101.mika.capsule.CapsuleIdleOpacity
@@ -220,6 +221,22 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
+    /** 展开的胶囊卡片整体缩放的档位;只认 85/100/115/130,默认 100(标准)。 */
+    fun capsuleCardScale(): CapsuleCardScale = CapsuleCardScale.parse(prefs.getInt(CAPSULE_CARD_SCALE, CapsuleCardScale.DEFAULT.percent))
+
+    fun setCapsuleCardScale(scale: CapsuleCardScale) {
+        prefs.edit().putInt(CAPSULE_CARD_SCALE, scale.percent).commit()
+    }
+
+    fun capsuleCardScaleChanges(): Flow<CapsuleCardScale> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == CAPSULE_CARD_SCALE) trySend(capsuleCardScale())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(capsuleCardScale())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
     /**
      * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.quit.MikaQuit])。
      * 在这期间进程可能被无障碍服务重新拉起:胶囊不画、后台服务不补起、自动恢复也不做,直到用户自己打开 App。
@@ -295,6 +312,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private val SKIN_KEYS = setOf(SKIN_VERSION, SKIN_SCRIM, SKIN_BLUR, SKIN_FOCUS, SKIN_ACCENT_FOLLOW, SKIN_HUE)
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
+        private const val CAPSULE_CARD_SCALE = "capsule_card_scale"
         private const val QUIT_REQUESTED = "quit_requested"
         private const val CAPSULE_SIDE = "capsule_side"
         private const val CAPSULE_HEIGHT = "capsule_height"

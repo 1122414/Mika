@@ -11,6 +11,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -251,8 +252,12 @@ class CapsuleController(
         val mode = combine(flags.capsuleModeChanges(), flags.quitChanges()) { m, quit -> if (quit) CapsuleMode.Off else m }
         scope.launch {
             combine(
-                combine(runs(), combine(mode, flags.capsuleIdleOpacityChanges()) { m, o -> m to o }, foreground.visible, screen.locked, ScreenAccessibility.instance) { r, settings, f, l, a ->
-                    Snapshot(r, settings.first, f, l, a, opacity = settings.second)
+                combine(
+                    runs(),
+                    combine(mode, flags.capsuleIdleOpacityChanges(), flags.capsuleCardScaleChanges()) { m, o, s -> Triple(m, o, s) },
+                    foreground.visible, screen.locked, ScreenAccessibility.instance,
+                ) { r, settings, f, l, a ->
+                    Snapshot(r, settings.first, f, l, a, opacity = settings.second, cardScale = settings.third)
                 },
                 ticks,
                 keeper.page,
@@ -314,6 +319,8 @@ class CapsuleController(
         /** 任务结束后留在后台运行的那一页。 */
         val kept: KeptPage? = null,
         val opacity: CapsuleIdleOpacity = CapsuleIdleOpacity.DEFAULT,
+        /** 展开卡片的缩放档位,改了当场生效(见 [CardOverlay])。 */
+        val cardScale: CapsuleCardScale = CapsuleCardScale.DEFAULT,
     )
 
     /**
@@ -1348,24 +1355,31 @@ class CapsuleController(
         }
     }
 
-    /** 卡片窗口里:展开时是卡片,收起时窗口先显式隐藏、内容随后清空。标题栏的电源按钮点过时换成退出的确认。 */
+    /** 卡片窗口里:展开时是卡片,收起时窗口先显式隐藏、内容随后清空。标题栏的电源按钮点过时换成退出的确认。
+     * 非标准档时整张卡换 [Density.zoomed] 的密度渲染:宽、字、间距等比缩放;高度上限仍按真实屏幕高换算(在 Provider 里 toDp)。 */
     @Composable
     private fun CardOverlay() {
         val c = card ?: return
         MikaTheme(reduceMotion = animationsOff(context)) {
-            val height = if (cardHeight > 0) with(LocalDensity.current) { cardHeight.toDp() } else Dp.Unspecified
-            OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = {
-                cardOut = true
-                syncWindowVisibility()
-            }) {
-                if (quitConfirm) QuitCard(actions, height)
-                else CapsuleCard(
-                    c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle,
-                    queuedCount = CapsuleCards.conversationOf(c)?.let { id ->
-                        followUps.count { it.conversationId == id && !it.claimed && it.source == com.wangzan101.mika.task.QueuedSource.Explicit }
-                    } ?: 0,
-                    onQueued = { CapsuleCards.conversationOf(c)?.let(::open) },
-                )
+            val scale = last?.cardScale ?: CapsuleCardScale.DEFAULT
+            CompositionLocalProvider(
+                LocalDensity provides LocalDensity.current.zoomed(scale.factor),
+                LocalCapsuleCardScale provides scale,
+            ) {
+                val height = if (cardHeight > 0) with(LocalDensity.current) { cardHeight.toDp() } else Dp.Unspecified
+                OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = {
+                    cardOut = true
+                    syncWindowVisibility()
+                }) {
+                    if (quitConfirm) QuitCard(actions, height)
+                    else CapsuleCard(
+                        c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle,
+                        queuedCount = CapsuleCards.conversationOf(c)?.let { id ->
+                            followUps.count { it.conversationId == id && !it.claimed && it.source == com.wangzan101.mika.task.QueuedSource.Explicit }
+                        } ?: 0,
+                        onQueued = { CapsuleCards.conversationOf(c)?.let(::open) },
+                    )
+                }
             }
         }
     }

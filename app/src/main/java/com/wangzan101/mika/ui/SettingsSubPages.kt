@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wangzan101.mika.capsule.CapsuleCardScale
 import com.wangzan101.mika.capsule.CapsuleIdleOpacity
 import com.wangzan101.mika.capsule.CapsuleMode
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
@@ -421,6 +422,15 @@ object CapsuleSettingsCopy {
     val BACKGROUND: String get() = tr(R.string.capsule_settings_background)
     val IDLE_OPACITY: String get() = tr(R.string.capsule_idle_opacity)
     val IDLE_OPACITY_DETAIL: String get() = tr(R.string.capsule_idle_opacity_detail)
+    val CARD_SIZE: String get() = tr(R.string.capsule_card_size)
+    val CARD_SIZE_DETAIL: String get() = tr(R.string.capsule_card_size_detail)
+
+    fun scaleLabel(scale: CapsuleCardScale): String = when (scale) {
+        CapsuleCardScale.Small -> tr(R.string.capsule_card_size_small)
+        CapsuleCardScale.Normal -> tr(R.string.capsule_card_size_normal)
+        CapsuleCardScale.Large -> tr(R.string.capsule_card_size_large)
+        CapsuleCardScale.XLarge -> tr(R.string.capsule_card_size_xlarge)
+    }
 
     fun label(mode: CapsuleMode): String = when (mode) {
         CapsuleMode.Off -> tr(R.string.capsule_mode_off)
@@ -435,7 +445,7 @@ object CapsuleSettingsCopy {
     }
 }
 
-/** 设置 › 悬浮胶囊:关闭 / 有任务时显示(默认) / 一直显示,选了当场生效。 */
+/** 设置 › 悬浮胶囊:关闭 / 有任务时显示(默认) / 一直显示,选了当场生效;静置不透明度与展开卡片的大小。 */
 @Composable
 fun CapsuleScreen(
     mode: CapsuleMode,
@@ -443,6 +453,8 @@ fun CapsuleScreen(
     onBack: () -> Unit,
     idleOpacity: CapsuleIdleOpacity = CapsuleIdleOpacity.DEFAULT,
     onIdleOpacity: (CapsuleIdleOpacity) -> Unit = {},
+    cardScale: CapsuleCardScale = CapsuleCardScale.DEFAULT,
+    onCardScale: (CapsuleCardScale) -> Unit = {},
 ) {
     PageScaffold(CapsuleSettingsCopy.TITLE, onBack) {
         GroupCard {
@@ -470,6 +482,26 @@ fun CapsuleScreen(
                     steps = 2,
                     enabled = mode != CapsuleMode.Off,
                     modifier = Modifier.testTag("capsule-idle-opacity"),
+                )
+            }
+        }
+        GroupLabel(CapsuleSettingsCopy.CARD_SIZE)
+        GroupCard {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                ListRow(
+                    MikaIcons.Photo, CapsuleSettingsCopy.CARD_SIZE, CapsuleSettingsCopy.CARD_SIZE_DETAIL,
+                    first = true, titleColor = if (mode == CapsuleMode.Off) MikaTheme.colors.ink3 else androidx.compose.ui.graphics.Color.Unspecified,
+                ) { RowValue(CapsuleSettingsCopy.scaleLabel(cardScale)) }
+                Slider(
+                    value = CapsuleCardScale.entries.indexOf(cardScale).toFloat(),
+                    onValueChange = {
+                        val index = it.roundToInt().coerceIn(CapsuleCardScale.entries.indices)
+                        onCardScale(CapsuleCardScale.entries[index])
+                    },
+                    valueRange = 0f..3f,
+                    steps = 2,
+                    enabled = mode != CapsuleMode.Off,
+                    modifier = Modifier.testTag("capsule-card-size"),
                 )
             }
         }

@@ -89,6 +89,12 @@
     <string name="capsule_mode_always_detail">Mantém um ícone do Mika na tela mesmo sem tarefas</string>
     <string name="capsule_idle_opacity">Opacidade em repouso</string>
     <string name="capsule_idle_opacity_detail">Após alguns segundos sem toque; o que precisar da sua atenção continua totalmente visível</string>
+    <string name="capsule_card_size">Tamanho do cartão</string>
+    <string name="capsule_card_size_detail">O cartão expandido e o texto escalam juntos; a cápsula recolhida não muda</string>
+    <string name="capsule_card_size_small">Pequeno</string>
+    <string name="capsule_card_size_normal">Normal</string>
+    <string name="capsule_card_size_large">Grande</string>
+    <string name="capsule_card_size_xlarge">Extra grande</string>
     <string name="routes_saved">Roteiros salvos</string>
     <string name="loading">Carregando</string>
     <plurals name="routes_count">

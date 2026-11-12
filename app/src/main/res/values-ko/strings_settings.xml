@@ -83,6 +83,12 @@
     <string name="capsule_mode_always_detail">작업이 없어도 화면에 Mika 아이콘을 계속 표시해요</string>
     <string name="capsule_idle_opacity">대기 중 불투명도</string>
     <string name="capsule_idle_opacity_detail">몇 초 동안 만지지 않았을 때의 농도이며, 처리가 필요한 상태는 항상 완전히 보여요</string>
+    <string name="capsule_card_size">카드 크기</string>
+    <string name="capsule_card_size_detail">펼친 카드와 글자 크기를 함께 조절합니다. 접힌 캡슐은 그대로입니다</string>
+    <string name="capsule_card_size_small">작게</string>
+    <string name="capsule_card_size_normal">표준</string>
+    <string name="capsule_card_size_large">크게</string>
+    <string name="capsule_card_size_xlarge">매우 크게</string>
     <string name="routes_saved">저장된 경로</string>
     <string name="loading">불러오는 중</string>
     <plurals name="routes_count">

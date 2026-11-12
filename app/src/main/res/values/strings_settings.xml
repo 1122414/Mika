@@ -97,6 +97,12 @@
     <string name="capsule_mode_always_detail">Keeps a Mika icon on screen even with no tasks</string>
     <string name="capsule_idle_opacity">Idle opacity</string>
     <string name="capsule_idle_opacity_detail">After a few seconds untouched; anything needing your attention stays fully visible</string>
+    <string name="capsule_card_size">Card size</string>
+    <string name="capsule_card_size_detail">The expanded capsule card and its text scale together; the collapsed capsule keeps its size</string>
+    <string name="capsule_card_size_small">Small</string>
+    <string name="capsule_card_size_normal">Standard</string>
+    <string name="capsule_card_size_large">Large</string>
+    <string name="capsule_card_size_xlarge">Extra large</string>
     <string name="routes_saved">Saved routes</string>
     <string name="loading">Loading</string>
     <plurals name="routes_count">

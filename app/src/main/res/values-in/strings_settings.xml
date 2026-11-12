@@ -83,6 +83,12 @@
     <string name="capsule_mode_always_detail">Menampilkan ikon Mika di layar walau tidak ada tugas</string>
     <string name="capsule_idle_opacity">Opasitas saat diam</string>
     <string name="capsule_idle_opacity_detail">Setelah beberapa detik tidak disentuh; hal yang memerlukan perhatian Anda tetap terlihat penuh</string>
+    <string name="capsule_card_size">Ukuran kartu</string>
+    <string name="capsule_card_size_detail">Kartu yang terbuka dan teksnya diskalakan bersama; kapsul yang tertutup tidak berubah</string>
+    <string name="capsule_card_size_small">Kecil</string>
+    <string name="capsule_card_size_normal">Standar</string>
+    <string name="capsule_card_size_large">Besar</string>
+    <string name="capsule_card_size_xlarge">Sangat besar</string>
     <string name="routes_saved">Rute tersimpan</string>
     <string name="loading">Memuat</string>
     <plurals name="routes_count">
