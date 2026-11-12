@@ -127,6 +127,7 @@
     <string name="drawer_archived">アーカイブ済み</string>
     <string name="drawer_archived_count">%1$d 件をアーカイブ済み</string>
     <string name="drawer_archive_empty">アーカイブしたチャットはありません</string>
+    <string name="drawer_archive_done">「%1$s」をアーカイブしました</string>
     <string name="drawer_search_filter_all">すべて</string>
     <string name="drawer_search_filter_active">未アーカイブ</string>
     <string name="drawer_search_filter_archived">アーカイブ</string>

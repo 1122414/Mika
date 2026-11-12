@@ -146,6 +146,9 @@ data class DrawerConversation(
 /** 一次批量归档的结果:归档了几个、几个因为在跑任务或是当前对话没动。 */
 data class ArchiveBatch(val archived: Int, val skipped: Int)
 
+/** 刚归档的那一条:底部给几秒钟的「撤销」。 */
+data class ArchiveUndo(val id: String, val title: String)
+
 /** 侧栏里的对话分段:进行中、置顶、最近。 */
 data class DrawerSections(
     val running: List<DrawerConversation>,
@@ -321,6 +324,9 @@ fun ChatDrawer(
     deleteBatch: DeleteBatch? = null,
     /** 批量归档的结果;在底部显示,过几秒由外面清掉。 */
     archiveBatch: ArchiveBatch? = null,
+    /** 刚归档的那一条;底部显示「撤销」,过几秒由外面清掉。 */
+    archiveUndo: ArchiveUndo? = null,
+    onUndoArchive: () -> Unit = {},
     /** 归档视图里列出的对话;按归档时间倒序。 */
     archived: List<DrawerConversation> = emptyList(),
     /** 正在看归档视图:列表换成归档对话,搜索框和导航入口收起。 */
@@ -466,6 +472,7 @@ fun ChatDrawer(
         // 批量删除的进度 / 结果在底部停留几秒
         deleteBatch?.let { DeleteStatusBar(it) }
         archiveBatch?.let { ArchiveStatusBar(it) }
+        if (!selecting) archiveUndo?.let { ArchiveUndoBar(it, onUndoArchive) }
         if (selecting) {
             SelectBar(selectedCount, allSelected, onSelectAll, archivedView, onArchiveSelected, onUnarchiveSelected, onDeleteSelected)
         } else {
@@ -591,6 +598,27 @@ private fun ArchiveStatusBar(batch: ArchiveBatch) {
     ) {
         Icon(MikaIcons.Archive, null, Modifier.size(14.dp), tint = if (batch.archived > 0) c.ok else c.ink3)
         Text(text, style = MikaType.Hint, color = c.ink2, maxLines = 2)
+    }
+}
+
+/** 刚归档一条:底部写清收起了哪个对话,几秒内可以撤销。 */
+@Composable
+private fun ArchiveUndoBar(undo: ArchiveUndo, onUndo: () -> Unit) {
+    val c = MikaTheme.colors
+    Row(
+        Modifier.fillMaxWidth().drawBehind { drawLine(c.hair, Offset(0f, 0f), Offset(size.width, 0f), 0.5.dp.toPx()) }
+            .padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 2.dp).testTag("drawer-archive-undo"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(MikaIcons.Archive, null, Modifier.size(14.dp), tint = c.ink3)
+        Text(
+            tr(R.string.drawer_archive_done, undo.title), Modifier.weight(1f),
+            style = MikaType.Hint, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = onUndo, modifier = Modifier.testTag("drawer-archive-undo-action")) {
+            Text(stringResource(R.string.undo), style = MikaType.Label, color = c.accent)
+        }
     }
 }
 
@@ -946,6 +974,18 @@ fun ChatWithDrawer(
             archiveBatch = null
         }
     }
+    /** 刚归档的那一条;底部给几秒钟的「撤销」。 */
+    var archiveUndo by remember { mutableStateOf<ArchiveUndo?>(null) }
+    LaunchedEffect(archiveUndo) {
+        if (archiveUndo != null) {
+            delay(4_000)
+            archiveUndo = null
+        }
+    }
+    /** 归档一条并给一次「撤销」;没归档成功(有任务在跑)就不提示。 */
+    fun archiveWithUndo(id: String, title: String) {
+        if (vm.archiveConversation(id)) archiveUndo = ArchiveUndo(id, title)
+    }
     // 删除结果在底部停留几秒;下一批开始前不动它
     LaunchedEffect(deleteBatch) {
         val batch = deleteBatch ?: return@LaunchedEffect
@@ -963,6 +1003,7 @@ fun ChatWithDrawer(
             selected = emptySet()
             archivedView = false
             archiveBatch = null
+            archiveUndo = null
             // 正文索引只在侧栏开着时有用,关掉就放掉,长时间使用不会一直占着全部对话的正文
             search?.clear()
         }
@@ -1022,6 +1063,7 @@ fun ChatWithDrawer(
             confirmingMany = null
             confirmingQuit = false
             archiveBatch = null
+            archiveUndo = null
             query = ""
             searchOutcome = null
             searchFilter = SearchArchiveFilter.All
@@ -1156,7 +1198,7 @@ fun ChatWithDrawer(
                     },
                     selecting = selecting,
                     selected = selected,
-                    onStartSelect = { selecting = true },
+                    onStartSelect = { archiveUndo = null; selecting = true },
                     onExitSelect = {
                         selecting = false
                         selected = emptySet()
@@ -1190,6 +1232,12 @@ fun ChatWithDrawer(
                     },
                     deleteBatch = deleteBatch,
                     archiveBatch = archiveBatch,
+                    archiveUndo = archiveUndo,
+                    onUndoArchive = {
+                        val undo = archiveUndo
+                        archiveUndo = null
+                        undo?.let { vm.unarchiveConversation(it.id) }
+                    },
                     archived = archivedRows,
                     archivedView = archivedView,
                     onOpenArchive = { archivedView = true },
@@ -1213,7 +1261,7 @@ fun ChatWithDrawer(
             ConversationMenu(
                 item, bounds, progress = { lift.value },
                 onPin = { closeMenu { vm.setPinned(id, !item.pinned) } },
-                onArchive = { closeMenu { vm.archiveConversation(id) } },
+                onArchive = { closeMenu { archiveWithUndo(id, item.title) } },
                 onUnarchive = { closeMenu { vm.unarchiveConversation(id) } },
                 onRename = { closeMenu { renaming = item } },
                 onTerminal = { closeMenu { activity?.let { a -> com.wangzan101.mika.ui.terminal.TerminalLauncher.open(a, id, item.title) } } },
