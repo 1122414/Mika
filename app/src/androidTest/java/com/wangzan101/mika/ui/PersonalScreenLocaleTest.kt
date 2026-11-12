@@ -8,6 +8,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsDisplayed
+import com.wangzan101.mika.memory.MemoryRuntime
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -73,6 +76,23 @@ class PersonalScreenLocaleTest {
                 compose.runOnIdle { assertEquals(PersonalProfileTab.entries[index], selected.value) }
             }
         }
+    }
+
+    @Test fun fullProfileDialogCanScrollToContentAtLargeFontScale() {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        val memory = MemoryRuntime(base)
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                MikaTheme {
+                    PersonalProfileDialog(emptyList(), memory, onDismiss = {}, onTask = {})
+                }
+            }
+        }
+        compose.onNodeWithText(base.getString(com.wangzan101.mika.R.string.personal_tab_skills))
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(base.getString(com.wangzan101.mika.R.string.personal_no_tasks))
+            .performScrollTo().assertIsDisplayed()
     }
 
     @Test fun profileTabsStayOnOneRowWhenTheyFit() {

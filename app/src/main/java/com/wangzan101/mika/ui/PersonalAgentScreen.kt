@@ -285,7 +285,7 @@ internal enum class PersonalProfileTab(val label: Int, val icon: ImageVector) {
 }
 
 @Composable
-private fun PersonalProfileDialog(
+internal fun PersonalProfileDialog(
     tasks: List<PersonalTask>,
     memoryRuntime: MemoryRuntime,
     onDismiss: () -> Unit,
@@ -325,6 +325,7 @@ private fun PersonalProfileDialog(
                 Modifier.widthIn(max = 460.dp).fillMaxWidth()
                     .onGloballyPositioned { panelBounds = it.boundsInRoot() }
                     .cardSurface(c, shape).clip(shape).testTag("personal-profile-dialog")
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = MikaSpace.S12, vertical = if (compact) MikaSpace.S12 else MikaSpace.S16),
                 verticalArrangement = Arrangement.spacedBy(if (compact) MikaSpace.S8 else MikaSpace.S12),
             ) {
