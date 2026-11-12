@@ -2,6 +2,9 @@ package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.trace.RunTrace
 import com.wangzan101.mika.core.action.ConfirmDecision
+import com.wangzan101.mika.core.model.PrefixCall
+import com.wangzan101.mika.core.model.RequestPrefix
+import kotlinx.coroutines.withContext
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.Message
 import com.wangzan101.mika.core.model.ModelError
@@ -64,6 +67,9 @@ internal class ModelCaller(
     /** 带真实用量的回复(按消息身份)和给出它的模型,是量请求大小的锚点([UsageMeter]);压缩改写前缀后清空。 */
     private val anchors = java.util.IdentityHashMap<Message, Pair<ChatModel, UsageMeter.Anchor>>()
     /** 每个模型最近一次请求的固定开销估算;回复进历史时和用量一起记进锚点。 */
+    private val prefixes = java.util.IdentityHashMap<ChatModel, RequestPrefix>()
+    var taskMemoryTokens: Int = 0
+        private set
     private val lastOverhead = java.util.IdentityHashMap<ChatModel, Int>()
 
     fun reset(prompt: String) {
@@ -75,6 +81,8 @@ internal class ModelCaller(
         compressors.values.forEach { it.forget() }
         lightReplies.clear()
         anchors.clear()
+        prefixes.clear()
+        taskMemoryTokens = 0
         lastOverhead.clear()
     }
 
@@ -133,7 +141,7 @@ internal class ModelCaller(
         emit(RunEvent.ModelReply(
             now(), step, RunEvent.clip(Redactor.text(text)), first?.name, first?.let { Redactor.args(tools.verb(it.name), it.argsJson, secretField = true) },
             light?.usage?.inputTokens, light?.usage?.outputTokens, light?.usage?.cachedInputTokens, now() - asked,
-            picked.name, ROLE_LIGHT_REJECTED,
+            picked.name, ROLE_LIGHT_REJECTED, taskMemoryTokens = taskMemoryTokens,
         ))
         emit(RunEvent.State(now(), "light_to_main", first?.name ?: if (light == null) "light_error" else "no_tool"))
         onText?.invoke("")
@@ -186,7 +194,8 @@ internal class ModelCaller(
         val body = memory?.projection()
         val working = body?.let { Message(Role.User, listOf(Part.Text(ContextBuilder.envelope(ContextKind.UserScreen,
             "historical quotations; verify current state before external actions", it))), com.wangzan101.mika.core.model.Author.Mika) }
-        val overhead = (working?.let { TokenEstimate.of(listOf(it)) } ?: 0) + TokenEstimate.of(systemPrompt) + specs.sumOf { TokenEstimate.of(it.name + it.description + it.parametersJsonSchema) }
+        taskMemoryTokens = working?.let { TokenEstimate.of(listOf(it)) } ?: 0
+        val overhead = taskMemoryTokens + TokenEstimate.of(systemPrompt) + specs.sumOf { TokenEstimate.of(it.name + it.description + it.parametersJsonSchema) }
         val contextTokens = using.capabilities.contextTokens
         val compressor = compressorFor(using)
         var compaction = compactions[using] ?: CompactionState()
@@ -215,14 +224,20 @@ internal class ModelCaller(
                         result.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }
                             .takeIf(String::isNotEmpty)?.let(onText)
                     }
-                val reply = if (trace == null) send() else {
-                    val change = when {
-                        overflowRewrote -> "overflow_compaction folded=" + raw.foldedSteps
-                        raw.rewritten && current != sent.messages -> "history_rewritten folded=" + raw.foldedSteps
-                        else -> null
+                val compacted = overflowRewrote || raw.rewritten
+                val change = when {
+                    overflowRewrote -> "overflow_compaction folded=" + raw.foldedSteps
+                    raw.rewritten && current != sent.messages -> "history_rewritten folded=" + raw.foldedSteps
+                    else -> null
+                }
+                overflowRewrote = false
+                val prefix = prefixes.getOrPut(using) { RequestPrefix() }
+                val reply = withContext(PrefixCall { request ->
+                    prefix.observe(request, compacted)?.let { br ->
+                        emit(RunEvent.PrefixBreak(now(), step, br.reason, br.suffixTokens, taskMemoryTokens, roleOf(using)))
                     }
-                    overflowRewrote = false
-                    trace.modelCall(step, using, tools::verb, change, sent.messages) { send() }
+                }) {
+                    if (trace == null) send() else trace.modelCall(step, using, tools::verb, change, sent.messages) { send() }
                 }
                 return reply.also { r ->
                     lastOverhead[using] = overhead

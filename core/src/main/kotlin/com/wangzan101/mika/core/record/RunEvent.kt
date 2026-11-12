@@ -70,6 +70,7 @@ sealed interface RunEvent {
          * 改派掉的轻量模型回复和旧记录里没有。
          */
         val repliedAtMs: Long? = null,
+        val taskMemoryTokens: Int? = null,
     ) : RunEvent {
         /** 这次回复真的驱动了这一步(改派掉的轻量模型回复不算)。 */
         val acted: Boolean get() = role != "light_rejected"
@@ -233,6 +234,10 @@ sealed interface RunEvent {
     /** 用到的个人技能:[how] = viewed(Agent 用 skill_read 看了它);旧记录里还有 injected(以前任务开始注入了全文),读时一样算用到。 */
     @Serializable @SerialName("skill_used")
     data class SkillUsed(override val atMs: Long, val name: String, val how: String) : RunEvent
+
+    @Serializable @SerialName("prefix_break")
+    data class PrefixBreak(override val atMs: Long, val step: Int, val reason: String, val suffixTokens: Int,
+        val taskMemoryTokens: Int, val role: String) : RunEvent
 
     @Serializable @SerialName("compressed")
     data class Compressed(override val atMs: Long, val foldedSteps: Int) : RunEvent

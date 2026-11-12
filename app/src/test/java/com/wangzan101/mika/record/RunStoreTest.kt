@@ -60,6 +60,22 @@ class RunStoreTest {
         assertEquals(log, events.readText())
     }
 
+    @Test fun prefixBreakAndFactSizeAreExportedWithoutContents() {
+        val id = "20250102-030405-abc123"
+        val dir = tmp.root.resolve("files/runs/$id").also { it.mkdirs() }
+        dir.resolve("events.jsonl").writeText("""
+            {"type":"prefix_break","step":7,"reason":"tools","suffixTokens":131,"taskMemoryTokens":8,"role":"main","body":"private"}
+            {"type":"model_reply","step":8,"taskMemoryTokens":9,"text":"private"}
+        """.trimIndent())
+        val log = store().usageLog(id)
+        val rows = log.trim().lines().map { Json.parseToJsonElement(it).jsonObject }
+        assertEquals("tools", rows[0].getValue("reason").jsonPrimitive.content)
+        assertEquals("131", rows[0]["suffixTokens"].toString())
+        assertEquals("8", rows[0]["taskMemoryTokens"].toString())
+        assertEquals("9", rows[1]["taskMemoryTokens"].toString())
+        assertFalse(log.contains("private"))
+    }
+
     @Test fun exportsOnlyBillingFieldsInsideGroups() {
         val id = "20250102-030405-abc123"
         val dir = tmp.root.resolve("files/runs/$id").also { it.mkdirs() }

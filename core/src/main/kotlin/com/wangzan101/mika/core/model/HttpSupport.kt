@@ -41,7 +41,9 @@ internal object HttpSupport {
 
     private suspend inline fun observe(req: Request, send: (TraceCall.Attempt?) -> RawResponse): RawResponse {
         val wire = req.tag(InferenceRequest::class.java) ?: return send(null)
-        val call = currentCoroutineContext()[TraceCall] ?: return send(null)
+        val context = currentCoroutineContext()
+        context[PrefixCall]?.sending?.invoke(wire)
+        val call = context[TraceCall] ?: return send(null)
         val attempt = call.sending(wire) ?: return send(null)
         val response = send(attempt)
         if (response.status !in 200..299) {

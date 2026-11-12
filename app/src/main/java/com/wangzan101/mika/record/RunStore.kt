@@ -97,6 +97,8 @@ class RunStore internal constructor(
     }
 
     /** 从已有 JSONL 按原顺序取用量字段。旧记录的空值、同一步的多次回复和没有步号的压缩事件原样保留。 */
+    // prefix_break: first changed prompt zone (tools/system_prompt/history/compaction), step, model role,
+    // estimated new suffix size in tokens. taskMemoryTokens includes the task-facts envelope; neither is billed usage.
     fun usageLog(runId: String): String {
         val dir = dirOf(runId) ?: throw FileNotFoundException("Run is unavailable")
         return File(dir, EVENTS).useLines { lines ->
@@ -181,7 +183,8 @@ class RunStore internal constructor(
         private val USAGE_FIELDS = mapOf(
             "task_started" to setOf("model"),
             "model_reply" to setOf("step", "model", "role", "tool", "inputTokens", "cachedTokens",
-                "outputTokens", "repliedAtMs", "latencyMs", "retryWaitMs"),
+                "outputTokens", "repliedAtMs", "latencyMs", "retryWaitMs", "taskMemoryTokens"),
+            "prefix_break" to setOf("step", "reason", "suffixTokens", "taskMemoryTokens", "role"),
             "compressed" to setOf("foldedSteps"),
             "model_calls" to setOf("calls", "httpCalls", "unreported", "httpUnreported", "inputTokens", "cachedTokens", "outputTokens"),
             "task_ended" to setOf("outcome", "kind"),
