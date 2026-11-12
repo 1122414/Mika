@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var monitor: SystemStatusMonitor
     private var requestedConversation by mutableStateOf<String?>(null)
     private var requestedCalls by mutableStateOf(false)
+    private var requestedCallHistoryId by mutableStateOf<String?>(null)
     private var openTeach by mutableStateOf(false)
     private var requestedSharedDraft by mutableStateOf<SharedDraftRequest?>(null)
     private var shareJob: Job? = null
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
         }
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
+        requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         takeTeach(intent)
         shareInCurrent = savedInstanceState?.getBoolean(STATE_SHARE_IN_CURRENT, false) ?: false
         shareHandled = savedInstanceState?.getBoolean(STATE_SHARE_HANDLED, false) ?: false
@@ -129,7 +131,7 @@ class MainActivity : ComponentActivity() {
                 KeyboardDismissArea(Modifier.fillMaxSize()) {
                     MikaRoot(
                         store, monitor, ::perform, requestedConversation, { requestedConversation = null },
-                        requestedCalls, { requestedCalls = false },
+                        requestedCalls, requestedCallHistoryId, { requestedCalls = false; requestedCallHistoryId = null },
                         requestedSharedDraft,
                         onSharedDraftOpened = { accepted, draft ->
                             requestedSharedDraft = null
@@ -156,6 +158,7 @@ class MainActivity : ComponentActivity() {
         shareJob?.cancel()
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
+        requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         if (requestedConversation != null || intent.getBooleanExtra(EXTRA_OPEN_TEACH, false)) {
             app.chat.cancelPendingSharedDraft()
         }
@@ -330,6 +333,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_CONVERSATION = "open_conversation"
         const val EXTRA_OPEN_CALLS = "open_calls"
+        const val EXTRA_CALL_HISTORY_ID = "call_history_id"
         const val EXTRA_OPEN_TEACH = "open_teach"
         const val EXTRA_TEACH_GOAL = "teach_goal"
         private const val STATE_SHARE_IN_CURRENT = "share_in_current"
@@ -364,6 +368,7 @@ private fun MikaRoot(
     requestedConversation: String?,
     onConversationOpened: () -> Unit,
     requestedCalls: Boolean,
+    requestedCallHistoryId: String?,
     onCallsOpened: () -> Unit,
     sharedDraft: SharedDraftRequest?,
     onSharedDraftOpened: (Boolean, SharedDraft) -> Unit,
@@ -371,6 +376,7 @@ private fun MikaRoot(
     onTeachOpened: () -> Unit,
 ) {
     val context = LocalContext.current
+    var focusedCallHistoryId by remember { mutableStateOf<String?>(null) }
     val personalStart = remember { FeatureFlags.get(context).personalStart() }
     val nav = rememberNavStack(if (personalStart && requestedConversation == null) Route.Personal else Route.Chat)
     var filesFromDrawer by rememberSaveable { mutableStateOf(false) }
@@ -411,8 +417,9 @@ private fun MikaRoot(
             onConversationOpened()
         }
     }
-    LaunchedEffect(requestedCalls) {
+    LaunchedEffect(requestedCalls, requestedCallHistoryId) {
         if (requestedCalls) {
+            focusedCallHistoryId = requestedCallHistoryId
             nav.push(Route.Calls)
             onCallsOpened()
         }
@@ -724,7 +731,7 @@ private fun MikaRoot(
             app.chat.openConversation(it)
             nav.reset()
         })
-        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true)
+        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true, initialHistoryCallId = focusedCallHistoryId)
     }
 }
 
