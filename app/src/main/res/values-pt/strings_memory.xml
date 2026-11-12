@@ -26,7 +26,7 @@
     <string name="memory_auto">Lembrar o que eu disser</string>
     <string name="memory_auto_sub">Organizado a partir das suas próprias palavras após cada tarefa</string>
     <string name="memory_infer">Deixar o Mika guardar as próprias conclusões</string>
-    <string name="memory_infer_sub">Quando você pedir para lembrar de algo, também guarda entradas com detalhes que você não disse (nomes, números, endereços etc.). Elas ficam marcadas como conclusões do Mika, não como palavras suas. Desativado: essas entradas não são guardadas.</string>
+    <string name="memory_infer_sub">Quando você pedir para lembrar, também guarda as próprias conclusões, marcadas como não suas</string>
     <string name="memory_learn">Aprender com tarefas anteriores (habilidades e notas de apps)</string>
     <string name="memory_learn_sub">O que o Mika aprende só é usado depois que você aceitar</string>
     <string name="memory_tasks">Lembrar tarefas anteriores</string>

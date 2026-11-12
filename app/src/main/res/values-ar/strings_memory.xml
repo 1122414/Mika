@@ -26,7 +26,7 @@
     <string name="memory_auto">تذكّر ما أقوله</string>
     <string name="memory_auto_sub">تُنظّم من كلماتك بعد كل مهمة</string>
     <string name="memory_infer">السماح لـ Mika بحفظ استنتاجاته</string>
-    <string name="memory_infer_sub">عندما تطلب منه أن يتذكّر شيئًا، تُحفظ أيضًا المدخلات التي تتضمن تفاصيل لم تقلها أنت (أسماء، أرقام، عناوين ونحوها). تُوسَم بأنها استنتاجات Mika لا كلامك. عند الإيقاف: لا تُحفظ هذه المدخلات.</string>
+    <string name="memory_infer_sub">عندما تطلب منه التذكّر، تُحفظ استنتاجاته أيضًا مع الإشارة إلى أنها ليست كلامك</string>
     <string name="memory_learn">التعلّم من المهام السابقة (المهارات وملاحظات التطبيقات)</string>
     <string name="memory_learn_sub">لا يستخدم Mika ما يتعلّمه إلا بعد موافقتك</string>
     <string name="memory_tasks">تذكّر المهام السابقة</string>

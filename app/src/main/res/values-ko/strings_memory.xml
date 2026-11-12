@@ -26,7 +26,7 @@
     <string name="memory_auto">내가 한 말 기억하기</string>
     <string name="memory_auto_sub">작업이 끝날 때마다 내가 한 말을 정리해요</string>
     <string name="memory_infer">Mika가 스스로 정리한 것도 기억</string>
-    <string name="memory_infer_sub">기억하라고 하면, 직접 말하지 않은 구체적인 정보(이름, 숫자, 주소 등)가 들어 있는 내용도 저장하고 ‘Mika가 정리한 것’으로 표시합니다. 사용자의 말로 취급하지 않습니다. 끄면 이런 내용은 저장하지 않습니다.</string>
+    <string name="memory_infer_sub">기억하라고 하면 Mika가 정리한 내용도 저장하고, 사용자의 말이 아님을 표시합니다</string>
     <string name="memory_learn">지난 작업에서 배우기 (스킬과 앱 노트)</string>
     <string name="memory_learn_sub">Mika가 배운 내용은 내가 수락한 뒤에만 사용돼요</string>
     <string name="memory_tasks">지난 작업 기억하기</string>

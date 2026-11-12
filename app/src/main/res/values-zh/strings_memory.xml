@@ -26,7 +26,7 @@
     <string name="memory_auto">自动记住我说过的事</string>
     <string name="memory_auto_sub">任务结束后从你的原话里整理</string>
     <string name="memory_infer">让 Mika 自己归纳着记</string>
-    <string name="memory_infer_sub">你让它记的时候,内容里带着你没亲口说过的具体信息(名字、数字、地址等)也照存,并标成「Mika 归纳的」,不当成你说的。关着时这类内容不收。</string>
+    <string name="memory_infer_sub">你让它记时,它自己归纳的也存,并标明不是你说的</string>
     <string name="memory_learn">从做过的事里学(技能和 App 知识)</string>
     <string name="memory_learn_sub">学到的技能和 App 知识要你收下才会用</string>
     <string name="memory_tasks">记住办过的任务</string>

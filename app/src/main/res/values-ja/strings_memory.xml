@@ -26,7 +26,7 @@
     <string name="memory_auto">私の言ったことを覚える</string>
     <string name="memory_auto_sub">タスクのあとに、あなた自身の言葉から整理します</string>
     <string name="memory_infer">Mika 自身のまとめも記憶に残す</string>
-    <string name="memory_infer_sub">覚えるよう頼んだとき、あなたが自分で言っていない具体的な情報(名前、数字、住所など)を含む内容も保存し、「Mika のまとめ」と表示します。あなたの発言としては扱いません。オフのときは、そうした内容は保存しません。</string>
+    <string name="memory_infer_sub">覚えるよう頼んだとき、Mika 自身のまとめも保存し、あなたの発言ではないと表示します</string>
     <string name="memory_learn">過去のタスクから学ぶ(スキルとアプリのメモ)</string>
     <string name="memory_learn_sub">Mika が学んだ内容は、あなたが承認してから使われます</string>
     <string name="memory_tasks">過去のタスクを覚える</string>

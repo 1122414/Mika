@@ -26,7 +26,7 @@
     <string name="memory_auto">Remember what I say</string>
     <string name="memory_auto_sub">Organized from your own words after each task</string>
     <string name="memory_infer">Let Mika write its own conclusions to memory</string>
-    <string name="memory_infer_sub">When you ask it to remember something, also keep entries that contain details you did not say yourself (names, numbers, addresses and the like). They are marked as Mika\'s conclusions, not your words. Off: such entries are not saved.</string>
+    <string name="memory_infer_sub">When you ask it to remember, its own conclusions are saved too, marked as not your words</string>
     <string name="memory_learn">Learn from past tasks (skills and app notes)</string>
     <string name="memory_learn_sub">What Mika learns is used only after you accept it</string>
     <string name="memory_tasks">Remember past tasks</string>
