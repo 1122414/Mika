@@ -331,7 +331,7 @@ fun ChatScreen(
     }
 
     // 已结束各轮的运行小结:每轮结束那一行写这一轮的 token,顶栏闲着时写这个对话合起来的
-    val endedRuns = ui.exchanges.filter { !it.status.isActive() }.mapNotNull { it.runId }
+    val endedRuns = ui.exchanges.filter { !it.status.isActive() }.mapNotNull { it.recordedRun }
     val runMetrics = rememberRunMetrics(endedRuns)
 
     val c = MikaTheme.colors
@@ -390,7 +390,7 @@ fun ChatScreen(
                     exchange(
                         i, ex, ui.conversationId, ui.takeoverStage, vm, reduceMotion, backgroundNote, openRun, loadSource, openSource, kept,
                         highlightKey = highlightKey,
-                        tokens = ConversationTokens.turn(ex.runId?.let(runMetrics::get)),
+                        tokens = ConversationTokens.turn(ex.recordedRun?.let(runMetrics::get)),
                         recover = { resume ->
                             val label = if (resume) R.string.chat_resume_request else R.string.chat_restart_request
                             vm.send(context.getString(label, ex.goal), check)
@@ -720,7 +720,7 @@ private fun LazyListScope.exchange(
     val answering = ex.status == ExchangeStatus.Working && !ex.draft.isNullOrBlank()
     if (active) {
         if (!answering) item("s$index") { WorkBlock(ex, reduceMotion, backgroundNote, openRun) }
-    } else if (ex.steps.isNotEmpty() || ex.runId != null) {
+    } else if (ex.steps.isNotEmpty() || ex.recordedRun != null) {
         item("s$index") { DoneLine(ex, reduceMotion, openRun, tokens) }
     }
     // 任务进行中插的话:用户的原话,下面一行小字说它的去向。
@@ -749,7 +749,7 @@ private fun LazyListScope.exchange(
     waiting.forEach(::steer)
     item("r$index") {
         JumpHighlight(highlightKey == "r$index", reduceMotion) {
-            StatusCard(ex.status, stage, vm, ex.runId, loadSource, openSource, "r$index", recover)
+            StatusCard(ex.status, stage, vm, ex.recordedRun, loadSource, openSource, "r$index", recover)
         }
     }
     // 这一轮结束后留在后台运行的那一页:还开着是绿色一行(能关),关了是一句原因
@@ -919,7 +919,7 @@ private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boole
         }
         if (ex.steps.isNotEmpty()) StepLine(ex.steps, ex.stepActions, live = true, paused = paused)
         // 跑的时候就能进运行过程(页面按秒接着长);结束后收进「做了 N 步 · 查看过程」那一行
-        ex.runId?.let { id ->
+        ex.recordedRun?.let { id ->
             Text(
                 stringResource(R.string.chat_view_process),
                 Modifier.padding(top = 2.dp).clip(MikaShapes.Pill).clickable(role = Role.Button) { openRun(id) }
@@ -1107,7 +1107,7 @@ private fun DoneLine(ex: Exchange, reduceMotion: Boolean, openRun: (String) -> U
             } else if (tokenText != null) {
                 Text(tokenText, style = DoneText, color = c.ink3)
             }
-            ex.runId?.let { id ->
+            ex.recordedRun?.let { id ->
                 Text(
                     // 灰色斜体加下划线:和回答融在一起,又看得出能点
                     stringResource(R.string.chat_view_process), Modifier.clip(MikaShapes.Pill).clickable(role = Role.Button) { openRun(id) }.padding(horizontal = 4.dp, vertical = 4.dp),

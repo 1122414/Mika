@@ -41,6 +41,7 @@ import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 import com.wangzan101.mika.core.model.StopReason
 import com.wangzan101.mika.core.model.ToolSpec
+import com.wangzan101.mika.core.proactive.ObservedContext
 import com.wangzan101.mika.core.record.Redactor
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.record.RunSink
@@ -111,7 +112,7 @@ private fun cleanReplyParts(parts: List<Part>, text: String): List<Part> {
 private val MEMORY_WRITE_VERBS = setOf(Verb.MemorySave, Verb.MemoryEdit)
 private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave, Verb.MemoryEdit)
 /** 讨论历史时仍可查本地记忆与技能资料、之前几轮的记录；这些调用不会打开 App 或网站。 */
-private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead)
+private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead, Verb.NoticesRead)
 
 /**
  * 驱动“模型 ↔ 工具”的循环,只做调度:问模型([ModelCaller])→ 交执行入口([ActionExecutor])→
@@ -172,6 +173,8 @@ class AgentLoop(
     private val interaction: Interaction = LocalInteraction,
     private val profileSnapshot: List<ProfileEntry> = emptyList(),
     private val autonomous: Boolean = false,
+    /** 主动能力从通知里攒下、够格带进这次任务的那一段(见 [com.wangzan101.mika.core.proactive.ObservedContext]);没有为 null。 */
+    private val observed: String? = null,
     /** 交互界面开启可见文字流；评测和后台调用保持原请求格式。 */
     private val streamReplies: Boolean = false,
     /** 这个对话里用户发来的屏幕(见 [UserScreenTurns]);没有时带屏幕的那一行原样给模型。 */
@@ -220,6 +223,9 @@ class AgentLoop(
     @Volatile private var usedMemory: List<String> = emptyList()
     /** 本次任务记忆块里列出的条目编号;任务结束后读取。 */
     val usedMemoryIds: List<String> get() = usedMemory
+
+    /** 这次任务开工时带没带「从通知里得来的」那一段;任务结束后读取(带了就不自动提取记忆,不靠读运行记录也知道)。 */
+    val carriedObserved: Boolean get() = observed != null
 
     /** 本次任务真的用过的能力组(记进这一轮,下一轮开局预先展开);任务结束后读取。 */
     val usedGroups: Set<String> get() = tools.used
@@ -373,13 +379,18 @@ class AgentLoop(
         taskText = task
         latestWords = ownWords(raw, opening)
         val priorTurns = shots.collapse(rawPrior)
-        earlierGoals = priorTurns.map { it.userText }
+        // 通知提醒那一轮没有用户的话,不算进「之前几轮用户说的话」
+        earlierGoals = priorTurns.filterNot(NoticeTurn::isNotice).map { it.userText }
         // 之前的轮次只作参考,放在本次任务之前
         val context = Conversation.context(priorTurns)
         // 仅「上一轮用户明确确认 + 再上一轮助手建议/提问」可供 memory_save 跨轮引用;更早轮次与助手原文不收。
         val confirmation = rawPrior.lastOrNull()
         val proposal = rawPrior.dropLast(1).lastOrNull()
-        if (confirmation != null && proposal != null) {
+        // 对话里有通知提醒(第三方文字)时不开这个例外:提醒那一轮就是以问句收尾的,用户回一句「好的」不能成为引用通知内容的依据。
+        // 看的是存着的全部轮次:提醒隔了几轮之后,助手的回答里照样可能转述着通知。
+        // 这次任务带着「从通知里得来的」那一段时也不开:上一轮的建议可能就是照着那一段说的,用户回一句「好的」
+        // 不能让里面的事变成「用户说的」记忆。用户明说的(本轮原话里有的)照常能记。
+        if (confirmation != null && proposal != null && !NoticeTurn.tainted(rawPrior) && observed == null) {
             utterances?.addPreviousConfirmation(UserWords.said(confirmation.userText, tools), proposal.outcome, proposal.status)
         }
         utterances?.add(UserWords.said(opening?.words ?: raw, tools))
@@ -451,12 +462,15 @@ class AgentLoop(
                 if (tools.definitions().any { it.name == HISTORY_READ }) Feedback.format("history_hint", "turns" to prior) else prior
             },
             memory = listOfNotNull(ProfileContext.render(profileSnapshot), block?.message).takeIf { it.isNotEmpty() }?.joinToString("\n\n"),
+            observed = observed,
             channel = if (knowledge != null) channelLine(matched) else null,
             knowledge = matched, knowledgeNote = toolsNote(tools.scriptsOffered()), withLinks = flags.deepLinks,
             skillsIndex = index,
             taskImages = opening?.images.orEmpty(), screens = opening?.details.orEmpty(),
         )
         val history = start.messages.toMutableList()
+        // 带了「从通知里得来的」那一段:记一笔(只记长度)。给了就算,不看最后放没放得下
+        observed?.let { emit(RunEvent.State(now(), ObservedContext.RUN_STATE, it.length.toString())) }
         start.knowledge.filter { it.trial }.forEach { emit(RunEvent.State(now(), "knowledge_trial_used", it.name)) }
         // 链接只在 open_link 可用时给,且只放行真的给了模型的那几份
         if (flags.deepLinks) start.knowledge.forEach { if (it.links.isNotEmpty()) tools.allowLinks(it.links) }

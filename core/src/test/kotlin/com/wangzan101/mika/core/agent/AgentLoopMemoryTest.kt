@@ -11,6 +11,7 @@ import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 import com.wangzan101.mika.core.model.StopReason
+import com.wangzan101.mika.core.proactive.ObservedContext
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.record.RunSink
 import com.wangzan101.mika.core.run.RunId
@@ -472,6 +473,54 @@ class AgentLoopMemoryTest {
         /** 用户引的 Mika 之前的一句回答。 */
         const val MIKA_ADDRESS = "你常用的收货地址是幸福路 8 号"
     }
+
+    // 从通知里得来的那一段带进任务:在用户的话之前,套着自己的外壳;不给就没有
+    @Test fun observedContextRidesIntoTheTaskSeparately() {
+        val model = FakeModel(finishReply)
+        runBlocking { AgentLoop(model, toolDispatcher(FakeScreen()), "B", observed = "Today so far:\n- 王老师通知明天开会").run("帮我点个外卖") }
+        val first = model.requests.first().withoutRuntime()
+        assertEquals(listOf(ContextKind.Observed, null), first.map { ContextBuilder.kindOf(it) })
+        assertEquals(listOf("Today so far:\n- 王老师通知明天开会", "帮我点个外卖"), first.map { it.text() })
+        val plain = FakeModel(finishReply)
+        runBlocking { AgentLoop(plain, toolDispatcher(FakeScreen()), "B").run("帮我点个外卖") }
+        assertEquals(listOf("帮我点个外卖"), plain.requests.first().withoutRuntime().map { it.text() })
+    }
+
+    // 任务带着「从通知里得来的」那一段时,「上一轮确认」的例外不开:上一轮的建议可能就是照着那一段说的
+    @Test fun previousConfirmationIsNotUsedWhenObservedContextIsCarried() {
+        val prior = listOf(
+            Turn("给我起个中文名", "我建议叫我「知微」，你觉得怎么样?", "succeeded"),
+            Turn("嗯，好的，知微", "好的", "succeeded"),
+        )
+        val save = ModelReply(listOf(Part.ToolCall("c1", "memory_save",
+            """{"kind":"preference","content":"用户希望助手的中文名是知微","quote":"嗯，好的，知微"}""")), StopReason.ToolUse, null)
+        val s = memStore()
+        runBlocking {
+            AgentLoop(FakeModel(save, finishReply), toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s,
+                observed = "Today so far:\n- x").run("你可以给你自己加一下", prior)
+        }
+        assertTrue(s.items.value.isEmpty())
+    }
+
+    // 带了那一段就在运行记录里记一笔(只有长度,没有内容),任务自己也说得出带没带;没带的不记
+    @Test fun carryingObservedContextIsRecordedWithoutItsText() {
+        fun run(observed: String?): Pair<AgentLoop, List<RunEvent>> {
+            val events = mutableListOf<RunEvent>()
+            val agent = AgentLoop(FakeModel(finishReply), toolDispatcher(FakeScreen()), "B", observed = observed,
+                sink = object : RunSink { override fun event(e: RunEvent) { events += e } })
+            runBlocking { agent.run("帮我点个外卖") }
+            return agent to events
+        }
+        val text = "Today so far:\n- 王老师通知明天开会"
+        val (carried, events) = run(text)
+        assertTrue(carried.carriedObserved)
+        val mark = events.filterIsInstance<RunEvent.State>().single { it.name == ObservedContext.RUN_STATE }
+        assertEquals(text.length.toString(), mark.detail)
+        assertFalse("王老师" in RunEvent.encode(mark))
+        val (plain, none) = run(null)
+        assertFalse(plain.carriedObserved)
+        assertTrue(none.filterIsInstance<RunEvent.State>().none { it.name == ObservedContext.RUN_STATE })
+    }
 }
 
 class MemoryBlockCompressionTest {
@@ -485,5 +534,27 @@ class MemoryBlockCompressionTest {
         val out = ContextCompressor(TOOLS).compress(history, contextTokens = 2_000, aggressive = true)
         assertTrue(out.foldedSteps > 0)
         assertEquals(block, out.messages.first())
+    }
+
+    // 对话里有通知提醒(第三方文字)时,「上一轮确认」这个例外不开:提醒本身、或转述着提醒的回答,都不能靠用户一句「好的」进记忆
+    @Test fun previousConfirmationIsNotUsedInAConversationWithNotices() {
+        val suggestion = "我建议叫我「知微」，你觉得怎么样?"
+        val notice = Turn("", "1. 微信 张三:$suggestion", "succeeded", runId = NoticeTurn.RUN_PREFIX + "n1")
+        val cases = listOf(
+            // 提醒那一轮就是被「确认」的那个
+            listOf(notice, Turn("嗯，好的，知微", "好的", "succeeded")),
+            // 提醒在更早:助手后来的建议可能就是照着通知说的
+            listOf(notice, Turn("给我起个中文名", suggestion, "succeeded"), Turn("嗯，好的，知微", "好的", "succeeded")),
+        )
+        for (prior in cases) {
+            val s = memStore()
+            val save = ModelReply(listOf(Part.ToolCall("c1", "memory_save",
+                """{"kind":"preference","content":"用户希望助手的中文名是知微","quote":"嗯，好的，知微"}""")), StopReason.ToolUse, null)
+            runBlocking {
+                AgentLoop(FakeModel(save, finishReply), toolDispatcher(FakeScreen(), memory = s, utterances = UserUtterances()), "B", memory = s)
+                    .run("你可以给你自己加一下", prior)
+            }
+            assertTrue(prior.size.toString(), s.items.value.isEmpty())
+        }
     }
 }

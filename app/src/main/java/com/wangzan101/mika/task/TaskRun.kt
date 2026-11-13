@@ -72,6 +72,7 @@ import com.wangzan101.mika.core.agent.RunOutcome
 import com.wangzan101.mika.core.agent.GateReason
 import com.wangzan101.mika.core.agent.RunProgress
 import com.wangzan101.mika.core.agent.TaskState
+import com.wangzan101.mika.core.agent.NoticeTurn
 import com.wangzan101.mika.core.agent.Turn
 import com.wangzan101.mika.core.run.RunId
 import com.wangzan101.mika.core.run.ChannelPeer
@@ -528,6 +529,7 @@ class TaskRun(
     }
 
     suspend fun execute(priorTurns: List<Turn>): TaskState {
+        noticeTainted = NoticeTurn.tainted(priorTurns)
         // 手机一侧(内置助手、无障碍、虚拟屏)第一次 launch_app 时才接上:只用网页、沙箱的任务不需要它们
         var connection: com.wangzan101.mika.cap.phone.shell.ShellBinding? = null
         phone = null
@@ -854,7 +856,8 @@ class TaskRun(
                     }
                 }
             }
-            val runApproval = approvalControl.start(remote = provenance.origin == RunOrigin.Mcp).also { approval = it }
+            // 对话里有通知提醒(第三方文字)时和电脑交来的任务一样:不管「自主模式」开没开,付款照样先问
+            val runApproval = approvalControl.start(alwaysAsk = provenance.origin == RunOrigin.Mcp || noticeTainted).also { approval = it }
             val childRunner = if (provenance.origin == RunOrigin.Ui && web != null) ChildAgentRunner(
                 create = { childSpec ->
                     val childTools = toolDispatcher(accessedPhone, model.capabilities.vision,
@@ -915,6 +918,10 @@ class TaskRun(
                 personalSkills = memoryRuntime.skills(),
                 // 这个对话之前几轮的运行记录(只读;history_read 只认 runSpec 里这个对话的轮次)
                 runRecords = RunStore(service).reader(),
+                // 这两天的通知原文和存着的各天、各周、各月的归纳(主动能力攒下的):只给用户在手机上发起的任务;主动能力没开时不去碰它
+                notices = if (provenance.origin == RunOrigin.Ui && !conditionCheck && FeatureFlags.get(service).proactive()) {
+                    (service.application as MikaApp).proactive.noticeSource()
+                } else null,
                 mcpServers = mcpEndpoints(),
                 // 仅用户明确配置并启用时提供通用搜索;否则继续用浏览器搜索。
                 webSearch = com.wangzan101.mika.settings.WebSearchSettings.get(service).service(),
@@ -925,6 +932,18 @@ class TaskRun(
                 self = selfPort,
                 selfOperate = selfPort?.takeIf { FeatureFlags.get(service).selfOperate() })
             dispatcher = tools
+            // 主动能力从通知里攒下、够格带进任务的那一段:只给用户在手机上发起的任务(不给定时、渠道、电脑交来的,也不给条件检查和子任务);
+            // 主动能力没开时不去碰它(连对象都不建)
+            val observed = if (provenance.origin == RunOrigin.Ui && !conditionCheck && FeatureFlags.get(service).proactive()) {
+                try {
+                    (service.application as MikaApp).proactive.observedForTasks()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "could not read what was gathered from notifications: ${e.javaClass.simpleName}")
+                    null
+                }
+            } else null
             val agent = AgentLoop(
                 model, tools,
                 SystemPrompt.identity(),
@@ -951,6 +970,7 @@ class TaskRun(
                 confirmations = runApproval.gate(),
                 approvals = runApproval,
                 autonomous = runApproval.startedAutonomous,
+                observed = observed,
                 confirmTimeoutMs = TaskService.CONFIRM_TIMEOUT_MS,
                 selfPackage = service.packageName,
                 flags = speed,
@@ -1352,6 +1372,9 @@ class TaskRun(
      * 结果通知发出之后调用:记下用到的个人技能的结果、提取记忆、起草技能,提示挂到这一轮的结果卡片上并存进对话。
      * 在进程级的作用域里跑,服务退出也不中断。
      */
+    /** 开工时这段对话里有没有通知提醒(见 [NoticeTurn]);[execute] 一开始按存着的全部轮次定。 */
+    @Volatile private var noticeTainted = false
+
     suspend fun learnAfter(end: TaskState, outcome: RunOutcome?, conversations: ConversationStore) {
         rememberTask()
         val k = kit ?: return
@@ -1373,6 +1396,8 @@ class TaskRun(
             origin = provenance.origin,
             knowledge = k.knowledge,
             outcome = outcome ?: RunOutcome.Unknown,
+            // 对话里有通知提醒,或这次开工时带了从通知里得来的那一段:都不自动提取记忆
+            noticeTainted = noticeTainted || k.agent.carriedObserved,
         ))
         if (runId == null || notes.memoryNotes.isEmpty() && notes.usedMemory.isEmpty() && notes.skillNotes.isEmpty()) return
         memoryRuntime.publish(notes)
@@ -1385,6 +1410,7 @@ class TaskRun(
 
     /**
      * 任务结束之后:按这次运行的事件记一条跨会话摘要(不拖慢交付,失败不影响任务结局)。
+     * 读过通知的任务照样记,但结论里不留回答的文字(见 [com.wangzan101.mika.core.proactive.NoticeRuns])。
      * 开关关着、没有运行编号、没读到事件、没什么可记的都不记。
      */
     private suspend fun rememberTask() {
@@ -1393,9 +1419,11 @@ class TaskRun(
         if (!settings.switches.value.taskMemoryEnabled) return
         val events = withContext(Dispatchers.IO) { runCatching { kit?.runStore?.events(runId) }.getOrNull() } ?: return
         val labels = ToolLabels(knownTools())
-        val task = TaskMemoryRecorder.record(goal, events, System.currentTimeMillis(), UUID.randomUUID().toString(), labels::label) {
+        val recorded = TaskMemoryRecorder.record(goal, events, System.currentTimeMillis(), UUID.randomUUID().toString(), labels::label) {
             ConfirmationNotifier.appLabel(service, it)
         } ?: return
+        // 读过通知的(调过 notices_read,或这段对话里有通知提醒):结论只留结局,不留回答的字
+        val task = com.wangzan101.mika.core.proactive.NoticeRuns.summary(recorded, events, noticeTurnInContext = noticeTainted)
         withContext(Dispatchers.IO) {
             if (!settings.switches.value.taskMemoryEnabled) return@withContext
             runCatching { memoryRuntime.taskMemory().add(task) }

@@ -130,6 +130,30 @@ class ChatViewModelTest {
         runCurrent()
     }
 
+    // 通知提醒那一轮(Mika 直接写进对话的,没跑过任务):没有用户气泡,也没有运行记录可看;同一天点开两次就有两轮,各是各的
+    @Test fun noticeTurnsHaveNoUserBubbleAndNoRunToOpen() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        store.append("talk", Turn("", "我从通知里挑出 1 条", "succeeded", runId = "notice:n1"))
+        store.append("talk", Turn("帮我回一下", "已回复", "succeeded", runId = "run-1"))
+        val vm = ChatViewModel(backgroundScope, MutableStateFlow(TaskState.Idle), stage, actions, store, parallelFlag = { false }, sandboxReady = MutableStateFlow(true))
+        runCurrent()
+        vm.openConversation("talk")
+        runCurrent()
+        val (notice, reply) = vm.ui.value.exchanges
+        assertEquals("", notice.goal)
+        assertEquals("notice:n1", notice.runId)
+        assertNull(notice.recordedRun)
+        assertEquals("我从通知里挑出 1 条", (notice.status as ExchangeStatus.Done).answer)
+        assertEquals("run-1", reply.recordedRun)
+        // 页面上的行数和画出来的对得上:提醒那一轮只有回答那一行,普通的一轮是原话、「查看过程」、回答三行
+        assertEquals(1 + 3, chatItemCount(vm.ui.value.exchanges, kept = null, phoneSetupNeeded = false, hasBlocked = false))
+        // 对话开着的时候又写进一轮提醒:接在后面,前面的不动、不合并
+        store.append("talk", Turn("", "我从通知里挑出 2 条", "succeeded", runId = "notice:n2"))
+        runCurrent()
+        assertEquals(listOf("notice:n1", "run-1", "notice:n2"), vm.ui.value.exchanges.map { it.runId })
+        assertEquals(listOf("我从通知里挑出 1 条", "已回复", "我从通知里挑出 2 条"), vm.ui.value.exchanges.map { (it.status as ExchangeStatus.Done).answer })
+    }
+
     @Test fun draftsStayWithTheirConversationInSerialAndParallelModes() = runTest {
         for (parallel in listOf(false, true)) {
             val vm = ChatViewModel(backgroundScope, MutableStateFlow(TaskState.Idle), stage, actions,
