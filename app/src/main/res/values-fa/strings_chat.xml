@@ -139,6 +139,10 @@
     <string name="step_viewed">%1$s مشاهده شد</string>
     <string name="step_viewed_part">%2$s در %1$s مشاهده شد</string>
     <string name="step_failed">ناموفق بود</string>
+    <string name="step_declined_not_said">نوشته نشد: گفتهٔ خود شما نیست</string>
+    <string name="step_declined_sensitive">نوشته نشد: اطلاعات حساس</string>
+    <string name="step_declined_not_asked">تغییری نکرد: شما نخواسته بودید</string>
+    <string name="step_declined_not_requested">نوشته نشد: در این پیام خواسته نشده بود به خاطر سپرده شود</string>
     <string name="step_number">مرحلهٔ %1$d</string>
     <string name="source_label">منبع</string>
     <plurals name="screenshots">

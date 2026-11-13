@@ -192,6 +192,10 @@
     <string name="step_viewed">Просмотрено: %1$s</string>
     <string name="step_viewed_part">Просмотрено: %2$s в «%1$s»</string>
     <string name="step_failed">Не удалось</string>
+    <string name="step_declined_not_said">Не записано: это не ваши слова</string>
+    <string name="step_declined_sensitive">Не записано: конфиденциальные данные</string>
+    <string name="step_declined_not_asked">Без изменений: вы об этом не просили</string>
+    <string name="step_declined_not_requested">Не записано: в этом сообщении не было просьбы запомнить</string>
     <string name="step_number">Шаг %1$d</string>
     <string name="source_label">Источник</string>
     <plurals name="screenshots">

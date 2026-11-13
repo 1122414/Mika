@@ -2657,6 +2657,26 @@ class ChatViewModelTest {
         assertFalse(row.toString().contains("ref_expired"))
     }
 
+    // 让它记、它按规矩没收(不是你亲口说的、敏感、没明确要改):不是出了故障,不写「没成功」,说没收和原因;工具用界面上的名字
+    @Test fun declinedMemoryWriteSaysWhyInsteadOfFailed() = runTest {
+        val vm = vm()
+        vm.send("总结几条写进记忆", ok)
+        emit(TaskState.Running(1, "", "memory_save"))
+        did(1, "observe", "memory_save", null, "content_not_from_user", failed = true)
+        did(2, "observe", "memory_save", null, "sensitive", failed = true)
+        did(3, "observe", "memory_edit", null, "edit_not_requested", failed = true)
+        did(4, "observe", "memory_edit", null, "not_found", failed = true)
+        val rows = vm.ui.value.exchanges.single().steps
+        assertEquals(listOf("写入记忆", "写入记忆", "修改记忆", "修改记忆"), rows.map { it.title })
+        assertEquals(listOf("不是你亲口说的,没有写入", "含敏感信息,没有写入", "你没明确要改或删,没有改动", "没成功"), rows.map { it.subtitle })
+        assertFalse(rows.toString().contains("content_not_from_user") || rows.toString().contains("memory_save"))
+        // 点开一步、运行过程页用的是同一份说法
+        assertEquals("不是你亲口说的,没有写入", ChatCopy.effectLabel("quote_not_from_user"))
+        assertEquals("没成功", ChatCopy.effectLabel("memory_full"))
+        // 开着「让 Mika 自己归纳着记」、但这句话没让它记
+        assertEquals("这句话没让它记,没有写入", ChatCopy.effectLabel("inference_not_requested"))
+    }
+
     // 原话的任务还在等服务收尾上一个时插的话:先开始原话的任务,再把插话交给它
     @Test fun steerDuringPendingStartIsSentAfterTheStart() = runTest {
         val busy = MutableStateFlow(true)
