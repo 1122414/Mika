@@ -3,7 +3,7 @@ name: xiaoheihe
 display: 小黑盒
 packages: ["com.max.xiaoheihe"]
 aliases: ["小黑盒", "Heybox", "heybox", "Xiaoheihe", "xiaoheihe", "黑盒"]
-sites: ["xiaoheihe.cn"]
+sites: []
 open: 小黑盒
 pace: careful
 description: 游戏社区、游戏库与商城
