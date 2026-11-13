@@ -547,6 +547,7 @@ private fun MikaRoot(
                 reopen = nav.reopenDrawer,
                 onReopened = nav::drawerReopened,
                 onPersonal = { nav.show(Route.Personal) },
+                showPersonal = personalStart,
                 onRegularChat = nav::reset,
                 resetKey = nav.resetSerial,
             ) { openDrawer ->
