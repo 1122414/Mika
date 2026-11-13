@@ -272,6 +272,7 @@
     <string name="chat_withdraw_message">Отозвать сообщение</string>
     <string name="pip_close">Закрыть маленькое окно для этой задачи</string>
     <string name="pip_unmute">Вернуть звук</string>
+    <string name="pip_mute">Выключить звук</string>
     <string name="pip_back">Назад на виртуальном экране</string>
     <string name="pip_reopen">Показать экран</string>
     <string name="pip_closed_needs_you">Нужны вы</string>

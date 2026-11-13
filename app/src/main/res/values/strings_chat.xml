@@ -248,6 +248,7 @@
     <string name="chat_withdraw_message">Withdraw message</string>
     <string name="pip_close">Close the small view for this task</string>
     <string name="pip_unmute">Turn sound back on</string>
+    <string name="pip_mute">Turn sound off</string>
     <string name="pip_back">Back on the virtual screen</string>
     <string name="pip_reopen">Show screen</string>
     <string name="pip_closed_needs_you">Needs you</string>

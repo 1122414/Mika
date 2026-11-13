@@ -236,6 +236,7 @@
     <string name="chat_withdraw_message">Tarik pesan</string>
     <string name="pip_close">Tutup tampilan kecil untuk tugas ini</string>
     <string name="pip_unmute">Kembalikan suara</string>
+    <string name="pip_mute">Matikan suara</string>
     <string name="pip_back">Kembali di layar virtual</string>
     <string name="pip_reopen">Tampilkan layar</string>
     <string name="pip_closed_needs_you">Perlu Anda</string>
