@@ -16,7 +16,12 @@ internal object CallSummaryGenerator {
     private const val MAX_INPUT_CHARS = 48_000
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    suspend fun generate(model: ChatModel, transcript: List<CallTranscriptLine>, direction: CallDirection = CallDirection.INCOMING): CallSummary? {
+    suspend fun generate(
+        model: ChatModel,
+        transcript: List<CallTranscriptLine>,
+        direction: CallDirection = CallDirection.INCOMING,
+        canSend: () -> Boolean = { true },
+    ): CallSummary? {
         val otherParty = if (direction == CallDirection.OUTGOING) "接听方" else "来电者"
         val input = transcript.asSequence().mapNotNull { line ->
             val text = line.text.trim().takeIf(String::isNotBlank) ?: return@mapNotNull null
@@ -26,6 +31,7 @@ internal object CallSummaryGenerator {
         val message = Message(Role.User, listOf(Part.Text(input)), Author.User)
         val response = try {
             withTimeoutOrNull(TIMEOUT_MS) {
+                if (!canSend()) return@withTimeoutOrNull null
                 model.complete(PROMPT, listOf(message), emptyList()).parts
                     .filterIsInstance<Part.Text>().joinToString("") { it.text }
             }

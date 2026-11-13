@@ -40,4 +40,16 @@ class CallSummaryGeneratorTest {
         assertNull(CallSummaryGenerator.generate(model, emptyList()))
         assertTrue(model.received.isEmpty())
     }
+
+    @Test fun currentConsentIsRequiredBeforeSubmittingTranscript() = runBlocking {
+        val model = FakeModel("""{"purpose":"维修"}""")
+        val transcript = listOf(CallTranscriptLine("caller", "请安排维修"))
+        var enabled = false
+        assertNull(CallSummaryGenerator.generate(model, transcript, canSend = { enabled }))
+        assertTrue(model.received.isEmpty())
+
+        enabled = true
+        assertEquals("维修", CallSummaryGenerator.generate(model, transcript, canSend = { enabled })?.purpose)
+        assertTrue(model.received.contains("请安排维修"))
+    }
 }

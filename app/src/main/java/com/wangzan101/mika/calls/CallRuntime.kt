@@ -1130,6 +1130,9 @@ class CallRuntime(private val app: MikaApp) {
     }
 
     suspend fun retrySummary(id: String): CallActionResult {
+        if (!settings.state.value.summaryEnabled) {
+            return CallActionResult(false, app.getString(R.string.calls_summary_cloud_consent))
+        }
         val record = records.state.value.firstOrNull { it.id == id }
             ?: return CallActionResult(false, "找不到这条通话记录")
         if (record.transcript.isEmpty()) return CallActionResult(false, "没有可用于总结的转写")
@@ -1141,7 +1144,10 @@ class CallRuntime(private val app: MikaApp) {
     private suspend fun summarizeCall(id: String, transcript: List<CallTranscriptLine>): Boolean {
         val direction = records.state.value.firstOrNull { it.id == id }?.direction ?: CallDirection.INCOMING
         val summary = try {
-            app.providers.modelFor(ModelRole.Main)?.let { CallSummaryGenerator.generate(it, transcript, direction) }
+            if (!settings.state.value.summaryEnabled) null
+            else app.providers.modelFor(ModelRole.Main)?.let {
+                CallSummaryGenerator.generate(it, transcript, direction) { settings.state.value.summaryEnabled }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
