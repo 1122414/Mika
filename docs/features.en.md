@@ -44,6 +44,7 @@ Any app installed on your phone works, with no per-app integration: Mika looks a
 - Runs at the scheduled time in the original conversation and sends the result back. The scheduled tasks page lets you create, edit, pause, run now or delete, with a preview of the next three occurrences. A daily or weekly plan can use several local times (e.g. `08:00, 12:30, 20:00`) under one identity and pause switch. In its original conversation, you can also ask to edit its content, condition, reminder or recurrence.
 - Open a scheduled task's menu and select **Run history** to see the times and statuses of its last 10 recorded runs.
 - Choose **Copy as new plan** from a plan's menu to reuse its content, condition, and recurrence. The copy starts paused by default and sends results to the same conversation.
+- Under **Settings › Notifications**, turn on scheduled task quiet hours and choose start and end times. The window repeats daily in the device's local time and can span midnight. Tasks still run, results go back to the conversation, and scheduled results and reminders appear silently in the notification shade.
 
 ## Interrupt or stop anytime
 
