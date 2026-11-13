@@ -1522,7 +1522,7 @@ internal fun Composer(
                     val label = if (panel == Panel.Open) AttachCopy.CLOSE else AttachCopy.ADD
                     val blockedHint = stringResource(R.string.attach_blocked_running)
                     Box(
-                        Modifier.size(MikaSize.IconButton).clip(CircleShape)
+                        Modifier.size(MikaSize.IconButton).background(c.greySoft, CircleShape).clip(CircleShape)
                             .clickable(enabled = !importing, onClickLabel = label, onClick = {
                                 if (attachBlocked) {
                                     Toast.makeText(context, blockedHint, Toast.LENGTH_SHORT).show()
@@ -1530,7 +1530,7 @@ internal fun Composer(
                             }),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(MikaIcons.Plus, label, Modifier.size(MikaSize.Icon).graphicsLayer { rotationZ = turn }, tint = c.ink)
+                        Icon(MikaIcons.Plus, label, Modifier.size(20.dp).graphicsLayer { rotationZ = turn }, tint = c.ink)
                     }
                 }
                 Box(Modifier.weight(1f).padding(start = if (showAttach) 2.dp else 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)) {
