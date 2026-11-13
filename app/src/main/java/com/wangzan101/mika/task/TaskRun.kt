@@ -351,7 +351,11 @@ class TaskRun(
     /** 浮层上的声音开关:恢复过声音的再按一次静回去,没恢复的按一次恢复(重复点击重试真实动作);没有手机侧或目标 App 时不动。 */
     fun togglePipSound() {
         scope.launch(Dispatchers.IO) {
-            if (pipSoundRestored()) mutePipSound(takeover) {
+            val restored = pipSoundRestored()
+            val targetPkg = phone?.screen?.target?.value?.packageName
+            val handed = takeover?.handedOverPackage
+            Log.i(TAG, "togglePipSound restored=$restored target=$targetPkg handed=$handed unmuted=${phone?.audio?.userUnmuted?.value}")
+            if (restored) mutePipSound(takeover) {
                 val p = phone ?: return@mutePipSound
                 val target = p.screen.target.value ?: return@mutePipSound
                 if (!p.audio.muteAgain(target.packageName, copyUser(target.userId))) {
