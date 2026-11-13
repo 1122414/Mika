@@ -156,19 +156,33 @@ class CallVoiceProfileStore internal constructor(
     }
 
     @Synchronized
-    fun migrateLegacy(config: CallConfig, credentials: VolcRealtimeCredentials?) {
-        if (!load()) return
-        if (stored.profiles.isNotEmpty()) return
-        val profile = CallVoiceProfile(
+    internal fun migrateLegacy(config: CallConfig, readCredentials: () -> VolcRealtimeCredentials?): Boolean {
+        if (!load()) return false
+        val default = CallVoiceProfile(
             id = CallVoiceProfile.DEFAULT_ID,
             name = "默认实时语音",
             model = config.model,
             speaker = config.speaker,
-            connectionTested = credentials?.valid == true,
         )
-        save(profile, credentials)
-        if (credentials?.valid == true) markConnectionTested(profile.id, true)
-        if (config.audioVerified) markAudioVerified(profile.id, config.audioMode, true)
+        val existing = stored.profiles.firstOrNull { it.id == default.id }
+        if (stored.profiles.isNotEmpty() && (existing == null || existing.credentialsConfigured ||
+                existing.name != default.name || existing.protocol != default.protocol ||
+                existing.endpoint != default.endpoint || existing.model != default.model)) return true
+        // A failed read must leave the store eligible for another attempt.
+        val credentials = readCredentials()?.takeIf { it.valid }
+        if (existing != null && credentials == null) return true
+        val profile = (existing ?: default).copy(
+            credentialsConfigured = credentials != null,
+            connectionTested = credentials != null,
+            audioVerifications = existing?.audioVerifications.orEmpty() +
+                if (config.audioVerified) setOf(verificationKey(config.audioMode, Build.FINGERPRINT ?: "unknown")) else emptySet(),
+        )
+        validate(profile)
+        val profiles = if (existing == null) listOf(profile) else stored.profiles.map { if (it.id == profile.id) profile else it }
+        val secrets = if (credentials == null) stored.credentials else stored.credentials +
+            (profile.id to StoredVoiceCredentials(credentials.apiKey, credentials.appId, credentials.accessKey))
+        persist(StoredVoiceProfiles(profiles, secrets))
+        return true
     }
 
     private fun edit(id: String, change: (CallVoiceProfile) -> CallVoiceProfile) {

@@ -129,17 +129,17 @@ class CallSettings(
     }
 
     @Synchronized
-    internal fun credentials(): VolcRealtimeCredentials? = runCatching {
+    internal fun readLegacyCredentials(): VolcRealtimeCredentials? {
         val stored = prefs.getString(CREDENTIALS, null) ?: return null
         val bytes = cipher.decrypt(Base64.decode(stored, Base64.NO_WRAP))
-        try {
+        return try {
             val fields = bytes.toString(Charsets.UTF_8).split('\n')
             if (fields.size != 3) return null
             VolcRealtimeCredentials(apiKey = fields[0], appId = fields[1], accessKey = fields[2]).takeIf { it.valid }
         } finally {
             bytes.fill(0)
         }
-    }.getOrNull()
+    }
 
     private fun read(): CallConfig = runCatching {
         val defaults = CallConfig()
@@ -165,7 +165,7 @@ class CallSettings(
             maxCallSeconds = prefs.getInt("max_seconds", CallPolicy.DEFAULT_SECONDS).coerceIn(15, CallPolicy.MAX_SECONDS),
             audioMode = prefs.getString("audio_mode", null)?.let(CallAudioMode::valueOf) ?: defaults.audioMode,
             audioVerified = verified,
-            credentialsConfigured = credentials() != null,
+            credentialsConfigured = runCatching { readLegacyCredentials() }.getOrNull() != null,
             summaryEnabled = prefs.getBoolean("summary_enabled", false),
             greeting = CallPolicy.migrateDefaultGreeting(prefs.getString("greeting", defaults.greeting).orEmpty())
                 .take(CallPolicy.MAX_GREETING_CHARS),

@@ -137,15 +137,7 @@ class CallRuntime(private val app: MikaApp) {
 
 
     init {
-        scope.launch(Dispatchers.IO) {
-            voiceProfiles.migrateLegacy(settings.state.value, settings.credentials())
-            activeVoiceProfile().let { profile ->
-                settings.save(settings.state.value.copy(
-                    credentialsConfigured = profile.credentialsConfigured,
-                    audioVerified = voiceProfiles.isAudioVerified(profile.id, settings.state.value.audioMode),
-                ))
-            }
-        }
+        scope.launch { loadVoiceProfiles() }
         scope.launch {
             var previousRevision = -1L
             voiceProfiles.revision.collect { current ->
@@ -468,6 +460,26 @@ class CallRuntime(private val app: MikaApp) {
         )
     }
 
+    private suspend fun loadVoiceProfiles() {
+        val migrated = withContext(Dispatchers.IO) {
+            try {
+                voiceProfiles.migrateLegacy(settings.state.value, settings::readLegacyCredentials)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+        }
+        if (!migrated) return
+        val config = settings.state.value
+        val profile = voiceProfiles.get(config.activeVoiceProfileId)
+        val next = config.copy(
+            credentialsConfigured = profile?.credentialsConfigured == true,
+            audioVerified = profile != null && voiceProfiles.isAudioVerified(profile.id, config.audioMode),
+        )
+        if (next != config) runCatching { settings.save(next) }
+    }
+
     suspend fun selectVoiceProfile(id: String): CallActionResult = onMain {
         if (work != null || lockedDial != null) return@onMain fail("请先结束当前通话或锁屏拨出安排")
         val profile = voiceProfiles.get(id) ?: return@onMain fail("实时语音配置不存在")
@@ -542,6 +554,7 @@ class CallRuntime(private val app: MikaApp) {
     }
 
     suspend fun refresh(): CallActionResult = onMain {
+        loadVoiceProfiles()
         accessLock.withLock { armed = withContext(Dispatchers.IO) { access.ready() } }
         readSims()
         if (settings.state.value.enabled && work == null && liveCalls().isEmpty()) probeAudio()

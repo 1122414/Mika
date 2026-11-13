@@ -23,7 +23,7 @@ class CallVoiceProfileStoreTest {
     @Test fun legacyConfigurationMigratesWithoutLosingCredentialsOrAudioVerification() {
         val backend = Backend()
         val config = CallConfig(enabled = true, audioVerified = true, audioMode = CallAudioMode.REDIRECT)
-        store(backend).migrateLegacy(config, credentials("legacy-secret"))
+        store(backend).migrateLegacy(config) { credentials("legacy-secret") }
 
         val reopened = store(backend)
         val profile = reopened.get(CallVoiceProfile.DEFAULT_ID)
@@ -34,6 +34,31 @@ class CallVoiceProfileStoreTest {
         assertFalse(reopened.isAudioVerified(profile.id, CallAudioMode.DIRECT, "build-fingerprint"))
         assertEquals("legacy-secret", reopened.credentials(profile.id)?.apiKey)
         assertFalse(profile.toString().contains("legacy-secret"))
+    }
+
+    @Test fun temporaryLegacyReadFailureCanBeRetriedAfterReopen() {
+        val backend = Backend()
+        val config = CallConfig(enabled = true, audioVerified = true)
+        val first = store(backend)
+        assertTrue(runCatching {
+            first.migrateLegacy(config) { throw java.security.KeyStoreException("temporarily unavailable") }
+        }.isFailure)
+        assertNull(backend.value)
+
+        val reopened = store(backend)
+        reopened.migrateLegacy(config) { credentials("legacy-secret") }
+        assertEquals("legacy-secret", reopened.credentials(CallVoiceProfile.DEFAULT_ID)?.apiKey)
+        assertTrue(reopened.get(CallVoiceProfile.DEFAULT_ID)!!.connectionTested)
+    }
+
+    @Test fun fillsABlankMigratedDefaultWithoutReplacingConfiguredCredentials() {
+        val backend = Backend()
+        val config = CallConfig()
+        store(backend).migrateLegacy(config) { null }
+        val reopened = store(backend)
+        reopened.migrateLegacy(config) { credentials("restored-secret") }
+        reopened.migrateLegacy(config) { error("should not reread configured credentials") }
+        assertEquals("restored-secret", reopened.credentials(CallVoiceProfile.DEFAULT_ID)?.apiKey)
     }
 
     @Test fun profilesKeepIndependentCredentialsTestsAndAudioVerification() {
@@ -87,7 +112,7 @@ class CallVoiceProfileStoreTest {
         assertFalse(store.load())
         assertNull(store.get(CallVoiceProfile.DEFAULT_ID))
         assertNull(store.credentials(CallVoiceProfile.DEFAULT_ID))
-        store.migrateLegacy(CallConfig(), credentials("new-secret"))
+        store.migrateLegacy(CallConfig()) { credentials("new-secret") }
         assertEquals("not-json", backend.value)
         assertTrue(runCatching {
             store.save(CallVoiceProfile(id = "new", name = "New"), credentials("new-secret"))
