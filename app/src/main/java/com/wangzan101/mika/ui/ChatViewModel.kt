@@ -104,8 +104,8 @@ interface TaskActions {
     fun answerIn(conversationId: String, text: String) = answer(text)
     fun approveIn(conversationId: String, key: Int) = approve(key)
     fun declineIn(conversationId: String, key: Int) = decline(key)
-    /** 恢复这个对话任务当前 App 的声音;没有任务就不动。 */
-    fun unmuteIn(conversationId: String) {}
+    /** 切换这个对话任务当前 App 的声音(恢复/再静上);没有任务就不动。 */
+    fun togglePipSoundIn(conversationId: String) {}
 }
 
 enum class StepState { Ok, Run, Wait, Dim }
@@ -1519,10 +1519,10 @@ class ChatViewModel(
         _ui.update { it.copy(pip = gated(it.pip)) }
     }
 
-    /** 浮层的一次性「恢复声音」:只发真实音频动作,不在界面伪造一个静音开关状态。 */
-    fun unmutePip() {
+    /** 浮层的声音开关:只发真实音频动作,方向由任务里的真实记录定,不在界面伪造开关状态。 */
+    fun togglePipSound() {
         val id = _ui.value.conversationId ?: return
-        actions.unmuteIn(id)
+        actions.togglePipSoundIn(id)
     }
 
     /** 分享切走前,把仍在等串行服务空闲的原任务交给服务排队;只取消界面里的等待协程,不取消任务。 */

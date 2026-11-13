@@ -236,6 +236,7 @@
     <string name="chat_withdraw_message">メッセージを取り消す</string>
     <string name="pip_close">このタスクの小さな表示を閉じる</string>
     <string name="pip_unmute">音を戻す</string>
+    <string name="pip_mute">音を消す</string>
     <string name="pip_back">仮想画面で戻る</string>
     <string name="pip_reopen">画面を表示</string>
     <string name="pip_closed_needs_you">あなたの対応が必要</string>

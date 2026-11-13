@@ -260,6 +260,7 @@
     <string name="chat_withdraw_message">Retirar mensagem</string>
     <string name="pip_close">Fechar a miniatura desta tarefa</string>
     <string name="pip_unmute">Voltar o som</string>
+    <string name="pip_mute">Silenciar</string>
     <string name="pip_back">Voltar na tela virtual</string>
     <string name="pip_reopen">Mostrar tela</string>
     <string name="pip_closed_needs_you">Precisa de você</string>

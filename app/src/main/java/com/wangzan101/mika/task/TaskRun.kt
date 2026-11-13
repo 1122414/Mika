@@ -35,6 +35,7 @@ import com.wangzan101.mika.cap.phone.a11y.LazyPhoneScreen
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.cap.phone.a11y.PhoneUnavailable
 import com.wangzan101.mika.cap.phone.PhoneServices
+import com.wangzan101.mika.cap.phone.shell.AppAudioKey
 import com.wangzan101.mika.cap.phone.setup.RootShell
 import com.wangzan101.mika.cap.root.RootCommands
 import com.wangzan101.mika.cap.phone.a11y.launchableApps
@@ -152,6 +153,11 @@ internal fun restorePipSound(takeover: Takeover?, restorePhone: () -> Unit) {
     if (takeover?.unmute() != true) restorePhone()
 }
 
+/** 浮层再静上的路由,条件与 [restorePipSound] 相同。 */
+internal fun mutePipSound(takeover: Takeover?, mutePhone: () -> Unit) {
+    if (takeover?.muteBack() != true) mutePhone()
+}
+
 /**
  * 一个任务的全部状态:虚拟屏、循环、关卡、接管、静音、监视。[TaskService] 只管服务生命周期、意图分发与通知。
  * 本任务自己的流只在它是「显示中」的任务([service.taskState.shownRun])时同步写到服务对外的流;
@@ -239,6 +245,8 @@ class TaskRun(
     private val _displayId = Mirrored(-1, env.agentDisplayId)
     /** 小窗直接操作的口子:屏建好才有,释放时清空。 */
     private val _pipInput = Mirrored<PipInput?>(null, service.taskState._pipInput)
+    /** 小窗目标 App 的声音被用户恢复过(按钮转向「静音」);跟着真实音频记录走,手机侧清掉时回到 false。 */
+    private val _pipSoundOn = Mirrored(false, service.taskState._pipSoundOn)
     /** 虚拟屏上打开过 App:画中画据此才出来(只建了空屏、没打开过 App 时没有画面)。 */
     private val _appShown = Mirrored(false, env.agentAppShown)
     /** 正在用内置浏览器:画中画改显示网页画面。 */
@@ -258,12 +266,14 @@ class TaskRun(
     val displayId: StateFlow<Int> = _displayId.flow
     /** 本任务小窗的直接操作口;屏建好才有,释放后回到 null。 */
     val pipInput: StateFlow<PipInput?> = _pipInput.flow
+    /** 本任务小窗目标的声音是否被用户恢复过;界面据此把按钮显示成「恢复声音」或「静音」。 */
+    val pipSoundOn: StateFlow<Boolean> = _pipSoundOn.flow
     /** 此刻在用内置浏览器(工具的界面是网页);没用、任务结束后为 false。 */
     val webOpen: StateFlow<Boolean> = _webOpen.flow
     /** 本任务进行中插的话和它们的去向;悬浮胶囊的对话卡片按任务取。 */
     val steers: StateFlow<List<SteerNote>> = _steers.flow
     // 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的(界面据此不把别的对话的状态接到屏上)
-    private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _appShown, _webOpen, _activities, _steers)
+    private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
 
     private fun setState(s: TaskState) = synchronized(service.taskState.shownLock) {
         _tagged.value = conversationId to s
@@ -337,10 +347,16 @@ class TaskRun(
     fun skip(waitKey: Int?) { takeover?.let { t -> scope.launch { t.skip(waitKey) } } }
     fun putAside(waitKey: Int?) { takeover?.let { t -> scope.launch { t.putAside(waitKey) } } }
 
-    /** 浮层上的一次性「恢复声音」;重复点击会重试真实恢复,没有手机侧或目标 App 时不动。 */
-    fun unmute() {
+    /** 浮层上的声音开关:恢复过声音的再按一次静回去,没恢复的按一次恢复(重复点击重试真实动作);没有手机侧或目标 App 时不动。 */
+    fun togglePipSound() {
         scope.launch(Dispatchers.IO) {
-            restorePipSound(takeover) {
+            if (pipSoundRestored()) mutePipSound(takeover) {
+                val p = phone ?: return@mutePipSound
+                val target = p.screen.target.value ?: return@mutePipSound
+                if (!p.audio.muteAgain(target.packageName, copyUser(target.userId))) {
+                    Log.w(TAG, "could not mute again ${target.packageName} from pip")
+                }
+            } else restorePipSound(takeover) {
                 val p = phone ?: return@restorePipSound
                 val target = p.screen.target.value ?: return@restorePipSound
                 if (!p.audio.unmute(target.packageName, copyUser(target.userId))) {
@@ -348,6 +364,15 @@ class TaskRun(
                 }
             }
         }
+    }
+
+    /** 小窗当前目标的声音是否已被用户恢复过:接管中看交出去的包,否则看虚拟屏目标;键的取法与 unmute/muteAgain 一致。 */
+    private fun pipSoundRestored(): Boolean {
+        val p = phone ?: return false
+        val target = p.screen.target.value
+        val pkg = takeover?.handedOverPackage ?: target?.packageName ?: return false
+        val user = target?.takeIf { it.packageName == pkg }?.let { copyUser(it.userId) }
+        return AppAudioKey.of(pkg, user) in p.audio.userUnmuted.value
     }
 
     /** 回答提问;已经不在等(超时后才答、已答过)时调 [tooLate] 告诉用户这条回答没用上。 */
@@ -975,6 +1000,11 @@ class TaskRun(
                     val user = p.screen.target.value?.takeIf { it.packageName == packageName }?.let { copyUser(it.userId) }
                     if (!p.audio.unmute(packageName, user)) Log.w(TAG, "could not restore sound of $packageName from pip takeover")
                 }
+                override fun muteAgain(packageName: String) {
+                    val p = phone ?: return
+                    val user = p.screen.target.value?.takeIf { it.packageName == packageName }?.let { copyUser(it.userId) }
+                    if (!p.audio.muteAgain(packageName, user)) Log.w(TAG, "could not mute again $packageName from pip takeover")
+                }
                 override fun watchInput(packageName: String) {
                     counting?.cancel()
                     val c = HandoverActivityCounter(packageName).also { counter = it }
@@ -1097,6 +1127,7 @@ class TaskRun(
             // 屏释放后、对外报结束前清掉:界面看到任务结束时已经没有屏了
             _displayId.value = -1
             _pipInput.value = null
+            _pipSoundOn.value = false
             _appShown.value = false
             if (connection != null) phoneServices.sharedShell.release()
         }
@@ -1199,6 +1230,13 @@ class TaskRun(
                 if (handoverRef?.handedOver != true) p.audio.opened(t.packageName, copyUser(t.userId))
                 // 窗口变得很密:两次之间至少隔一会儿,中间的变化合成一次
                 delay(FOREGROUND_GAP_MS)
+            }
+        }
+        // 小窗声音按钮的方向:跟着目标、用户恢复记录和接管状态重算,不另存一份可能过期的开关态
+        side.launch(Dispatchers.IO) {
+            val stage = takeover?.stage ?: MutableStateFlow(Takeover.Stage.None)
+            combine(p.screen.target, p.audio.userUnmuted, stage) { _, _, _ -> }.collect {
+                _pipSoundOn.value = pipSoundRestored()
             }
         }
         side.launch(Dispatchers.IO) {

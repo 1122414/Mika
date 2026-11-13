@@ -236,6 +236,7 @@
     <string name="chat_withdraw_message">撤回消息</string>
     <string name="pip_close">这个任务不再显示小画面</string>
     <string name="pip_unmute">恢复声音</string>
+    <string name="pip_mute">静音</string>
     <string name="pip_back">在虚拟屏上返回</string>
     <string name="pip_reopen">显示画面</string>
     <string name="pip_closed_needs_you">等你处理</string>

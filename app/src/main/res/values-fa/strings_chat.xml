@@ -207,6 +207,7 @@
     <string name="chat_withdraw_message">پس گرفتن پیام</string>
     <string name="pip_close">بستن نمای کوچک این کار</string>
     <string name="pip_unmute">روشن کردن دوبارهٔ صدا</string>
+    <string name="pip_mute">قطع صدا</string>
     <string name="pip_back">بازگشت در صفحهٔ مجازی</string>
     <string name="pip_reopen">نمایش صفحه</string>
     <string name="pip_closed_needs_you">به توجه شما نیاز دارد</string>
