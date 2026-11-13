@@ -181,4 +181,31 @@ class PlanEditorDialogTest {
             TriggerRuntime.remove(context, id)
         }
     }
+
+    @Test fun copyFromPlanMenuSavesAnIndependentPausedPlan() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val id = UUID.randomUUID().toString()
+        val goal = "复制计划测试 $id"
+        val original = TriggerDefinition(id, "copy-test-$id", goal, System.currentTimeMillis() + 86_400_000)
+        try {
+            TriggerRuntime.schedule(context, original)
+            compose.setContent {
+                MikaTheme(dark = false, reduceMotion = true) {
+                    PlansScreen(context, onBack = {}, onOpenConversation = {})
+                }
+            }
+            compose.onNodeWithText(goal).performScrollTo().performClick()
+            compose.onNodeWithText("复制为新计划").performClick()
+            compose.onNodeWithTag("plan-editor-save").performSemanticsAction(SemanticsActions.OnClick)
+
+            val plans = TriggerRuntime.list(context).filter { it.threadId == original.threadId }
+            assertEquals(original, plans.single { it.id == id })
+            val copy = plans.single { it.id != id }
+            assertEquals(goal, copy.goal)
+            assertEquals(false, copy.enabled)
+        } finally {
+            TriggerRuntime.list(context).filter { it.threadId == original.threadId }
+                .forEach { TriggerRuntime.remove(context, it.id) }
+        }
+    }
 }

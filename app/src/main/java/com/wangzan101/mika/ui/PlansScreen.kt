@@ -32,6 +32,7 @@ import com.wangzan101.mika.core.trigger.TriggerSource
 import com.wangzan101.mika.core.trigger.TriggerSnapshot
 import com.wangzan101.mika.core.trigger.TriggerWindow
 import com.wangzan101.mika.core.trigger.TriggerWindowState
+import com.wangzan101.mika.core.trigger.toCopyPlanDraft
 import com.wangzan101.mika.task.ExactAlarmGuide
 import com.wangzan101.mika.task.TriggerRuntime
 import com.wangzan101.mika.ui.components.ActionSheet
@@ -68,6 +69,7 @@ fun PlansScreen(context: Context, onBack: () -> Unit, onOpenConversation: (Strin
     var snapshot by remember { mutableStateOf(TriggerRuntime.snapshot(context)) }
     var creating by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<TriggerDefinition?>(null) }
+    var copying by remember { mutableStateOf<TriggerDefinition?>(null) }
     var deleting by remember { mutableStateOf<TriggerDefinition?>(null) }
     var acting by remember { mutableStateOf<TriggerDefinition?>(null) }
     var viewingHistory by remember { mutableStateOf<String?>(null) }
@@ -135,6 +137,7 @@ fun PlansScreen(context: Context, onBack: () -> Unit, onOpenConversation: (Strin
                 },
                 SheetAction(tr(R.string.plans_run_now)) { act { TriggerRuntime.runNow(context, plan.id) } },
                 SheetAction(tr(R.string.plans_edit_time)) { editing = plan },
+                SheetAction(tr(R.string.plans_copy)) { copying = plan },
                 SheetAction(tr(R.string.confirm_delete), destructive = true) { deleting = plan },
             ),
             onDismiss = { acting = null },
@@ -153,6 +156,22 @@ fun PlansScreen(context: Context, onBack: () -> Unit, onOpenConversation: (Strin
             onSave = { plan ->
                 if (act { TriggerRuntime.schedule(context, plan) }) creating = null
             },
+        )
+    }
+
+    copying?.let { plan ->
+        val draft = remember(plan.id) { plan.toCopyPlanDraft(System.currentTimeMillis()) }
+        PlanEditorDialog(
+            original = null,
+            newThreadId = plan.threadId,
+            onDismiss = { copying = null },
+            onSave = { copy ->
+                if (act { TriggerRuntime.schedule(context, copy) }) {
+                    segment = if (copy.enabled) 0 else 1
+                    copying = null
+                }
+            },
+            initialDraft = draft,
         )
     }
 
