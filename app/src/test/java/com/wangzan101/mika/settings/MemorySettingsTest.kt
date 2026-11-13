@@ -35,4 +35,17 @@ class MemorySettingsTest {
         settings.update { it.copy(rememberTasks = false) }
         assertFalse(MemorySettings(file).switches.value.rememberTasks)
     }
+
+    @Test fun taskMemoryRequiresBothSwitchesAndKeepsTheStoredPreference() {
+        val file = File(tmp.root, "memory.json")
+        file.writeText("""{"useMemory":false}""")
+        val settings = MemorySettings(file)
+        assertTrue(settings.switches.value.rememberTasks)
+        assertFalse(settings.switches.value.taskMemoryEnabled)
+
+        settings.update { it.copy(useMemory = true) }
+        assertTrue(settings.switches.value.taskMemoryEnabled)
+        settings.update { it.copy(rememberTasks = false) }
+        assertFalse(MemorySettings(file).switches.value.taskMemoryEnabled)
+    }
 }

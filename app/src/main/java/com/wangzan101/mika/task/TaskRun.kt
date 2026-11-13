@@ -746,7 +746,7 @@ class TaskRun(
                 sw.copy(learnSkills = env.evalHooks.learnSkills ?: sw.learnSkills, autoRemember = env.evalHooks.rememberMemory ?: sw.autoRemember)
             }
             val memory = if (switches.useMemory) withContext(Dispatchers.IO) { memoryRuntime.store() } else null
-            val taskMemory = if (switches.rememberTasks) withContext(Dispatchers.IO) { memoryRuntime.taskMemory() } else null
+            val taskMemory = if (switches.taskMemoryEnabled) withContext(Dispatchers.IO) { memoryRuntime.taskMemory() } else null
             val profileSnapshot = if (switches.useMemory) withContext(Dispatchers.IO) {
                 runCatching { memoryRuntime.profile().snapshot() }.onFailure { Log.w(TAG, "profile unavailable", it) }.getOrDefault(emptyList())
             } else emptyList()
@@ -1351,13 +1351,15 @@ class TaskRun(
      */
     private suspend fun rememberTask() {
         val runId = _runId.value ?: return
-        if (!memoryRuntime.settings().switches.value.rememberTasks) return
+        val settings = memoryRuntime.settings()
+        if (!settings.switches.value.taskMemoryEnabled) return
         val events = withContext(Dispatchers.IO) { runCatching { kit?.runStore?.events(runId) }.getOrNull() } ?: return
         val labels = ToolLabels(knownTools())
         val task = TaskMemoryRecorder.record(goal, events, System.currentTimeMillis(), UUID.randomUUID().toString(), labels::label) {
             ConfirmationNotifier.appLabel(service, it)
         } ?: return
         withContext(Dispatchers.IO) {
+            if (!settings.switches.value.taskMemoryEnabled) return@withContext
             runCatching { memoryRuntime.taskMemory().add(task) }
                 .onFailure { Log.w(TAG, "task memory not saved", it) }
         }
