@@ -1149,8 +1149,7 @@ class CallRuntime(private val app: MikaApp) {
         val record = records.state.value.firstOrNull { it.id == id }
             ?: return CallActionResult(false, "找不到这条通话记录")
         if (record.transcript.isEmpty()) return CallActionResult(false, "没有可用于总结的转写")
-        records.setSummary(id, null, SummaryStatus.PENDING)
-        return if (summarizeCall(id, record.transcript)) CallActionResult(true, "摘要已更新")
+        return if (records.retryFailedSummary(id) { summarizeCall(id, it.transcript) }) CallActionResult(true, "摘要已更新")
         else CallActionResult(false, app.getString(R.string.calls_summary_failed))
     }
 
