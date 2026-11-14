@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">任务报告</string>
+    <string name="report_no_answer">本次任务没有保存最终回答。</string>
+    <string name="report_export">导出</string>
+    <string name="report_saved">报告已保存</string>
+    <string name="report_save_failed">保存失败，请检查记录和保存位置后重试。</string>
+</resources>
