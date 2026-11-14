@@ -233,6 +233,8 @@
 ### 电脑连接:CLI 与 MCP
 
 两个方向。**Mika 作为 MCP 服务器**(电脑连接)已经接上,两种连法:经 USB(电脑用 adb 打开,只听回环)和经局域网(用户在设置里打开,默认关);**Mika 作为 MCP 客户端**去连外部服务器(设置 › 高级 › MCP 服务器):`core/cap/mcp/HttpMcpClient.kt` 走 Streamable HTTP(2025-03-26),`LegacySseMcpClient.kt` 走旧版 HTTP+SSE(2024-11-05),`StdioMcpClient.kt` 走沙箱里的本地进程;`McpOAuth.kt` 支持 OAuth 2.1 发现、动态注册、PKCE 与刷新,也可手动填 Bearer;工具按注解定风险、开局冻结,resources/prompts 合成只读工具。对外工具名统一为 `mcp_<服务编号>__<工具名>`，非法字符替换为下划线；超过 64 字符或清洗后撞名的工具使用带 SHA-256 摘要的短名。`mcpToolNames` 先保留无需改名的声明，再按原工具名排序分配短名；短名若与任何最终名字再次冲突，就增加摘要长度并重算，所以注册前已经全局去重，服务端换序也不会改变映射。服务端重复列出同一个原名时只保留第一项并记录降级原因，调用仍使用未清洗的原名。设置在 `app/settings/McpServerStore.kt`,令牌加密保存。任务开头 `McpServerStore.connectionsFor` 并行连接所有启用项,整段最多等 15 秒(`CONNECT_BUDGET_MS`,和单个 server 自己给工具调用的超时分开),到点没连上的这次不接、关掉,记进健康状态(写明超时跳过),任务卡片上提示一句,不算任务失败;连上的当场归任务的 `ResourceScope`,收尾(结束、取消、失败、连到一半被停)时一起关。交给 `toolDispatcher` 的外部端点只有 `mcpServers` 一份列表,由 `TaskRun.mcpEndpoints()` 在一处拼好,以后别的来源也提供这类端点时拼在那里。stdio server 的进程活着时拿的是沙箱树的租约(`SandboxTree.lease`),不是普通的共享许可:要独占的(换根文件系统、重置、清工作区)一来先停掉这些进程、收回许可再动手,不等任务结束,也不怕漏关;之后这个 server 的调用照实报连接已断。低层工具会话(`core/mcp/McpServer.kt`)是另一个方向。用户文档见 [mcp.md](../mcp.md) 与 [cli.md](../cli.md)。电脑 CLI 使用普通 HTTP 任务 API,与 MCP 适配器并列,共用一份任务服务。
+The MCP client passes each connected server's `instructions` to the model as bounded, untrusted guidance. The same interface covers Streamable HTTP, legacy SSE and stdio; guidance does not change tool risk or grant user approval.
+
 
 **服务器**的分层都在 `:core`,可以在电脑上整套测:
 
