@@ -132,6 +132,7 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
         placement: OverlayPlacement,
         onOutside: (() -> Unit)? = null,
         touchable: Boolean = true,
+        secure: Boolean = false,
         content: @Composable () -> Unit,
     ): OverlayWindow? {
         val owners = OverlayOwners()
@@ -150,7 +151,8 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                (if (touchable && !injectedGestures.isolated) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE),
+                (if (touchable && !injectedGestures.isolated) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) or
+                (if (secure) WindowManager.LayoutParams.FLAG_SECURE else 0),
             PixelFormat.TRANSLUCENT,
         ).apply {
             // 按整块屏幕摆,不让系统再把窗口挤进状态栏、导航栏以内:要避开哪里由调用方按 area() 定。

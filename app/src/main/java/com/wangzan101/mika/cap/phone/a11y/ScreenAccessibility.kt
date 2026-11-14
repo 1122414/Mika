@@ -74,6 +74,10 @@ open class ScreenAccessibility : AccessibilityService() {
             windowGeneration.incrementAndGet()
         }
         val app = application as? com.wangzan101.mika.MikaApp
+        // Do not copy local consent fields or privately filled code events into teaching/observers.
+        if (app != null && (app.appAccess.sensitiveUi && event.packageName?.toString() == app.packageName ||
+                app.phone.smsLogin.isPrivate(event.packageName?.toString()) ||
+                app.phone.smsLogin.privateLoginActive && event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED)) return
         val access = app?.appAccess?.current()
         if (access != null && access.denial(event.packageName?.toString()) != null) return
         if (app != null && app.teachReady && app.teach.wantsEvents()) {

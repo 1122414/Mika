@@ -17,6 +17,8 @@ enum class NoticeDecision {
     Category,
     /** 标题和正文都是空的。 */
     Blank,
+    /** Authentication secrets must never reach the inbox, journal or models. */
+    AuthenticationSecret,
 }
 
 /**
@@ -48,6 +50,7 @@ object NoticeFilter {
         val byPackage = decidePackage(record.packageName, whitelist, blocked)
         if (byPackage != NoticeDecision.Keep) return byPackage
         return when {
+            LearnText.sensitive(listOf(record.title, record.text, record.messages.joinToString(" ") { it.text }).joinToString(" ")) -> NoticeDecision.AuthenticationSecret
             record.ongoing -> NoticeDecision.Ongoing
             record.groupSummary -> NoticeDecision.GroupSummary
             record.foregroundService -> NoticeDecision.ForegroundService
