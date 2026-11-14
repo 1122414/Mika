@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Laporan tugas</string>
+    <string name="report_no_answer">Jawaban akhir tugas ini tidak tersimpan.</string>
+    <string name="report_export">Ekspor</string>
+    <string name="report_saved">Laporan disimpan</string>
+    <string name="report_save_failed">Tidak dapat menyimpan. Periksa rekaman dan lokasi tujuan.</string>
+</resources>

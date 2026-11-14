@@ -398,6 +398,7 @@ private fun MikaRoot(
         }
     }
     var runId by rememberSaveable { mutableStateOf<String?>(null) }
+    var reportRunId by rememberSaveable { mutableStateOf<String?>(null) }
     var sourceRunId by rememberSaveable { mutableStateOf<String?>(null) }
     var sourceLegacyText by rememberSaveable { mutableStateOf<String?>(null) }
     val status by monitor.status.collectAsState()
@@ -576,6 +577,7 @@ private fun MikaRoot(
                             onOpenFiles = { filesFromDrawer = false; filesConversation = app.chat.ui.value.conversationId; nav.push(Route.Files) },
                             openSettings = { nav.push(Route.Settings) },
                             openRun = { runId = it; nav.push(Route.Run) },
+                            openReport = { reportRunId = it; nav.push(Route.Report) },
                             phoneSetupNeeded = phoneSetupNeeded && status.builtinShell != BuiltinShellStatus.Running,
                             openPhoneSetup = { onFix(Fix.OpenPhoneSetup) },
                             loadSource = { id ->
@@ -712,6 +714,13 @@ private fun MikaRoot(
                     alive = { run -> app.taskState.runs.value.any { r -> r.runId.value == run } },
                 ) } }
             if (vm != null) RunTimelineScreen(vm, back) else LaunchedEffect(Unit) { nav.back() }
+        }
+        Route.Report -> {
+            val id = reportRunId
+            val vm = remember(id) { id?.let { TaskReportViewModel(RunStore(context), it) } }
+            if (vm == null) LaunchedEffect(Unit) { nav.back() }
+            else TaskReportScreen(vm, back,
+                onTimeline = { runId = id; nav.push(Route.Run) })
         }
         Route.Source -> {
             val vm = remember(sourceRunId, sourceLegacyText) {

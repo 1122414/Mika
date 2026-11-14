@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Informe de tarea</string>
+    <string name="report_no_answer">No se guardó una respuesta final para esta tarea.</string>
+    <string name="report_export">Exportar</string>
+    <string name="report_saved">Informe guardado</string>
+    <string name="report_save_failed">No se pudo guardar. Revisa el registro y el destino.</string>
+</resources>

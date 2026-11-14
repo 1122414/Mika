@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">تقرير المهمة</string>
+    <string name="report_no_answer">لم يتم حفظ إجابة نهائية لهذه المهمة.</string>
+    <string name="report_export">تصدير</string>
+    <string name="report_saved">تم حفظ التقرير</string>
+    <string name="report_save_failed">تعذر الحفظ. تحقق من السجل وموقع الحفظ ثم أعد المحاولة.</string>
+</resources>

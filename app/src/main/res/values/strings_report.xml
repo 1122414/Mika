@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Task report</string>
+    <string name="report_no_answer">No final answer was saved for this task.</string>
+    <string name="report_export">Export</string>
+    <string name="report_saved">Report saved</string>
+    <string name="report_save_failed">Could not save. Check the record and destination, then retry.</string>
+</resources>
