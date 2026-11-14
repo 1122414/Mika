@@ -218,7 +218,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putInt(AUTO_ARCHIVE_DAYS, days.takeIf { it in AutoArchive.DAYS } ?: 0).commit()
     }
 
-    /** 主动能力(实验,见 [com.wangzan101.mika.proactive.ProactiveRuntime]):读所选 App 的通知;默认关。 */
+    /** 主动能力(见 [com.wangzan101.mika.proactive.ProactiveRuntime]):读所选 App 的通知;默认关。 */
     fun proactive(): Boolean = prefs.getBoolean(PROACTIVE, false)
 
     fun setProactive(on: Boolean) {

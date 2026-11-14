@@ -269,7 +269,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         com.wangzan101.mika.settings.AppAccessStore(java.io.File(filesDir, "app-access.json"))
     }
 
-    /** 主动能力(实验):通知白名单、监听与本机收件箱。 */
+    /** 主动能力:通知白名单、监听与本机收件箱。 */
     val proactive by lazy {
         com.wangzan101.mika.proactive.ProactiveRuntime.create(this,
             { com.wangzan101.mika.proactive.AppGate.of(appAccess.current()) },

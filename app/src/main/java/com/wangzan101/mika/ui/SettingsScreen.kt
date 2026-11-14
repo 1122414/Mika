@@ -164,13 +164,14 @@ fun SettingsScreen(
             secondDisplayFailed = runtimeLimit.reason == ParallelCapability.SECOND_DISPLAY_FAILED,
         ),
     )
-    // 开发者选项只在调试版和性能测试版里列出:发布版的各开关按评测结果统一定默认值
+    // 开发者选项只在调试版和性能测试版里列出:发布版的各开关按评测结果统一定默认值。
+    // 主动能力不在里面:入口在设置首页,每个版本都有,默认关着
     val showDeveloper = com.wangzan101.mika.record.DetailedTraces.supportedBuild
     val toHome = { page = SettingsPage.Home }
     val toAdvanced = { page = SettingsPage.Advanced }
     val back = {
         page = when (page) {
-            SettingsPage.RunStats, SettingsPage.Proactive -> SettingsPage.Developer
+            SettingsPage.RunStats -> SettingsPage.Developer
             SettingsPage.SelfCheck -> SettingsPage.Recovery
             SettingsPage.Sandbox, SettingsPage.Recovery, SettingsPage.ComputerAccess,
             SettingsPage.McpServers, SettingsPage.Root, SettingsPage.Developer -> SettingsPage.Advanced
@@ -181,7 +182,7 @@ fun SettingsScreen(
     if (page != SettingsPage.Home) BackHandler { back() }
 
     val visiblePage = when {
-        !showDeveloper && (page == SettingsPage.Developer || page == SettingsPage.RunStats || page == SettingsPage.Proactive) -> SettingsPage.Home
+        !showDeveloper && (page == SettingsPage.Developer || page == SettingsPage.RunStats) -> SettingsPage.Home
         page == SettingsPage.Root && !rootState.suPresent -> SettingsPage.Advanced
         else -> page
     }
@@ -194,6 +195,7 @@ fun SettingsScreen(
             onOpenCalls = { page = SettingsPage.Calls },
             wechatState = wechatState, wechatBound = wechat.store.account() != null,
             onOpenWechat = { page = SettingsPage.Wechat },
+            onOpenProactive = { page = SettingsPage.Proactive },
             onOpenAppAccess = { page = SettingsPage.AppAccess },
             onOpenDuringWork = { page = SettingsPage.DuringWork },
             capsuleMode = capsuleMode, onOpenCapsule = { page = SettingsPage.Capsule },
@@ -264,7 +266,6 @@ fun SettingsScreen(
             grounding = visionConfig?.let { GroundingSetting(it.model, it.capabilities.groundingVerified) },
             onGrounding = { verified -> scope.launch { withContext(Dispatchers.IO) { store.setVisionGroundingVerified(verified) } } },
             onOpenRunStats = { page = SettingsPage.RunStats },
-            onOpenProactive = { page = SettingsPage.Proactive },
         )
         SettingsPage.RunStats -> RunStatsScreen(remember { RunStore(context).metrics }, onBack = back)
         SettingsPage.Proactive -> com.wangzan101.mika.proactive.ProactiveScreen(onBack = back)
@@ -365,6 +366,8 @@ fun SettingsContent(
     wechatState: WechatConnectionState = WechatConnectionState.NeedsBinding,
     wechatBound: Boolean = false,
     onOpenWechat: () -> Unit = {},
+    /** 「主动能力」的入口,在「微信」和「任务运行」之间。 */
+    onOpenProactive: () -> Unit = {},
     onOpenAppAccess: () -> Unit = {},
     onOpenDuringWork: () -> Unit = {},
     /** 悬浮胶囊此刻的选择,写在「悬浮胶囊」一行的右边。 */
@@ -405,6 +408,7 @@ fun SettingsContent(
                 WechatEntryStatus(wechatState, wechatBound)
                 RowChevron()
             }
+            ListRow(MikaIcons.Ripple, stringResource(R.string.proactive_title), stringResource(R.string.proactive_entry_sub), onClick = onOpenProactive) { RowChevron() }
             ListRow(MikaIcons.Moon, stringResource(R.string.settings_during_work), stringResource(R.string.settings_during_work_sub), onClick = onOpenDuringWork) { RowChevron() }
             ListRow(MikaIcons.Message, CapsuleSettingsCopy.TITLE, CapsuleSettingsCopy.SUBTITLE, onClick = onOpenCapsule) {
                 RowValue(CapsuleSettingsCopy.label(capsuleMode))
