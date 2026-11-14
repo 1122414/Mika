@@ -960,6 +960,12 @@ class TaskRun(
                     null
                 }
             } else null
+
+            // 主模型备援链(项目 3):评测换掉模型来源时不接设置里的备援,免得测到真服务商
+            val chainStore = ProviderStore.get(service)
+            val (chainModels, chainFbTags) = if (env.modelFactory === TaskEnvironment.defaultModelFactory)
+                chainStore.mainFallbackChain(session) else (emptyList<ChatModel>() to emptyList<String?>())
+            val chainTags = listOf(chainStore.mainProviderTag()) + chainFbTags
             val agent = AgentLoop(
                 model, tools,
                 SystemPrompt.identity(),
@@ -991,6 +997,7 @@ class TaskRun(
                 selfPackage = service.packageName,
                 flags = speed,
                 // 只在 lightSteps 打开、轻量模型能调工具且与主模型不是同一份配置时生效
+                modelFallbacks = chainModels, modelChainTags = chainTags,
                 router = routedLight?.let { ModelRouter(model, it) },
                 intentJudge = if (provenance.origin == RunOrigin.Ui) light ?: model else null,
                 // 选路线是辅助判断:用轻量模型,没配用主模型

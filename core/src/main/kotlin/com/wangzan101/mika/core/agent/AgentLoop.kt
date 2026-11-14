@@ -183,6 +183,9 @@ class AgentLoop(
     private val reviewFinalAnswer: Boolean = true,
     /** 同一网站、App 里连着做对外动作(发送、提交)时两次之间的间隔;默认不等。 */
     private val outwardPacing: OutwardPacing = OutwardPacing.Off,
+    /** 主模型的备援链(项目 3);默认没有。[modelChainTags] 与主模型加备援平行,是各自的服务商名。 */
+    private val modelFallbacks: List<ChatModel> = emptyList(),
+    private val modelChainTags: List<String?> = emptyList(),
     private val trace: RunTrace? = null,
 ) {
     init {
@@ -201,7 +204,7 @@ class AgentLoop(
         tools.observer = { record { order.observed(RunEvent.Observed.of(it)) } }
     }
 
-    private val caller = ModelCaller(model, tools, router, flags, retry, ::emit, ::now, autonomous, trace)
+    private val caller = ModelCaller(model, tools, router, flags, retry, ::emit, ::now, autonomous, trace, modelFallbacks, modelChainTags)
     private val intentGate = intentJudge?.let { IntentGate(it, model.takeUnless { main -> main === it }) }
     private val routeMatcher = routes
     /** 本任务的上下文生成器(外壳、预算、已给过的参考资料)。 */
@@ -557,7 +560,7 @@ class AgentLoop(
                     reply = try { caller.ask(discussion, emptyList(), step, using = model, onText = previewFor(step)) }
                     catch (e: CancellationException) { throw e }
                     catch (e: Exception) { return StopRules.modelFailed(e) }
-                    used = model
+                    used = caller.lastMainUsed
                 }
             }
             val rawText = reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim()
@@ -1048,6 +1051,7 @@ class AgentLoop(
             }
             val text = CompletionPlanBlock.extract(reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim()).text
             history += Message(Role.Assistant, cleanReplyParts(reply.parts, text), Author.Mika)
+                .also { caller.noteReply(it, caller.lastMainUsed, reply.usage) }
             val calls = reply.parts.filterIsInstance<Part.ToolCall>()
             val call = calls.firstOrNull { tools.verb(it.name) in TurnPolicy.FINAL_VERBS }
             val retryWaitMs = caller.lastRetryWaitMs
