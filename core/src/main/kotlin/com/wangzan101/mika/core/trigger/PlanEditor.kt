@@ -133,10 +133,16 @@ fun editedTrigger(
     var calendarDays: List<Int> = emptyList()
     when (draft.repeat) {
         PlanRepeat.Once, PlanRepeat.Interval -> {
-            nextAt = try {
+            val firstAt = draft.firstAt.trim()
+            // 表单只显示到分钟；当地时间和时区未修改时保留原计划的秒与毫秒。
+            val originalTime = original?.takeIf {
+                it.calendarTime == null && zone.id == (it.calendarZone ?: ZoneId.systemDefault().id) &&
+                    firstAt == formatPlanEditorTime(it.nextAtMs, zone.id)
+            }?.nextAtMs
+            nextAt = originalTime ?: try {
                 // 模型沿用 ISO 时间以保留秒和偏移；页面继续使用当地 yyyy-MM-dd HH:mm。
-                runCatching { Instant.parse(draft.firstAt.trim()).toEpochMilli() }.getOrElse {
-                    LocalDateTime.parse(draft.firstAt.trim(), EDIT_TIME).atZone(zone).toInstant().toEpochMilli()
+                runCatching { Instant.parse(firstAt).toEpochMilli() }.getOrElse {
+                    LocalDateTime.parse(firstAt, EDIT_TIME).atZone(zone).toInstant().toEpochMilli()
                 }
             } catch (e: Exception) {
                 invalid(PlanValidation.InvalidFirstTime)
