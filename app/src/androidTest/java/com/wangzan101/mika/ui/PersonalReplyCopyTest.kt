@@ -1,6 +1,7 @@
 package com.wangzan101.mika.ui
 
 import android.content.ClipboardManager
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Rect
@@ -8,7 +9,7 @@ import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -27,12 +28,16 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class PersonalReplyCopyTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private fun assertClipboard(expected: String) = compose.runOnIdle {
-        val clipboard = context.getSystemService(ClipboardManager::class.java)
-        assertEquals(expected, clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+    private fun assertClipboard(expected: String) {
+        // Android denies clipboard reads while the test Activity is still gaining window focus.
+        compose.waitUntil(5_000) { compose.runOnIdle { compose.activity.hasWindowFocus() } }
+        compose.runOnIdle {
+            val clipboard = context.getSystemService(ClipboardManager::class.java)
+            assertEquals(expected, clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        }
     }
 
     @Test fun copyButtonCopiesOnlyThisReplyAsReadableText() {
