@@ -772,6 +772,37 @@ class AgentLoopTest {
         assertTrue(verb("view_past_screens") in DIAGNOSTIC_VERBS)
     }
 
+    @Test fun coffeeTaskConfirmsGoalsWithoutCountingClicksOrClosingOnFiveNotes() = runTest {
+        val events = mutableListOf<RunEvent>()
+        val sink = object : RunSink { override fun event(e: RunEvent) { events += e } }
+        fun block(json: String) = "<task_progress>$json</task_progress>"
+        fun step(seconds: Double, narration: String, json: String? = null) =
+            reply(Part.Text(narration + json?.let(::block).orEmpty()), call("wait", """{"seconds":$seconds}"""))
+        val address = """{"confirmed":[{"id":1,"evidence":"高德地址卡显示天目里地址"}]}"""
+        val m = FakeModel(
+            reply(Part.Text(block("""{"criteria":["确认地址","确认店名","根据五篇笔记给出推荐"],"metric":{"name":"步骤完成","done":0,"total":3}}""")),
+                call("phone_launch_app", """{"packageName":"com.x","reason":"查看地址卡"}""")),
+            step(0.2, "地址已核实", address),
+            step(0.3, "打开点评"),
+            step(0.4, "打开店铺页", address), // 重报地址不会当作确认店名
+            reply(Part.Text(block("""{"confirmed":[{"id":2,"evidence":"店铺页标题为山池咖啡"}]}""")), call("phone_observe")),
+            step(0.6, "笔记已读完", """{"metric":{"name":"已读笔记","done":5,"total":5},"complete":true}"""),
+            finish(block("""{"confirmed":[{"id":3,"evidence":"根据五篇笔记给出推荐：拿铁"}]}""") + "推荐拿铁"),
+        )
+        val end = AgentLoop(m, toolDispatcher(FakeScreen()), "BASE", sink = sink).run("找咖啡馆并推荐咖啡")
+        com.wangzan101.mika.core.testing.assertAnswered("推荐拿铁", end)
+        val updates = events.filterIsInstance<RunEvent.Criteria>()
+        assertEquals(listOf(0, 1, 2, 2, 3), updates.map { it.confirmedIds?.size })
+        assertEquals(listOf(false, false, false, false, true), updates.map { it.complete })
+        assertEquals(7, m.requests.size)
+        assertTrue("phone_observe" in m.offeredTools.last())
+        fun runtime(i: Int) = m.requests[i].last().parts.filterIsInstance<Part.Text>().last().text
+        assertTrue("2: " in runtime(4) && "1: " !in runtime(4))
+        assertTrue("report its ID and evidence" in runtime(4))
+        assertTrue("report its ID and evidence" !in runtime(5))
+        assertTrue("3: " in runtime(6) && "2: " !in runtime(6))
+    }
+
     @Test fun completedQuantityClosesOutInsteadOfRecheckingForever() = runTest {
         val events = mutableListOf<RunEvent>()
         val sink = object : RunSink { override fun event(e: RunEvent) { events += e } }

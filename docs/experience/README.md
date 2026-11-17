@@ -2,6 +2,7 @@
 
 | 机制 | 适用信号 | 验证范围 |
 | --- | --- | --- |
+| [任务目标计数与动作记录](patterns/task-goal-progress.md) | 跨应用执行和文字推进，但目标计数停在 0/N | 一次运行定位漏报，咖啡馆脚本回放验证计数与收尾 |
 | [回放画面与实际动作关联](patterns/task-playback-frames.md) | 点击后立即返回、同轮多个动作、标记出现在结果图 | 事件与画面关联有单测；原 #348 曾在一台手机上验证 |
 | [Compose 真机测试在输入初始化时失败](patterns/espresso-input-initialization.md) | 用例尚未操作界面，Espresso 就报 `InputManager.getInstance` 不存在 | #644 在一台 SDK 37 手机上复现，升级测试依赖后两条用例通过 |
 | [缓存命中率的分母](patterns/cache-report-coverage.md) | 混用服务商、缓存字段缺失、旧记录只有累计量 | 混合上报已用单测验证，另在一台手机上验证了脚本会话展示 |
