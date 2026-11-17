@@ -84,7 +84,11 @@ internal class TaskProgressTracker(private val now: () -> Long, private val emit
 
     fun state(step: Int) = plan.state(step - lastChange >= REMINDER_INTERVAL)
 
-    fun pending(step: Int): String? {
+    fun pending(step: Int, afterFirstTool: Boolean = false): String? {
+        if (afterFirstTool && plan.criteria.isEmpty() && !plan.complete) {
+            emit(RunEvent.State(now(), "task_progress_plan_reminder", step.toString()))
+            return "No goal checklist: <task_progress>"
+        }
         if (plan.criteria.size <= 1 || plan.complete) return null
         val items = plan.criteria.mapIndexedNotNull { i, text ->
             if (i + 1 in plan.confirmedIds) null else "${i + 1}: ${JsonPrimitive(text)}"

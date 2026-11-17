@@ -795,12 +795,47 @@ class AgentLoopTest {
         assertEquals(listOf(0, 1, 2, 2, 3), updates.map { it.confirmedIds?.size })
         assertEquals(listOf(false, false, false, false, true), updates.map { it.complete })
         assertEquals(7, m.requests.size)
+        assertTrue(events.none { it is RunEvent.State && it.name == "task_progress_plan_reminder" })
         assertTrue("phone_observe" in m.offeredTools.last())
         fun runtime(i: Int) = m.requests[i].last().parts.filterIsInstance<Part.Text>().last().text
         assertTrue("2: " in runtime(4) && "1: " !in runtime(4))
         assertTrue("report its ID and evidence" in runtime(4))
         assertTrue("report its ID and evidence" !in runtime(5))
         assertTrue("3: " in runtime(6) && "2: " !in runtime(6))
+    }
+
+    @Test fun missingChecklistCanBeBackfilledOnTheNextCoffeeTaskReply() = runTest {
+        val events = mutableListOf<RunEvent>()
+        val sink = object : RunSink { override fun event(e: RunEvent) { events += e } }
+        val screen = object : ScreenPort by FakeScreen() {
+            override suspend fun listApps() = listOf("com.autonavi.minimap" to "高德地图")
+        }
+        val m = FakeModel(
+            tools(call("phone_list_apps")), // 首次调用没建清单，但工具结果已经能确认第一项。
+            reply(Part.Text("""<task_progress>{"criteria":["确认有高德地图","确认咖啡店名","给出推荐"],"confirmed":[{"id":1,"evidence":"已安装列表有高德地图"}]}</task_progress>"""),
+                call("wait", """{"seconds":0.2}""")),
+            finish("高德已安装，店名和推荐尚未核实。"),
+        )
+        AgentLoop(m, toolDispatcher(screen), "BASE", sink = sink).run("确认高德已安装，再找咖啡馆并给出推荐")
+        val runtime = m.requests.map { request -> request.last().parts.filterIsInstance<Part.Text>().last().text }
+        assertEquals(3, runtime.size)
+        assertFalse("No goal checklist" in runtime[0])
+        assertTrue("No goal checklist" in runtime[1] && "<task_progress>" in runtime[1])
+        assertTrue("Pending goal IDs: 2:" in runtime[2] && "3:" in runtime[2])
+        val reported = events.filterIsInstance<RunEvent.Criteria>().single()
+        assertEquals(setOf(1), reported.confirmedIds)
+        assertEquals(3, reported.criteria.size)
+    }
+
+    @Test fun ignoredChecklistReminderDoesNotRepeatOrInventProgress() = runTest {
+        val events = mutableListOf<RunEvent>()
+        val sink = object : RunSink { override fun event(e: RunEvent) { events += e } }
+        val m = FakeModel(finish(""), tools(call("phone_list_apps")), tools(call("wait", """{"seconds":0.2}""")), finish())
+        com.wangzan101.mika.core.testing.assertAnswered(DONE, loop(m, sink = sink).run("查店"))
+        val runtime = m.requests.map { it.last().parts.filterIsInstance<Part.Text>().last().text }
+        assertEquals(listOf(false, false, true, false), runtime.map { "No goal checklist" in it })
+        assertTrue(events.none { it is RunEvent.Criteria })
+        assertEquals(1, events.filterIsInstance<RunEvent.State>().count { it.name == "task_progress_plan_reminder" })
     }
 
     @Test fun completedQuantityClosesOutInsteadOfRecheckingForever() = runTest {

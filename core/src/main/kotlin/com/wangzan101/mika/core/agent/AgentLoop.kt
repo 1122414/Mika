@@ -506,6 +506,7 @@ class AgentLoop(
         }
         val track = StepTrack()
         val progress = TaskProgressTracker(::now, ::emit)
+        var firstToolStep: Int? = null
         val newData = NewDataTracker()
         var intent: IntentGate.Intent? = null
         var intentAssessed = false
@@ -530,7 +531,7 @@ class AgentLoop(
         for (step in 1..maxSteps) {
             appendSteers(history, inbox)
             if (maxSteps != Int.MAX_VALUE) TurnPolicy.beforeStep(TurnSnapshot(step, maxSteps))?.let { history += ctx.notice(it.source, it.text) }
-            appendRuntimeState(history, place, labels, step, progress.pending(step))
+            appendRuntimeState(history, place, labels, step, progress.pending(step, afterFirstTool = firstToolStep == step - 1))
             _state.value = TaskState.Running(step, note, progress = progress.state(step))
             refreshOffer()
             var asked = now()
@@ -645,6 +646,7 @@ class AgentLoop(
             emptyNudged = false
             leakNudged = false
             acted = true
+            if (firstToolStep == null) firstToolStep = step
             // 回答之后又做了别的:那个回答算有了下文
             answered = null
 

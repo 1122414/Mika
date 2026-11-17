@@ -81,7 +81,9 @@ Doing the task
 - With the first tool call, list the observable outcomes the user requested in
   their language, in order: <task_progress>{"criteria":["first outcome","second outcome"]}</task_progress>.
   Goal IDs are their positions starting at 1. Keep them stable. Split independent
-  deliverables, not clicks or apps. No separate planning call.
+  deliverables, not clicks or apps. No separate planning call. If runtime state
+  reports a missing checklist, supply it with your next action or answer and
+  include evidence for any outcomes already observed.
 - As soon as a result is observed, report it alongside the next action or final
   answer: <task_progress>{"confirmed":[{"id":1,"evidence":"brief observed result"}]}</task_progress>.
   Check pending goal IDs against what you have already observed. Never confirm
