@@ -6,4 +6,4 @@
 | [回放画面与实际动作关联](patterns/task-playback-frames.md) | 点击后立即返回、同轮多个动作、标记出现在结果图 | 事件与画面关联有单测；原 #348 曾在一台手机上验证 |
 | [Compose 真机测试在输入初始化时失败](patterns/espresso-input-initialization.md) | 用例尚未操作界面，Espresso 就报 `InputManager.getInstance` 不存在 | #644 在一台 SDK 37 手机上复现，升级测试依赖后两条用例通过 |
 | [缓存命中率的分母](patterns/cache-report-coverage.md) | 混用服务商、缓存字段缺失、旧记录只有累计量 | 混合上报已用单测验证，另在一台手机上验证了脚本会话展示 |
-| [任务通知合格但没有显示流体云](patterns/promoted-task-notifications.md) | 普通通知能看到，桌面没有实时任务胶囊 | 一加 13T / ColorOS 17：同一通知在系统开关打开后显示，并随任务状态更新 |
+| [流体云的显示开关与状态文案](patterns/promoted-task-notifications.md) | 桌面没有任务胶囊，或胶囊一直显示「正在执行」 | 一加 13T 已验证系统开关；动作、计数和等待状态的映射有单测 |

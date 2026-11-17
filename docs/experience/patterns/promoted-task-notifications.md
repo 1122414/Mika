@@ -5,3 +5,5 @@
 诊断时分开看三件事：应用发出的通知是否符合[实时更新条件](https://developer.android.com/develop/ui/views/notifications/live-update)、系统是否允许这个应用提升通知、退出应用后系统界面是否真的显示。只看通知栏、权限声明或某一个系统标志，均不能代替最后一步。
 
 验证范围：一台一加 13T 的 Dev 覆盖安装。不能据此推断其他机型的默认开关、入口名称，或 Android 15 及更早版本的厂商接口。
+
+另一种情况是胶囊已出现，却长时间只显示「正在执行」。此时先检查从 `TaskState.Running` 到短文案的映射。等模型时 `tool` 为空，`note` 却可能还是上一步的动作；直接显示 `note` 不仅会报错阶段，也可能暴露任务内容。`RunProgress.Replay` 有当前步和总步数，`RunProgress.Batch` 只有批次长度，不能把模型轮数配上这个长度当作进度。`TaskChipLabelTest` 已用单测覆盖这些区别、快速切换和等待用户的优先级；实际胶囊展示仍须用设备验收。

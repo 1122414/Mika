@@ -175,6 +175,7 @@ class TaskRun(
     val slot: Int = 0,
     val parallel: Boolean = false,
 ) {
+    internal val chipDisplay = TaskChipDisplay(scope) { service.refreshNotifications(this) }
     internal var provenance = RunProvenance()
     internal var triggerWindowKey: String? = null
     internal var triggerActionGoal: String? = null

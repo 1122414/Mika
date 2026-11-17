@@ -37,9 +37,9 @@ class TaskLiveUpdateDeviceTest {
         fun progress() = nm.activeNotifications.firstOrNull {
             it.notification.channelId == TaskService.CHANNEL_PROGRESS && it.notification.contentIntent == target
         }
-        fun awaitLabel(res: Int) = requireNotNull(pollUntil(15_000) {
-            progress()?.takeIf { it.notification.shortCriticalText == context.getString(res) }
-        }) { "Missing task notification with label " + context.getString(res) }.also {
+        fun awaitLabel(res: Int, vararg args: Any) = requireNotNull(pollUntil(15_000) {
+            progress()?.takeIf { it.notification.shortCriticalText == context.getString(res, *args) }
+        }) { "Missing task notification with label " + context.getString(res, *args) }.also {
             assertTrue(it.notification.hasPromotableCharacteristics())
             assertTrue(it.notification.extras.getBoolean("android.requestPromotedOngoing"))
             Log.i("MikaLiveUpdateTest", "label=${it.notification.shortCriticalText} eligible=${it.notification.hasPromotableCharacteristics()} allowed=${nm.canPostPromotedNotifications()} promoted=${it.notification.flags and Notification.FLAG_PROMOTED_ONGOING != 0}")
@@ -56,7 +56,11 @@ class TaskLiveUpdateDeviceTest {
             env.visionModelFactory = { _, _ -> null }
             TaskService.start(context, goal, thread)
             model.awaitCall()
-            val running = awaitLabel(R.string.task_running)
+            val running = awaitLabel(R.string.chip_thinking)
+            // wait is local and side-effect-free; the progress block is the same one used by a real task.
+            model.feed("wait", """{"seconds":0.3}""", """<task_progress>{"metric":{"name":"private items","done":2,"total":5}}</task_progress>""")
+            model.awaitCall()
+            assertEquals(running.key, awaitLabel(R.string.chip_count, 2, 5).key)
             model.feed("ask_user", """{"prompt":"Which color did you choose?"}""")
             assertEquals(running.key, awaitLabel(R.string.chat_wait_answer).key)
             val id = DeviceTaskState.runs.value.single { it.conversationId == thread }.key

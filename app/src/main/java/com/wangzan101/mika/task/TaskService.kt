@@ -832,7 +832,9 @@ class TaskService : Service() {
     }
 
     private fun progressNotification(run: TaskRun, state: TaskState): Notification {
-        val (_, text) = describe(state) { ConfirmationNotifier.appLabel(this, it) }
+        val chip = if (Build.VERSION.SDK_INT >= 36) run.chipDisplay.show(taskChip(run.provenance.origin, state)) else null
+        val text = if (chip != null && state is TaskState.Running) chipDetail(state)
+            else describe(state) { ConfirmationNotifier.appLabel(this, it) }.second
         val warning = run.muteFailedFor?.let { "\n" + tr(R.string.task_may_make_sound) }.orEmpty() +
             (if (state is TaskState.WaitingTakeover && !takeoverFirst(run)) "\n$TAKEOVER_QUEUED" else "")
         val b = Notification.Builder(this, CHANNEL_PROGRESS)
@@ -843,13 +845,11 @@ class TaskService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openApp(run.conversationId))
-        if (Build.VERSION.SDK_INT >= 36) {
-            taskChipLabel(run.provenance.origin, state)?.let { label ->
-                b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                b.setShortCriticalText(tr(label))
-                // The public EXTRA_REQUEST_PROMOTED_ONGOING constant is exposed by SDK 36.1.
-                b.extras.putBoolean("android.requestPromotedOngoing", true)
-            }
+        if (Build.VERSION.SDK_INT >= 36 && chip != null) {
+            b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+            b.setShortCriticalText(chip)
+            // The public EXTRA_REQUEST_PROMOTED_ONGOING constant is exposed by SDK 36.1.
+            b.extras.putBoolean("android.requestPromotedOngoing", true)
         }
         val active = center.running().size
         if (active >= 2) b.setSubText(trPlural(R.plurals.task_active, active))
@@ -1054,24 +1054,6 @@ class TaskService : Service() {
     }
 
     companion object {
-        /** Only tasks started in Mika get a status-bar chip. Keep goals and model output out of its label. */
-        internal fun taskChipLabel(origin: RunOrigin, state: TaskState): Int? {
-            if (origin != RunOrigin.Ui) return null
-            return when (state) {
-                is TaskState.Running -> R.string.task_running
-                is TaskState.WaitingConfirmation -> R.string.chat_wait_approval
-                is TaskState.WaitingInput -> R.string.chat_wait_answer
-                is TaskState.WaitingTakeover -> R.string.screens_needs_you
-                is TaskState.Held -> when {
-                    state.reason.queued -> null
-                    state.reason == TaskGate.LOCKED -> R.string.task_wait_unlock
-                    state.reason.needsYou -> R.string.screens_needs_you
-                    else -> R.string.chat_paused
-                }
-                TaskState.Idle, is TaskState.Terminal -> null
-            }
-        }
-
         /** 建通知频道;重复建没有副作用。App 启动时的恢复也要用,所以不依赖服务实例。 */
         internal fun ensureChannels(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java)
