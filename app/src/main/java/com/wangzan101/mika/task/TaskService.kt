@@ -842,7 +842,15 @@ class TaskService : Service() {
             .setStyle(Notification.BigTextStyle().bigText(text + warning))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setContentIntent(openApp())
+            .setContentIntent(openApp(run.conversationId))
+        if (Build.VERSION.SDK_INT >= 36) {
+            taskChipLabel(run.provenance.origin, state)?.let { label ->
+                b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+                b.setShortCriticalText(tr(label))
+                // The public EXTRA_REQUEST_PROMOTED_ONGOING constant is exposed by SDK 36.1.
+                b.extras.putBoolean("android.requestPromotedOngoing", true)
+            }
+        }
         val active = center.running().size
         if (active >= 2) b.setSubText(trPlural(R.plurals.task_active, active))
         when (state) {
@@ -884,7 +892,7 @@ class TaskService : Service() {
         val quiet = (application as com.wangzan101.mika.MikaApp).capsule.showing.value
         if (state is TaskState.WaitingConfirmation) {
             return ConfirmationNotifier.build(
-                this, CHANNEL_ATTENTION, state, TaskService::class.java, ACTION_APPROVE, ACTION_DECLINE, openApp(),
+                this, CHANNEL_ATTENTION, state, TaskService::class.java, ACTION_APPROVE, ACTION_DECLINE, openApp(run.conversationId),
                 codeOffset = SLOT_STRIDE * run.slot, runExtra = EXTRA_RUN to run.key, quiet = quiet,
             )
         }
@@ -913,7 +921,7 @@ class TaskService : Service() {
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setCategory(Notification.CATEGORY_REMINDER)
             .setOnlyAlertOnce(true) // 同一次等待里换按钮不再响铃;离开等待时撤掉,下一次会重新提醒
-            .setContentIntent(openApp())
+            .setContentIntent(openApp(run.conversationId))
         if (quiet) b.alertQuietly()
         when (state) {
             is TaskState.WaitingTakeover -> takeoverActions(run).forEach(b::addAction)
@@ -1046,6 +1054,24 @@ class TaskService : Service() {
     }
 
     companion object {
+        /** Only tasks started in Mika get a status-bar chip. Keep goals and model output out of its label. */
+        internal fun taskChipLabel(origin: RunOrigin, state: TaskState): Int? {
+            if (origin != RunOrigin.Ui) return null
+            return when (state) {
+                is TaskState.Running -> R.string.task_running
+                is TaskState.WaitingConfirmation -> R.string.chat_wait_approval
+                is TaskState.WaitingInput -> R.string.chat_wait_answer
+                is TaskState.WaitingTakeover -> R.string.screens_needs_you
+                is TaskState.Held -> when {
+                    state.reason.queued -> null
+                    state.reason == TaskGate.LOCKED -> R.string.task_wait_unlock
+                    state.reason.needsYou -> R.string.screens_needs_you
+                    else -> R.string.chat_paused
+                }
+                TaskState.Idle, is TaskState.Terminal -> null
+            }
+        }
+
         /** 建通知频道;重复建没有副作用。App 启动时的恢复也要用,所以不依赖服务实例。 */
         internal fun ensureChannels(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java)
@@ -1063,7 +1089,7 @@ class TaskService : Service() {
         /** 打开 Mika;给了 [threadId] 时直接到那个对话。通知和悬浮胶囊共用。 */
         internal fun openAppIntent(context: Context, threadId: String? = null): Intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .apply { if (threadId != null) putExtra(MainActivity.EXTRA_OPEN_CONVERSATION, threadId) }
+            .apply { if (threadId != null) setIdentifier(threadId).putExtra(MainActivity.EXTRA_OPEN_CONVERSATION, threadId) }
 
         /** 并行时结果通知的下一个编号(循环使用)。 */
         internal fun nextResultId() = ID_RESULT_FIRST + resultCount.getAndIncrement() % RESULT_IDS
