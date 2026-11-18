@@ -121,6 +121,10 @@ private val ambiguousOrder = Regex("或者|或是|还是|如果|任选其一|任
 private val appPrefix = Regex("(?:按|依次|顺序[是为：:]?|在|用|打开|到|上|切到|切换到|进入|回到|去|先|然后|接着|最后|再|\\b(?:in|on|open|then|use)\\s+)\\s*$", RegexOption.IGNORE_CASE)
 private val listSeparator = Regex("\\s*(?:→|->|、|，|,|再|然后|接着)\\s*")
 
+// “12306 查票，携程看酒店” names each app at the head of its own clause.
+private val clauseBoundary = Regex("""[,，;；。!！:：→]\s*$""")
+private val choiceQuestion = Regex("""^\s*(?:里|中|里面)?\s*(?:哪个|哪一个|选一个|二选一|三选一)""")
+
 private fun orderedApps(words: String, installed: List<Pair<String, String>>, known: List<KnowledgeEntry>): List<Stage> {
     if (words.isBlank() || ambiguousOrder.containsMatchIn(words)) return emptyList()
     val installedNames = installed.toMap()
@@ -142,15 +146,17 @@ private fun orderedApps(words: String, installed: List<Pair<String, String>>, kn
         start + Regex.escape(name) + end
     }
     val mentions = Regex(pattern, RegexOption.IGNORE_CASE).findAll(words).toList()
-    if (mentions.size < 2) return emptyList()
+    if (mentions.size < 2 || choiceQuestion.containsMatchIn(words.substring(mentions.last().range.last + 1))) return emptyList()
     val result = mutableListOf<Stage>()
     for ((i, match) in mentions.withIndex()) {
         val gap = words.substring(if (i == 0) 0 else mentions[i - 1].range.last + 1, match.range.first)
-        if (gap.isNotBlank() && !appPrefix.containsMatchIn(gap) && !(i > 0 && listSeparator.matches(gap))) return emptyList()
+        val startsClause = clauseBoundary.containsMatchIn(gap) || (i > 0 && listSeparator.matches(gap))
+        if (gap.isNotBlank() && !appPrefix.containsMatchIn(gap) && !startsClause) return emptyList()
         val app = names.getValue(match.value.lowercase())
         if (result.lastOrNull()?.pkg == app.pkg) continue
         val clause = words.substring(match.range.last + 1, mentions.getOrNull(i + 1)?.range?.first ?: words.length)
         val label = if (app.pkg != "com.MobileTicket") app.label else when {
+            Regex("(退票|改签)(规则|政策|手续费)").containsMatchIn(clause) -> "查询"
             "退票" in clause -> "退票"
             "改签" in clause -> "改签"
             Regex("买票|订票|购票").containsMatchIn(clause) -> "订票"

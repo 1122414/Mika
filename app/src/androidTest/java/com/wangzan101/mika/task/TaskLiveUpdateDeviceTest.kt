@@ -29,7 +29,7 @@ class TaskLiveUpdateDeviceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val nm = context.getSystemService(NotificationManager::class.java)
         val thread = UUID.randomUUID().toString()
-        val goal = "先在铁路12306查余票，再去携程看酒店，最后去小红书找攻略。"
+        val goal = "先在铁路12306查余票，再去携程看酒店，最后去小红书找攻略，先问我哪天出发。"
         val model = ScriptedModel().apply { intent = "ACT" }
         val target = TaskService.openApp(context, thread)
         // Optional time for an observer to inspect the OEM status bar outside Mika.
@@ -61,16 +61,16 @@ class TaskLiveUpdateDeviceTest {
             model.feed("wait", """{"seconds":0.3}""", """<task_progress>{"metric":{"name":"private items","done":2,"total":5}}</task_progress>""")
             model.awaitCall()
             assertEquals(running.key, awaitLabel("1/3 查票").key)
-            model.feed("ask_user", """{"prompt":"Which color did you choose?"}""")
+            model.feed("ask_user", """{"prompt":"你想哪天出发？"}""")
             assertEquals(running.key, awaitLabel(context.getString(R.string.chat_wait_answer)).key)
             val id = DeviceTaskState.runs.value.single { it.conversationId == thread }.key
-            TaskService.answer(context, "Blue", id)
+            TaskService.answer(context, "周五", id)
             model.awaitCall()
             // After ask_user the agent can request one follow-up before accepting the final answer.
-            repeat(2) { model.answer("蓝色。") }
+            repeat(2) { model.answer("周五。") }
             val cleared = pollUntil(15_000) { true.takeIf { !DeviceTaskState.busy.value && progress() == null } }
             assertNotNull("state=${DeviceTaskState.state.value.javaClass.simpleName}, busy=${DeviceTaskState.busy.value}, remaining=${progress()?.id}", cleared)
-            assertEquals("蓝色。", (DeviceTaskState.state.value as TaskState.Succeeded).answer)
+            assertEquals("周五。", (DeviceTaskState.state.value as TaskState.Succeeded).answer)
         } finally {
             DeviceTaskState.runs.value.firstOrNull { it.conversationId == thread }?.let {
                 TaskService.cancel(context, it.key)

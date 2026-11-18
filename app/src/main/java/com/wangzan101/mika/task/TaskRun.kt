@@ -176,7 +176,12 @@ class TaskRun(
     val slot: Int = 0,
     val parallel: Boolean = false,
 ) {
-    internal val chipStages = TaskStages { service.refreshNotifications(this) }
+    internal val chipStages = TaskStages {
+        try { service.refreshNotifications(this) } catch (e: RuntimeException) {
+            // The action already ran. A notification failure must never turn it into a failed tool call.
+            Log.w(TAG, "could not refresh stage notification", e)
+        }
+    }
     internal var provenance = RunProvenance()
     internal var triggerWindowKey: String? = null
     internal var triggerActionGoal: String? = null
