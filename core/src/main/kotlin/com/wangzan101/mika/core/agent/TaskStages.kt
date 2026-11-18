@@ -30,12 +30,14 @@ class TaskStages(private val changed: () -> Unit = {}) {
     @Volatile var current: TaskStage? = null
         private set
     private var plan = emptyList<Stage>()
+    private var appNames = emptyMap<String, App>()
     private var explicit = false
     private var attempted = false
 
     internal fun prepare(words: String, installed: List<Pair<String, String>>, knowledge: List<KnowledgeEntry>) {
         attempted = false
-        plan = orderedApps(words, installed, knowledge)
+        appNames = stageAppNames(installed, knowledge)
+        plan = orderedApps(words, appNames)
         explicit = plan.isNotEmpty()
         if (explicit) publish(1) else if (current != null) {
             current = null
@@ -68,7 +70,8 @@ class TaskStages(private val changed: () -> Unit = {}) {
                 ?.takeIf { v -> v.length in 1..64 && v.none(Char::isISOControl) } ?: return
             val label = (row["label"] as? JsonPrimitive)?.content.orEmpty()
             // Only reviewed generic labels enter the collapsed, publicly visible notification.
-            Stage(label.takeIf { v -> v in actionLabels }.orEmpty(), title)
+            val app = (row["app"] as? JsonPrimitive)?.takeIf { v -> v.isString }?.content?.trim()?.lowercase()
+            Stage(label.takeIf { v -> v in actionLabels }.orEmpty(), title, appNames[app]?.pkg)
         }
         plan = stages
         publish(1)
@@ -88,15 +91,17 @@ class TaskStages(private val changed: () -> Unit = {}) {
 
     /** Only the task's own successful screen action reaches the next app stage. */
     internal fun action(verb: Verb?, args: JsonObject, result: ToolExecution) {
-        if (!explicit || result.content["ok"] != JsonPrimitive(true)) return
+        val number = current?.number ?: return
+        val nextApp = plan.getOrNull(number)?.pkg ?: return
+        val currentApp = plan[number - 1].pkg ?: return
+        if (nextApp == currentApp || result.content["ok"] != JsonPrimitive(true)) return
         val place = result.place
         val pkg = when {
             place != null -> place.takeIf { it.kind == PlaceKind.App }?.name
             verb == Verb.LaunchApp -> (args["package"] as? JsonPrimitive)?.content
             else -> null
         } ?: return
-        val number = current?.number ?: return
-        if (plan.getOrNull(number)?.pkg == pkg) publish(number + 1)
+        if (pkg == nextApp) publish(number + 1)
     }
 
     private fun publish(number: Int) {
@@ -125,8 +130,7 @@ private val listSeparator = Regex("\\s*(?:→|->|、|，|,|再|然后|接着)\\s
 private val clauseBoundary = Regex("""[,，;；。!！:：→]\s*$""")
 private val choiceQuestion = Regex("""^\s*(?:里|中|里面)?\s*(?:哪个|哪一个|选一个|二选一|三选一)""")
 
-private fun orderedApps(words: String, installed: List<Pair<String, String>>, known: List<KnowledgeEntry>): List<Stage> {
-    if (words.isBlank() || ambiguousOrder.containsMatchIn(words)) return emptyList()
+private fun stageAppNames(installed: List<Pair<String, String>>, known: List<KnowledgeEntry>): Map<String, App> {
     val installedNames = installed.toMap()
     val apps = commonApps + installed.map { (pkg, name) -> App(pkg, name, name) } +
         known.flatMap { entry -> entry.packages.map { App(it, entry.display, entry.display) } }
@@ -136,25 +140,39 @@ private fun orderedApps(words: String, installed: List<Pair<String, String>>, kn
             (entry.aliases + entry.display).filter { (entry.packageAliases[it] ?: entry.packages.first()) == app.pkg }
         }
         for (name in app.aliases + app.name + installedNames[app.pkg].orEmpty() + aliases) {
-            if (name.length >= 2 && words.contains(name, ignoreCase = true)) names.putIfAbsent(name.lowercase(), app)
+            if (name.length >= 2) names.putIfAbsent(name.lowercase(), app)
         }
     }
-    if (names.isEmpty()) return emptyList()
-    val pattern = names.keys.sortedByDescending { it.length }.joinToString("|") { name ->
+    return names
+}
+
+private fun orderedApps(words: String, names: Map<String, App>): List<Stage> {
+    if (words.isBlank() || ambiguousOrder.containsMatchIn(words)) return emptyList()
+    val present = names.keys.filter { words.contains(it, ignoreCase = true) }
+    if (present.isEmpty()) return emptyList()
+    val pattern = present.sortedByDescending { it.length }.joinToString("|") { name ->
         val start = if (name.first().code < 128 && name.first().isLetterOrDigit()) "(?<![A-Za-z0-9])" else ""
         val end = if (name.last().code < 128 && name.last().isLetterOrDigit()) "(?![A-Za-z0-9])" else ""
         start + Regex.escape(name) + end
     }
     val mentions = Regex(pattern, RegexOption.IGNORE_CASE).findAll(words).toList()
     if (mentions.size < 2 || choiceQuestion.containsMatchIn(words.substring(mentions.last().range.last + 1))) return emptyList()
-    val result = mutableListOf<Stage>()
+    val namesOnly = words.trim().split(Regex("""\s+""")).all { it.lowercase() in names }
+    val targets = mutableListOf<MatchResult>()
+    // Inspect the actual text before each name. Adjacent words can be a verb ("高德搜索")
+    // or the object of a search ("前五条笔记") even when they also name installed apps.
     for ((i, match) in mentions.withIndex()) {
         val gap = words.substring(if (i == 0) 0 else mentions[i - 1].range.last + 1, match.range.first)
-        val startsClause = clauseBoundary.containsMatchIn(gap) || (i > 0 && listSeparator.matches(gap))
-        if (gap.isNotBlank() && !appPrefix.containsMatchIn(gap) && !startsClause) return emptyList()
+        if (i > 0 && gap.trim() == "或") return emptyList()
+        val startsClause = if (listSeparator.matches(gap)) targets.lastOrNull() == mentions.getOrNull(i - 1)
+            else clauseBoundary.containsMatchIn(gap)
+        if (namesOnly || (i == 0 && gap.isBlank()) || appPrefix.containsMatchIn(gap) || startsClause) targets += match
+    }
+    val result = mutableListOf<Stage>()
+    for ((i, match) in targets.withIndex()) {
         val app = names.getValue(match.value.lowercase())
         if (result.lastOrNull()?.pkg == app.pkg) continue
-        val clause = words.substring(match.range.last + 1, mentions.getOrNull(i + 1)?.range?.first ?: words.length)
+        val clause = words.substring(match.range.last + 1, targets.getOrNull(i + 1)?.range?.first ?: words.length)
         val label = if (app.pkg != "com.MobileTicket") app.label else when {
             Regex("(退票|改签)(规则|政策|手续费)").containsMatchIn(clause) -> "查询"
             "退票" in clause -> "退票"

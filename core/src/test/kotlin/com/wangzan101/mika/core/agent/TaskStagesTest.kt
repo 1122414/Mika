@@ -1,6 +1,7 @@
 package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.knowledge.KnowledgeStore
 import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.StopReason
@@ -23,6 +24,9 @@ class TaskStagesTest {
     private val amap = "com.autonavi.minimap"
     private val dianping = "com.dianping.v1"
     private val xhs = "com.xingin.xhs"
+    // Ordinary words in the coffee request can also be launcher app names.
+    private val installed = listOf(amap to "高德地图", dianping to "大众点评", xhs to "小红书",
+        "example.search" to "搜索", "example.notes" to "笔记")
     private fun stages(words: String) = TaskStages().apply { prepare(words, emptyList(), emptyList()) }
 
     @Test fun coffeeFollowsTaskToolsWithoutAnyProgressReports() = runTest {
@@ -40,10 +44,49 @@ class TaskStagesTest {
         val seen = mutableListOf<String>()
         lateinit var tracker: TaskStages
         tracker = TaskStages { seen += tracker.current!!.compact }
-        val end = AgentLoop(model, toolDispatcher(screen), "base", stages = tracker, reviewFinalAnswer = false).run(coffee)
+        val end = AgentLoop(model, toolDispatcher(screen), "base", stages = tracker, reviewFinalAnswer = false,
+            installedApps = { installed }, knowledge = KnowledgeStore(KnowledgeStore.loadBundled())).run(coffee)
         assertTrue(end.toString(), end is TaskState.Succeeded)
         assertEquals(listOf("1/3 高德", "2/3 点评", "3/3 小红书"), seen)
         assertEquals(4, model.requests.size)
+    }
+
+    @Test fun incidentalAppNamesAreNotNavigationButGenuinelyNamedNotesStillCount() {
+        fun first(words: String, apps: List<Pair<String, String>> = installed): String? =
+            TaskStages().apply { prepare(words, apps, emptyList()) }.current?.compact
+        assertEquals("1/3 高德", first(coffee))
+        assertEquals("1/3 高德", first(coffee, installed.filter { it.second != "笔记" }))
+        assertEquals("1/3 高德", first(coffee, installed.filter { it.second != "搜索" }))
+        assertEquals("1/2 笔记", first("打开笔记写提纲，再去小红书查资料"))
+        assertEquals("1/3 高德", first("高德 点评 小红书"))
+        assertNull(first("在高德或大众点评找店，再去小红书查资料"))
+        assertNull(first("看看高德、大众点评和小红书有什么区别"))
+        assertNull(first("比较一下高德、大众点评、小红书的区别"))
+    }
+
+    @Test fun fallbackCanAdvanceAcrossKnownAppsEvenWhenTheModelNeverReportsAStage() = runTest {
+        val tracker = stages("帮我查个适合见面的咖啡馆")
+        val model = FakeModel(answerReply("""[
+            {"goal":"确认地址","label":"查址","app":"高德地图"},
+            {"goal":"选咖啡馆","label":"选店","app":"大众点评"},
+            {"goal":"看笔记","label":"攻略","app":"小红书"},
+            {"goal":"整理推荐","label":"汇总","app":"小红书"}]"""))
+        tracker.planIfNeeded("帮我查个适合见面的咖啡馆", model)
+        fun observe(pkg: String, ok: Boolean = true) = tracker.action(Verb.Observe, buildJsonObject {},
+            ToolExecution(buildJsonObject { put("ok", ok) }, place = Place.app(pkg)))
+        assertEquals("1/4 查址", tracker.current?.compact)
+        observe(amap)
+        observe(xhs)
+        observe(dianping, ok = false)
+        assertEquals("1/4 查址", tracker.current?.compact)
+        observe(dianping)
+        assertEquals("2/4 选店", tracker.current?.compact)
+        observe(amap)
+        observe(xhs)
+        repeat(3) { observe(xhs) }
+        assertEquals("3/4 攻略", tracker.current?.compact)
+        tracker.reported(4)
+        assertEquals("4/4 汇总", tracker.current?.compact)
     }
 
     @Test fun onlyTaskOwnedEvidenceOfNextAppCanAdvanceAnExplicitPlan() {
