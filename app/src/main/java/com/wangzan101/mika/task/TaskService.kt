@@ -832,8 +832,9 @@ class TaskService : Service() {
     }
 
     private fun progressNotification(run: TaskRun, state: TaskState): Notification {
-        val chip = if (Build.VERSION.SDK_INT >= 36) run.chipDisplay.show(taskChip(run.provenance.origin, state)) else null
-        val text = if (chip != null && state is TaskState.Running) chipDetail(state)
+        val stage = run.chipStages.current
+        val chip = if (Build.VERSION.SDK_INT >= 36) taskChip(run.provenance.origin, state, stage) else null
+        val text = if (chip != null && state is TaskState.Running) chipDetail(state, stage)
             else describe(state) { ConfirmationNotifier.appLabel(this, it) }.second
         val warning = run.muteFailedFor?.let { "\n" + tr(R.string.task_may_make_sound) }.orEmpty() +
             (if (state is TaskState.WaitingTakeover && !takeoverFirst(run)) "\n$TAKEOVER_QUEUED" else "")

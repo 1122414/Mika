@@ -29,7 +29,7 @@ class TaskLiveUpdateDeviceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val nm = context.getSystemService(NotificationManager::class.java)
         val thread = UUID.randomUUID().toString()
-        val goal = "Ask which color I chose, then repeat my answer."
+        val goal = "先在铁路12306查余票，再去携程看酒店，最后去小红书找攻略。"
         val model = ScriptedModel().apply { intent = "ACT" }
         val target = TaskService.openApp(context, thread)
         // Optional time for an observer to inspect the OEM status bar outside Mika.
@@ -37,9 +37,9 @@ class TaskLiveUpdateDeviceTest {
         fun progress() = nm.activeNotifications.firstOrNull {
             it.notification.channelId == TaskService.CHANNEL_PROGRESS && it.notification.contentIntent == target
         }
-        fun awaitLabel(res: Int, vararg args: Any) = requireNotNull(pollUntil(15_000) {
-            progress()?.takeIf { it.notification.shortCriticalText == context.getString(res, *args) }
-        }) { "Missing task notification with label " + context.getString(res, *args) }.also {
+        fun awaitLabel(text: String) = requireNotNull(pollUntil(15_000) {
+            progress()?.takeIf { it.notification.shortCriticalText == text }
+        }) { "Missing task notification with label " + text }.also {
             assertTrue(it.notification.hasPromotableCharacteristics())
             assertTrue(it.notification.extras.getBoolean("android.requestPromotedOngoing"))
             Log.i("MikaLiveUpdateTest", "label=${it.notification.shortCriticalText} eligible=${it.notification.hasPromotableCharacteristics()} allowed=${nm.canPostPromotedNotifications()} promoted=${it.notification.flags and Notification.FLAG_PROMOTED_ONGOING != 0}")
@@ -56,21 +56,21 @@ class TaskLiveUpdateDeviceTest {
             env.visionModelFactory = { _, _ -> null }
             TaskService.start(context, goal, thread)
             model.awaitCall()
-            val running = awaitLabel(R.string.chip_thinking)
+            val running = awaitLabel("1/3 查票")
             // wait is local and side-effect-free; the progress block is the same one used by a real task.
             model.feed("wait", """{"seconds":0.3}""", """<task_progress>{"metric":{"name":"private items","done":2,"total":5}}</task_progress>""")
             model.awaitCall()
-            assertEquals(running.key, awaitLabel(R.string.chip_count, 2, 5).key)
+            assertEquals(running.key, awaitLabel("1/3 查票").key)
             model.feed("ask_user", """{"prompt":"Which color did you choose?"}""")
-            assertEquals(running.key, awaitLabel(R.string.chat_wait_answer).key)
+            assertEquals(running.key, awaitLabel(context.getString(R.string.chat_wait_answer)).key)
             val id = DeviceTaskState.runs.value.single { it.conversationId == thread }.key
             TaskService.answer(context, "Blue", id)
             model.awaitCall()
             // After ask_user the agent can request one follow-up before accepting the final answer.
-            repeat(2) { model.answer("Blue.") }
+            repeat(2) { model.answer("蓝色。") }
             val cleared = pollUntil(15_000) { true.takeIf { !DeviceTaskState.busy.value && progress() == null } }
             assertNotNull("state=${DeviceTaskState.state.value.javaClass.simpleName}, busy=${DeviceTaskState.busy.value}, remaining=${progress()?.id}", cleared)
-            assertEquals("Blue.", (DeviceTaskState.state.value as TaskState.Succeeded).answer)
+            assertEquals("蓝色。", (DeviceTaskState.state.value as TaskState.Succeeded).answer)
         } finally {
             DeviceTaskState.runs.value.firstOrNull { it.conversationId == thread }?.let {
                 TaskService.cancel(context, it.key)
