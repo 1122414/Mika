@@ -2,7 +2,7 @@ outcome: Failed(reason=下单需要用户确认,脚本没有执行, kind=GaveUp,
 
 ## main #1
 system: len=20298 #3aed1b3b | You are Mika, the user's personal assistant on their phone. Your job is to get ⏎…
-tools: #eb259e22 [wait, ask_user, request_confirmation, end_not_done, phone_list_apps, phone_launch_app, phone_set_alarm, phone_set_timer, phone_add_calendar_event, phone_calendar_bulk_insert, web_navigate, web_read_page]
+tools: #68b0413b [wait, ask_user, request_confirmation, end_not_done, phone_list_apps, phone_launch_app, phone_set_alarm, phone_set_timer, phone_add_calendar_event, phone_calendar_bulk_insert, web_navigate, web_read_page]
 user:
   text #607a43dc | 搜一下再下单
   ctx:runtime_state source="runtime" #2e52308d | Current place: no screen or page read yet ⏎…
