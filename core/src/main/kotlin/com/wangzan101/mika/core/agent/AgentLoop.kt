@@ -510,23 +510,6 @@ class AgentLoop(
         val progress = TaskProgressTracker(::now, ::emit)
         var firstToolStep: Int? = null
         val newData = NewDataTracker()
-        fun progressState() = completion.metric?.state()
-        fun progressText(raw: String): String {
-            val parsed = CompletionPlanBlock.extract(raw)
-            parsed.stage?.let { stages?.reported(it) }
-            parsed.errors.forEach { emit(RunEvent.State(now(), "task_progress_invalid", RunEvent.clip(it))) }
-            parsed.updates.forEach { update ->
-                val next = try { completion.apply(update) } catch (e: IllegalArgumentException) {
-                    emit(RunEvent.State(now(), "task_progress_invalid", RunEvent.clip(e.message ?: "invalid progress")))
-                    return@forEach
-                }
-                if (next != completion) {
-                    completion = next
-                    emit(completion.event(now()))
-                }
-            }
-            return parsed.text
-        }
         var intent: IntentGate.Intent? = null
         var intentAssessed = false
         // 每次运行只判断一次;判断不出(调用失败、回复不是三个词之一)时为 null,照主模型自己的决定走
@@ -581,6 +564,7 @@ class AgentLoop(
                 }
             }
             val rawText = reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim()
+            CompletionPlanBlock.extract(rawText).stage?.let { stages?.reported(it) }
             val text = progress.accept(rawText, step)
             val cleanParts = cleanReplyParts(reply.parts, text)
             history += Message(Role.Assistant, cleanParts, Author.Mika).also { caller.noteReply(it, used, reply.usage) }
@@ -1072,6 +1056,7 @@ class AgentLoop(
                 return StopRules.closeoutFailed(closeout, maxSteps)
             }
             val text = progress.accept(reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim(), step)
+            CompletionPlanBlock.extract(reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim()).stage?.let { stages?.reported(it) }
             history += Message(Role.Assistant, cleanReplyParts(reply.parts, text), Author.Mika)
                 .also { caller.noteReply(it, caller.lastMainUsed, reply.usage) }
             val calls = reply.parts.filterIsInstance<Part.ToolCall>()
