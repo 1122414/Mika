@@ -1067,7 +1067,7 @@ class AgentLoop(
             val text = parsed.text
             history += Message(Role.Assistant, cleanReplyParts(reply.parts, text), Author.Mika)
                 .also { caller.noteReply(it, caller.lastMainUsed, reply.usage) }
-            val calls = ReplyCalls(reply.parts, acceptProgress)
+            val calls = ReplyCalls(reply.parts, ::acceptProgress)
             val call = calls.actions.firstOrNull { tools.verb(it.name) in TurnPolicy.FINAL_VERBS }
             val retryWaitMs = caller.lastRetryWaitMs
             val repliedAtMs = now()
